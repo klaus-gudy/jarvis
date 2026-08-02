@@ -71,10 +71,28 @@ model Membership {
   @@unique([userId, organizationId])
 }
 
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+enum PropertyStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model Property {
-  id        String   @id @default(cuid())
-  name      String
-  address   String
+  id   String       @id @default(cuid())
+  name String
+  type PropertyType
+  /// What the units are, shown next to the address: "Apartments", "Office suites".
+  category    String
+  address     String
+  ownerName   String
+  status      PropertyStatus @default(ACTIVE)
+  description String?
+  /// Shared facilities for the whole building: "CCTV", "Lift", "Borehole water".
+  amenities String[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -82,13 +100,18 @@ model Property {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   units Unit[]
+
+  @@index([organizationId])
 }
 
 model Unit {
-  id        String   @id @default(cuid())
-  label     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id    String @id @default(cuid())
+  label String
+  /// Monthly rent in whole shillings. TSh has no subunit in practice, so an
+  /// integer avoids both float rounding and Decimal serialization to clients.
+  rentAmount Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -96,6 +119,7 @@ model Unit {
   leases Lease[]
 
   @@unique([propertyId, label])
+  @@index([propertyId])
 }
 
 model Lease {

@@ -67,6 +67,32 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] Rewrote `hooks/use-mobile.ts` with `useSyncExternalStore` (vendored version tripped `react-hooks/set-state-in-effect`)
 - [x] Verified: desktop expand/collapse + tooltips, cookie persistence, active highlighting, mobile drawer opens and auto-closes on navigate
 
+## Phase 9 — Properties
+
+- [x] `npx shadcn add badge tabs progress dialog select table`
+- [x] Migration `20260802182846_property_details`: `PropertyType` enum, `Property.type/category/ownerName`, `Unit.rentAmount`, FK indexes
+- [x] `prisma/seed.ts` — 6 properties / 19 units / tenants+leases. Run: `npx tsx prisma/seed.ts "<Org Name>"` (defaults to newest org)
+- [x] `lib/properties.ts` — org-scoped queries + derived occupancy, rent roll, vacancy; `lib/format.ts` — `TSh 1.4M` / `210k` compaction
+- [x] `components/properties/property-card.tsx` + `property-icon.tsx`
+- [x] `/properties` — card grid, server-side Residential/Commercial filter via `?type=`
+- [x] `/properties/[id]` — Overview tab (stats, occupancy, vacancy loss) + Units tab (table with tenant, lease start, rent)
+- [x] Verified: figures match the design mockup exactly; filter, tabs, mobile stacking, and cross-org 404 isolation all confirmed
+
+## Phase 10 — Property detail redesign
+
+- [x] Migration `property_overview_fields`: `PropertyStatus` enum, `Property.description`, `Property.amenities String[]`
+- [x] Header card: icon, name, `address · category · Owner: x` — unit count removed (the tab badge carries it)
+- [x] Underlined active tab via shadcn `<TabsList variant="line">` (`::after` bar, verified opacity 1 vs 0)
+- [x] Overview: Property details rows (type, category, location, ownership, status pill) + Description + General facility amenities chips
+- [x] Units: `components/ui/data-table.tsx` — reusable TanStack table with sorting, text filter, faceted status filter, row selection, pagination + page-size
+- [x] `npx tsx prisma/seed.ts "<Org>" --refresh-only` added so seeding can backfill without recreating deleted properties
+- [x] Verified: filter (3 rows for "A"), status facet (2 vacant), sort (rent ascending), select-all (5 of 5), pagination (Page 2 of 2 via a temporary 12-unit property, since deleted), mobile table scrolls in-container without body overflow
+
+### Not done in this phase
+
+- [ ] `Add property` button links to `/properties/new`, which **does not exist yet** (404). Build the create form + server action.
+- [ ] Global search and notifications in the mockup header are not implemented.
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
