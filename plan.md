@@ -17,6 +17,10 @@ Multi-tenant property management. An `Organization` owns `Property` → `Unit` �
 | 2026-08-02 | Org creation folded into registration (no `/onboarding`) | User decision — registrant names their org at signup and becomes Owner via one `$transaction` |
 | 2026-08-02 | Auth flows are route handlers (`/api/auth/*`), pages fetch them | User asked for endpoints; also keeps auth callable by future non-web clients |
 | 2026-08-02 | Next 16: middleware is `proxy.ts` at repo root | Confirmed in bundled docs; `proxy.ts` imports only `lib/auth/constants` + `jwt` so Prisma stays out of that bundle |
+| 2026-08-02 | App shell: shadcn sidebar, `collapsible="icon"`, route group `app/(app)/` | Icon rail keeps nav reachable when collapsed; sidebar's built-in Sheet handles mobile. Nav defined once in `lib/nav.ts` |
+| 2026-08-02 | `hooks/use-mobile.ts` rewritten with `useSyncExternalStore` | Vendored shadcn version violated `react-hooks/set-state-in-effect`; matchMedia is an external store, so this is both lint-clean and tear-free. **Re-applying it via `shadcn add` will overwrite this** |
+| 2026-08-02 | Sidebar active nav item uses `bg-primary`/`text-primary-foreground` (not `sidebar-primary`), hover uses `bg-accent`/`text-accent-foreground` (not `sidebar-accent`) | User wants the active state to match real `<Button>` styling app-wide; edited `sidebarMenuButtonVariants` in `components/ui/sidebar.tsx` directly (`sidebar-accent`/`accent` share identical color values in this theme, so hover looks unchanged — only active changed) |
+| 2026-08-02 | `DropdownMenuLabel` must be wrapped in `DropdownMenuGroup` | Found via testing: base-ui's `Menu.GroupLabel` (what shadcn's `DropdownMenuLabel` renders) throws "MenuGroupContext is missing" without a `Menu.Group` ancestor — unlike Radix, where `Label` is standalone. Fixed in `components/nav-user.tsx`. **Any future `DropdownMenuLabel` usage in this codebase must be wrapped in `DropdownMenuGroup`** |
 
 ## Auth design (current sprint)
 

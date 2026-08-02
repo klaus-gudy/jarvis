@@ -54,6 +54,22 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] `npx tsc --noEmit` and `npm run lint` clean
 - [x] DB rows verified via psql: User (with phone + hash), Organization, Owner Role, Membership
 
+## Phase 8 — App shell / navigation
+
+- [x] `npx shadcn add sidebar avatar` (pulls sheet, tooltip, skeleton, use-mobile)
+- [x] `lib/nav.ts` — single source of truth for nav items + `findActiveNavItem()` (longest-prefix so nested routes stay highlighted)
+- [x] `components/app-sidebar.tsx` — `collapsible="icon"`, tooltips when collapsed, closes mobile drawer on navigate
+- [x] `components/nav-user.tsx` — footer dropdown with sign out (replaced standalone `sign-out-button.tsx`)
+- [x] `components/app-header.tsx` — trigger + page title + theme toggle
+- [x] `app/(app)/layout.tsx` — auth guard + `SidebarProvider`; reads `sidebar_state` cookie server-side so collapsed state doesn't flash
+- [x] Routes: `/dashboard` (live org-scoped counts), `/properties`, `/tenants`, `/leases`, `/users`; `/` redirects to `/dashboard`
+- [x] `TooltipProvider` added to root layout
+- [x] Rewrote `hooks/use-mobile.ts` with `useSyncExternalStore` (vendored version tripped `react-hooks/set-state-in-effect`)
+- [x] Verified: desktop expand/collapse + tooltips, cookie persistence, active highlighting, mobile drawer opens and auto-closes on navigate
+
 ## Done
 
-Auth sprint complete except deferred org switcher. Next sprint candidates: properties/units CRUD, org invitations, org switcher.
+Auth + app shell complete. Deferred: org switcher (build with invitations).
+Next sprint candidates: Properties CRUD (the shell is ready — add pages under `app/(app)/properties/`), org invitations, org switcher.
+
+Known benign warning: `next-themes` injects a pre-hydration `<script>`; React 19 logs "Encountered a script tag while rendering React component". Expected, theme switching works.
