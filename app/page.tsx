@@ -1,3 +1,9 @@
+import { redirect } from "next/navigation"
+
+import { prisma } from "@/lib/prisma"
+import { getCurrentUser } from "@/lib/auth/session"
+import { SignOutButton } from "@/components/sign-out-button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import {
   Card,
   CardContent,
@@ -5,23 +11,45 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { ThemeToggle } from "@/components/theme-toggle"
 
-export default function Home() {
+export default async function Home() {
+  const user = await getCurrentUser()
+  if (!user) redirect("/login")
+
+  const membership = user.activeOrgId
+    ? await prisma.membership.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: user.id,
+            organizationId: user.activeOrgId,
+          },
+        },
+        include: { organization: true, role: true },
+      })
+    : null
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <ThemeToggle />
+    <div className="flex flex-col gap-4 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">
+          {membership?.organization.name ?? "Jarvis"}
+        </h1>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <SignOutButton />
+        </div>
       </div>
       <Card className="max-w-sm">
         <CardHeader>
-          <CardTitle>Project Overview</CardTitle>
+          <CardTitle>Welcome, {user.name ?? user.email}</CardTitle>
           <CardDescription>
-            Track progress and recent activity for your Next.js app.
+            {membership
+              ? `You are signed in as ${membership.role.name} of ${membership.organization.name}.`
+              : "You are not a member of any organization yet."}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          Your design system is ready. Start building your next component.
+          Your workspace is ready. Properties, units, and leases come next.
         </CardContent>
       </Card>
     </div>
