@@ -1,5 +1,10 @@
-import type { PropertyType } from "@/lib/generated/prisma/enums";
+import type { PropertyStatus, PropertyType } from "@/lib/generated/prisma/enums";
+import { getOrganizationOwnerName } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
+import type {
+  CreatePropertyInput,
+  UpdatePropertyInput,
+} from "@/lib/properties-schemas";
 
 /** A lease counts as occupying its unit when it has started and hasn't ended. */
 function activeLeaseFilter(now: Date) {
@@ -25,22 +30,39 @@ export type PropertySummary = {
 
 export async function getProperties(
   organizationId: string,
-  type?: PropertyType
+  filters: { type?: PropertyType; status?: PropertyStatus; q?: string } = {}
 ): Promise<PropertySummary[]> {
   const now = new Date();
+  const { type, status, q } = filters;
 
-  const properties = await prisma.property.findMany({
-    where: { organizationId, ...(type ? { type } : {}) },
-    orderBy: { createdAt: "asc" },
-    include: {
-      units: {
-        select: {
-          rentAmount: true,
-          leases: { where: activeLeaseFilter(now), select: { id: true }, take: 1 },
+  const [properties, ownerName] = await Promise.all([
+    prisma.property.findMany({
+      where: {
+        organizationId,
+        ...(type ? { type } : {}),
+        ...(status ? { status } : {}),
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" as const } },
+                { address: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: "asc" },
+      include: {
+        units: {
+          select: {
+            rentAmount: true,
+            leases: { where: activeLeaseFilter(now), select: { id: true }, take: 1 },
+          },
         },
       },
-    },
-  });
+    }),
+    // Resolved once for the whole list rather than per property.
+    getOrganizationOwnerName(organizationId),
+  ]);
 
   return properties.map((property) => {
     const totalUnits = property.units.length;
@@ -52,7 +74,7 @@ export async function getProperties(
       type: property.type,
       category: property.category,
       address: property.address,
-      ownerName: property.ownerName,
+      ownerName,
       totalUnits,
       occupiedUnits,
       vacantUnits: totalUnits - occupiedUnits,
@@ -70,21 +92,24 @@ export async function getProperties(
 export async function getProperty(organizationId: string, propertyId: string) {
   const now = new Date();
 
-  const property = await prisma.property.findFirst({
-    where: { id: propertyId, organizationId },
-    include: {
-      units: {
-        orderBy: { label: "asc" },
-        include: {
-          leases: {
-            where: activeLeaseFilter(now),
-            take: 1,
-            include: { membership: { include: { user: true } } },
+  const [property, ownerName] = await Promise.all([
+    prisma.property.findFirst({
+      where: { id: propertyId, organizationId },
+      include: {
+        units: {
+          orderBy: { label: "asc" },
+          include: {
+            leases: {
+              where: activeLeaseFilter(now),
+              take: 1,
+              include: { membership: { include: { user: true } } },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    getOrganizationOwnerName(organizationId),
+  ]);
 
   if (!property) return null;
 
@@ -109,7 +134,7 @@ export async function getProperty(organizationId: string, propertyId: string) {
     type: property.type,
     category: property.category,
     address: property.address,
-    ownerName: property.ownerName,
+    ownerName,
     status: property.status,
     description: property.description,
     amenities: property.amenities,
@@ -124,6 +149,50 @@ export async function getProperty(organizationId: string, propertyId: string) {
       .reduce((sum, u) => sum + u.rentAmount, 0),
     potentialRentRoll: units.reduce((sum, u) => sum + u.rentAmount, 0),
   };
+}
+
+export async function createProperty(
+  organizationId: string,
+  input: CreatePropertyInput
+) {
+  return prisma.property.create({
+    data: { ...input, organizationId },
+    select: { id: true },
+  });
+}
+
+/**
+ * Update and delete both scope by organizationId first, so a caller holding a
+ * valid id from another org gets "not found" rather than someone else's data.
+ */
+export async function updateProperty(
+  organizationId: string,
+  propertyId: string,
+  input: UpdatePropertyInput
+) {
+  const existing = await prisma.property.findFirst({
+    where: { id: propertyId, organizationId },
+    select: { id: true },
+  });
+  if (!existing) return null;
+
+  return prisma.property.update({
+    where: { id: existing.id },
+    data: input,
+    select: { id: true },
+  });
+}
+
+export async function deleteProperty(organizationId: string, propertyId: string) {
+  const existing = await prisma.property.findFirst({
+    where: { id: propertyId, organizationId },
+    select: { id: true },
+  });
+  if (!existing) return null;
+
+  // Units and their leases cascade via the schema's onDelete rules.
+  await prisma.property.delete({ where: { id: existing.id } });
+  return existing;
 }
 
 /** Occupancy reads as a health signal, so colour it rather than leaving it neutral. */

@@ -86,10 +86,10 @@ model Property {
   name String
   type PropertyType
   /// What the units are, shown next to the address: "Apartments", "Office suites".
-  category    String
-  address     String
-  ownerName   String
-  status      PropertyStatus @default(ACTIVE)
+  category String
+  address  String
+  /// Owner is not stored — it is derived from the organization's Owner-role member.
+  status PropertyStatus @default(ACTIVE)
   description String?
   /// Shared facilities for the whole building: "CCTV", "Lift", "Borehole water".
   amenities String[]

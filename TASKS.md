@@ -88,9 +88,21 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] `npx tsx prisma/seed.ts "<Org>" --refresh-only` added so seeding can backfill without recreating deleted properties
 - [x] Verified: filter (3 rows for "A"), status facet (2 vacant), sort (rent ascending), select-all (5 of 5), pagination (Page 2 of 2 via a temporary 12-unit property, since deleted), mobile table scrolls in-container without body overflow
 
-### Not done in this phase
+## Phase 11 — Properties CRUD + derived owner
 
-- [ ] `Add property` button links to `/properties/new`, which **does not exist yet** (404). Build the create form + server action.
+- [x] Migration `property_derive_owner`: dropped `Property.ownerName`
+- [x] `lib/organizations.ts` — `getOrganizationOwnerName()`, cached, falls back to org name when no Owner-role member exists
+- [x] `lib/properties.ts` — owner attached to results (UI shape unchanged, so cards/detail needed no edits); `createProperty` / `updateProperty` / `deleteProperty`, all org-scoped
+- [x] `lib/properties-schemas.ts` (zod, no owner input), `lib/property-options.ts`, `lib/api-auth.ts`
+- [x] Endpoints: `GET|POST /api/properties`, `GET|PATCH|DELETE /api/properties/[id]`, `GET /api/properties/options`
+- [x] `components/properties/property-form.tsx` shared by `/properties/new` and `/properties/[id]/edit`; `property-actions.tsx` for edit/delete with a confirm dialog
+- [x] `prisma/seed.ts` deleted — properties are created in the app now
+- [x] Verified: 401 unauthenticated; **cross-org GET/PATCH/DELETE all 404 and the other org's row survived the delete attempt**; create → edit (status + amenity) → delete round trip through the UI; owner fallback confirmed by temporarily renaming the Owner role
+
+### Not done
+
+- [ ] Units have no CRUD — a new property starts with zero units and no way to add them in-app. Next obvious step.
+- [ ] Tenants/leases still have no UI; deleting the seed means new orgs have no tenant data.
 - [ ] Global search and notifications in the mockup header are not implemented.
 
 ## Done

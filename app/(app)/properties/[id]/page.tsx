@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon } from "lucide-react";
 
+import { PropertyActions } from "@/components/properties/property-actions";
 import { PropertyIcon } from "@/components/properties/property-icon";
 import { UnitsTable } from "@/components/properties/units-table";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,11 @@ export default async function PropertyDetailPage({
               {property.address} · {property.category} · Owner: {property.ownerName}
             </p>
           </div>
+          <PropertyActions
+            propertyId={property.id}
+            propertyName={property.name}
+            unitCount={property.totalUnits}
+          />
         </CardContent>
       </Card>
 

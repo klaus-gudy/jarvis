@@ -40,7 +40,7 @@ export default async function PropertiesPage({
       ? (typeParam as PropertyType)
       : undefined;
 
-  const properties = await getProperties(user.activeOrgId, activeType);
+  const properties = await getProperties(user.activeOrgId, { type: activeType });
 
   return (
     <div className="space-y-6">
