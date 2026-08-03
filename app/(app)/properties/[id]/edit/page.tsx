@@ -21,7 +21,7 @@ export default async function EditPropertyPage({
   if (!property) notFound();
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <Button
         variant="ghost"
         size="sm"

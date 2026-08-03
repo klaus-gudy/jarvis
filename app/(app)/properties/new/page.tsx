@@ -15,7 +15,7 @@ export default async function NewPropertyPage() {
   const ownerName = await getOrganizationOwnerName(user.activeOrgId);
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <Button
         variant="ghost"
         size="sm"

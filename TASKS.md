@@ -99,6 +99,17 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] `prisma/seed.ts` deleted — properties are created in the app now
 - [x] Verified: 401 unauthenticated; **cross-org GET/PATCH/DELETE all 404 and the other org's row survived the delete attempt**; create → edit (status + amenity) → delete round trip through the UI; owner fallback confirmed by temporarily renaming the Owner role
 
+## Phase 12 — Property form UX
+
+- [x] `npx shadcn add accordion`
+- [x] Two-column grid (`sm:grid-cols-2`) — Name | Location, Property type | Category
+- [x] Grouped with semantic `FieldSet` + `FieldLegend`: "Basics" and "Classification"
+- [x] Optional fields (status, ownership, description, amenities) moved into a collapsed accordion, cutting the form from 8 stacked fields to 4 visible
+- [x] Accordion triggers show live summaries ("Active · Chris patt", "Description added · 10 amenities") so hidden values stay discoverable
+- [x] Accordion auto-expands when a hidden field has a validation error, so errors can't hide behind a closed panel
+- [x] Form container widened `max-w-2xl` → `max-w-3xl`
+- [x] Verified: collapses to one column on mobile with no horizontal overflow; **saving with the accordion collapsed preserves description/amenities/status** (the main risk of hiding fields)
+
 ### Not done
 
 - [ ] Units have no CRUD — a new property starts with zero units and no way to add them in-app. Next obvious step.

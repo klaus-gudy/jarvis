@@ -4,6 +4,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,8 +17,9 @@ import {
   Field,
   FieldDescription,
   FieldError,
-  FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -119,6 +126,25 @@ export function PropertyForm({
     setPending(false);
   }
 
+  const statusLabel =
+    PROPERTY_STATUS_OPTIONS.find((option) => option.value === values.status)?.label ??
+    values.status;
+
+  // Surfaced on the collapsed triggers so hidden fields still show what's set.
+  const contentSummary = [
+    values.description.trim() ? "Description added" : null,
+    values.amenities.length > 0
+      ? `${values.amenities.length} ${values.amenities.length === 1 ? "amenity" : "amenities"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  // Errors on collapsed fields would otherwise be invisible.
+  const optionalHasError = Boolean(
+    fieldErrors.status || fieldErrors.description || fieldErrors.amenities
+  );
+
   return (
     <form onSubmit={handleSubmit}>
       <Card>
@@ -127,174 +153,225 @@ export function PropertyForm({
             {mode === "create" ? "New property" : "Edit property"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-6">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="name">Name</FieldLabel>
-              <Input
-                id="name"
-                value={values.name}
-                onChange={(event) => set("name", event.target.value)}
-                placeholder="Mwenge Apartments"
-                required
-              />
-              <FieldError errors={fieldErrors.name?.map((m) => ({ message: m }))} />
-            </Field>
 
-            <Field>
-              <FieldLabel htmlFor="category">Property type</FieldLabel>
-              <Select
-                value={values.category}
-                onValueChange={(next) => next && set("category", next)}
-              >
-                <SelectTrigger id="category" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError
-                errors={fieldErrors.category?.map((m) => ({ message: m }))}
-              />
-            </Field>
+        <CardContent className="space-y-8 pt-6">
+          <FieldSet>
+            {/* <FieldLegend variant="label">Basics</FieldLegend> */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="name">Name</FieldLabel>
+                <Input
+                  id="name"
+                  value={values.name}
+                  onChange={(event) => set("name", event.target.value)}
+                  placeholder="Mwenge Apartments"
+                  required
+                />
+                <FieldError errors={fieldErrors.name?.map((m) => ({ message: m }))} />
+              </Field>
 
-            <Field>
-              <FieldLabel htmlFor="type">Category</FieldLabel>
-              <Select value={values.type} onValueChange={(next) => next && set("type", next)}>
-                <SelectTrigger id="type" className="w-full">
-                  <SelectValue>
-                    {(selected: string) =>
-                      PROPERTY_TYPE_OPTIONS.find((o) => o.value === selected)?.label ??
-                      selected
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {PROPERTY_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError errors={fieldErrors.type?.map((m) => ({ message: m }))} />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="address">Location</FieldLabel>
-              <Input
-                id="address"
-                value={values.address}
-                onChange={(event) => set("address", event.target.value)}
-                placeholder="Kinondoni, Dar es Salaam"
-                required
-              />
-              <FieldError
-                errors={fieldErrors.address?.map((m) => ({ message: m }))}
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="status">Status</FieldLabel>
-              <Select
-                value={values.status}
-                onValueChange={(next) => next && set("status", next)}
-              >
-                <SelectTrigger id="status" className="w-full">
-                  <SelectValue>
-                    {(selected: string) =>
-                      PROPERTY_STATUS_OPTIONS.find((o) => o.value === selected)
-                        ?.label ?? selected
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {PROPERTY_STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError errors={fieldErrors.status?.map((m) => ({ message: m }))} />
-            </Field>
-
-            <Field>
-              <FieldLabel>Ownership</FieldLabel>
-              <Input value={ownerName} readOnly disabled />
-              <FieldDescription>
-                Taken from your organization&apos;s owner — not editable here.
-              </FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="description">Description</FieldLabel>
-              <Textarea
-                id="description"
-                value={values.description}
-                onChange={(event) => set("description", event.target.value)}
-                rows={4}
-                placeholder="Secure, serviced units with reliable water and backup power."
-              />
-              <FieldError
-                errors={fieldErrors.description?.map((m) => ({ message: m }))}
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel>General facility amenities</FieldLabel>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {AMENITY_OPTIONS.map((amenity) => (
-                  <label
-                    key={amenity}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      checked={values.amenities.includes(amenity)}
-                      onCheckedChange={(checked) => toggleAmenity(amenity, checked)}
-                    />
-                    {amenity}
-                  </label>
-                ))}
-              </div>
-              <FieldError
-                errors={fieldErrors.amenities?.map((m) => ({ message: m }))}
-              />
-            </Field>
-
-            {formError && <FieldError>{formError}</FieldError>}
-
-            <div className="flex gap-2">
-              <Button type="submit" disabled={pending}>
-                {pending
-                  ? "Saving…"
-                  : mode === "create"
-                    ? "Create property"
-                    : "Save changes"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                nativeButton={false}
-                render={
-                  <Link
-                    href={
-                      mode === "edit" && propertyId
-                        ? `/properties/${propertyId}`
-                        : "/properties"
-                    }
-                  />
-                }
-              >
-                Cancel
-              </Button>
+              <Field>
+                <FieldLabel htmlFor="address">Location</FieldLabel>
+                <Input
+                  id="address"
+                  value={values.address}
+                  onChange={(event) => set("address", event.target.value)}
+                  placeholder="Kinondoni, Dar es Salaam"
+                  required
+                />
+                <FieldError
+                  errors={fieldErrors.address?.map((m) => ({ message: m }))}
+                />
+              </Field>
             </div>
-          </FieldGroup>
+          </FieldSet>
+
+          <FieldSet>
+            {/* <FieldLegend variant="label">Classification</FieldLegend> */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="category">Property type</FieldLabel>
+                <Select
+                  value={values.category}
+                  onValueChange={(next) => next && set("category", next)}
+                >
+                  <SelectTrigger id="category" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError
+                  errors={fieldErrors.category?.map((m) => ({ message: m }))}
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="type">Category</FieldLabel>
+                <Select
+                  value={values.type}
+                  onValueChange={(next) => next && set("type", next)}
+                >
+                  <SelectTrigger id="type" className="w-full">
+                    <SelectValue>
+                      {(selected: string) =>
+                        PROPERTY_TYPE_OPTIONS.find((o) => o.value === selected)
+                          ?.label ?? selected
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPERTY_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError errors={fieldErrors.type?.map((m) => ({ message: m }))} />
+              </Field>
+            </div>
+          </FieldSet>
+
+          <Accordion
+            className="rounded-lg border px-4"
+            // Expand automatically when a hidden field is wrong, so a validation
+            // error can never be reported behind a closed panel.
+            defaultValue={optionalHasError ? ["status", "content"] : []}
+          >
+            <AccordionItem value="status">
+              <AccordionTrigger>
+                <span className="flex flex-1 items-center justify-between gap-3 pr-2">
+                  Status &amp; ownership
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {statusLabel} · {ownerName}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid gap-4 pb-2 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="status">Status</FieldLabel>
+                    <Select
+                      value={values.status}
+                      onValueChange={(next) => next && set("status", next)}
+                    >
+                      <SelectTrigger id="status" className="w-full">
+                        <SelectValue>
+                          {(selected: string) =>
+                            PROPERTY_STATUS_OPTIONS.find((o) => o.value === selected)
+                              ?.label ?? selected
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROPERTY_STATUS_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldError
+                      errors={fieldErrors.status?.map((m) => ({ message: m }))}
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="ownership">Ownership</FieldLabel>
+                    <Input id="ownership" value={ownerName} readOnly disabled />
+                    <FieldDescription>
+                      Taken from your organization&apos;s owner.
+                    </FieldDescription>
+                  </Field>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="content">
+              <AccordionTrigger>
+                <span className="flex flex-1 items-center justify-between gap-3 pr-2">
+                  Description &amp; amenities
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {contentSummary || "Optional"}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pb-2">
+                  <Field>
+                    <FieldLabel htmlFor="description">Description</FieldLabel>
+                    <Textarea
+                      id="description"
+                      value={values.description}
+                      onChange={(event) => set("description", event.target.value)}
+                      rows={3}
+                      placeholder="Secure, serviced units with reliable water and backup power."
+                    />
+                    <FieldError
+                      errors={fieldErrors.description?.map((m) => ({ message: m }))}
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>General facility amenities</FieldLabel>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {AMENITY_OPTIONS.map((amenity) => (
+                        <label
+                          key={amenity}
+                          className="flex cursor-pointer items-center gap-2 text-sm"
+                        >
+                          <Checkbox
+                            checked={values.amenities.includes(amenity)}
+                            onCheckedChange={(checked) =>
+                              toggleAmenity(amenity, checked)
+                            }
+                          />
+                          {amenity}
+                        </label>
+                      ))}
+                    </div>
+                    <FieldError
+                      errors={fieldErrors.amenities?.map((m) => ({ message: m }))}
+                    />
+                  </Field>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          {formError && <FieldError>{formError}</FieldError>}
+
+          <div className="flex gap-2 border-t pt-6">
+            <Button type="submit" disabled={pending}>
+              {pending
+                ? "Saving…"
+                : mode === "create"
+                  ? "Create property"
+                  : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link
+                  href={
+                    mode === "edit" && propertyId
+                      ? `/properties/${propertyId}`
+                      : "/properties"
+                  }
+                />
+              }
+            >
+              Cancel
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </form>
