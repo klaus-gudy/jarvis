@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -86,14 +87,14 @@ export function DataTable<TData, TValue>({
   const filteredCount = table.getFilteredRowModel().rows.length;
 
   return (
-    <div className="space-y-4">
+    <Card className="gap-4 p-4">
       <div className="flex flex-wrap items-center gap-2">
         {searchColumn && (
           <Input
             value={(searchColumn.getFilterValue() as string) ?? ""}
             onChange={(event) => searchColumn.setFilterValue(event.target.value)}
             placeholder={searchPlaceholder}
-            className="h-8 w-full max-w-3xs"
+            className="h-8 w-full max-w-3xs bg-background"
             aria-label={searchPlaceholder}
           />
         )}
@@ -110,7 +111,11 @@ export function DataTable<TData, TValue>({
                 column.setFilterValue(next === "all" ? undefined : next)
               }
             >
-              <SelectTrigger size="sm" className="w-36" aria-label={filter.placeholder}>
+              <SelectTrigger
+                size="sm"
+                className="w-36 bg-background"
+                aria-label={filter.placeholder}
+              >
                 {/* Base UI renders the raw value unless given a formatter. */}
                 <SelectValue>
                   {(selected: string) =>
@@ -143,7 +148,7 @@ export function DataTable<TData, TValue>({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-hidden rounded-lg border bg-background">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -205,7 +210,11 @@ export function DataTable<TData, TValue>({
               value={String(table.getState().pagination.pageSize)}
               onValueChange={(next) => table.setPageSize(Number(next))}
             >
-              <SelectTrigger size="sm" className="w-17" aria-label="Rows per page">
+              <SelectTrigger
+                size="sm"
+                className="w-17 bg-background"
+                aria-label="Rows per page"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -263,7 +272,7 @@ export function DataTable<TData, TValue>({
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 

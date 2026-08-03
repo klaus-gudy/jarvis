@@ -110,6 +110,12 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] Form container widened `max-w-2xl` → `max-w-3xl`
 - [x] Verified: collapses to one column on mobile with no horizontal overflow; **saving with the accordion collapsed preserves description/amenities/status** (the main risk of hiding fields)
 
+## Phase 13 — Data table visual fix
+
+- [x] `components/ui/data-table.tsx` wrapped in `Card` (`bg-card` + ring) — previously it was a bare `div` with only a low-contrast `border` token, which read as invisible/transparent against the page's similarly-toned `bg-background`
+- [x] Search input, both `Select` filter triggers given `bg-background` so they read as filled fields against the white/dark card, not just borders
+- [x] Verified in both light and dark mode; confirmed filtering, sorting, and row selection all still work post-restyle
+
 ### Not done
 
 - [ ] Units have no CRUD — a new property starts with zero units and no way to add them in-app. Next obvious step.
