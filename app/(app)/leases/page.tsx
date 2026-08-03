@@ -1,13 +1,29 @@
-import { FileTextIcon } from "lucide-react"
+import { redirect } from "next/navigation";
+import { FileTextIcon } from "lucide-react";
 
-import { EmptyState } from "@/components/empty-state"
+import { EmptyState } from "@/components/empty-state";
+import { LeasesTable } from "@/components/leases/leases-table";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getLeaseOptions, getLeases } from "@/lib/leases";
 
-export default function LeasesPage() {
-  return (
-    <EmptyState
-      icon={FileTextIcon}
-      title="No leases yet"
-      description="A lease connects a tenant to a unit for a period of time."
-    />
-  )
+export default async function LeasesPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  if (!user.activeOrgId) {
+    return (
+      <EmptyState
+        icon={FileTextIcon}
+        title="No organization"
+        description="You are not a member of an organization yet."
+      />
+    );
+  }
+
+  const [leases, options] = await Promise.all([
+    getLeases(user.activeOrgId),
+    getLeaseOptions(user.activeOrgId),
+  ]);
+
+  return <LeasesTable leases={leases} options={options} />;
 }
