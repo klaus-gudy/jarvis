@@ -1,3 +1,16 @@
+/** ISO 4217 code for the Tanzanian shilling. Defined once so it isn't scattered as a literal. */
+export const CURRENCY = "TZS";
+
+/** "TZS 1.4M" — the compact form used in cards and tables. */
+export function formatCurrency(amount: number) {
+  return `${CURRENCY} ${formatMoney(amount)}`;
+}
+
+/** "TZS 1,400,000" — for detail views where the exact figure matters. */
+export function formatCurrencyFull(amount: number) {
+  return `${CURRENCY} ${formatMoneyFull(amount)}`;
+}
+
 /** Compact shilling amounts, matching how rent rolls are read at a glance: 1_400_000 -> "1.4M". */
 export function formatMoney(amount: number) {
   if (amount >= 1_000_000) {

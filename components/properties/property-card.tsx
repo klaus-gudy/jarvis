@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PropertyIcon } from "@/components/properties/property-icon";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { formatMoney } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { occupancyTone, type PropertySummary } from "@/lib/properties";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +64,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
         <div className="mt-5 flex items-end justify-between border-t pt-4">
           <div>
             <p className="font-mono text-lg font-semibold tabular-nums">
-              TSh {formatMoney(property.monthlyRentRoll)}
+              {formatCurrency(property.monthlyRentRoll)}
             </p>
             <p className="text-xs text-muted-foreground">Monthly rent roll</p>
           </div>

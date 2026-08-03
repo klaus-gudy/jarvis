@@ -171,10 +171,17 @@ export default async function PropertyDetailPage({
 
         <TabsContent value="units" className="pt-5">
           <UnitsTable
+            propertyId={property.id}
             units={property.units.map((unit) => ({
               id: unit.id,
               label: unit.label,
               rentAmount: unit.rentAmount,
+              minTenureMonths: unit.minTenureMonths,
+              unitType: unit.unitType,
+              floor: unit.floor,
+              block: unit.block,
+              sizeSqm: unit.sizeSqm,
+              amenities: unit.amenities,
               status: unit.isOccupied ? "Occupied" : "Vacant",
               tenantName: unit.tenantName,
               // Dates must be serialisable to cross the server/client boundary.

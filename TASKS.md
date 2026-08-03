@@ -116,9 +116,21 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] Search input, both `Select` filter triggers given `bg-background` so they read as filled fields against the white/dark card, not just borders
 - [x] Verified in both light and dark mode; confirmed filtering, sorting, and row selection all still work post-restyle
 
+## Phase 14 — Unit details + unit CRUD
+
+- [x] Checkbox border `border-input` → `border-ring` (light-mode `--input` is ~white, so unchecked boxes were invisible)
+- [x] Currency TSh → **TZS**, centralised as `CURRENCY` + `formatCurrency()` / `formatCurrencyFull()` in `lib/format.ts`
+- [x] Migration `unit_details`: `minTenureMonths Int?`, `unitType String?`, `floor String?`, `block String?`, `sizeSqm Float?`, `amenities String[]`
+- [x] `lib/unit-options.ts` (unit types, unit-specific amenities, tenure choices), `lib/units-schemas.ts`, `lib/units.ts`
+- [x] Endpoints: `POST /api/properties/[id]/units`, `PATCH|DELETE /api/properties/[id]/units/[unitId]` — org-scoped through the parent property, 409 on duplicate label
+- [x] `unit-form-dialog.tsx` — essentials visible (unit name, monthly rate, min tenure), everything else in an accordion with a live summary
+- [x] **Add unit** button on the Units tab; per-row edit + delete with confirmation
+- [x] Table shows the new data compactly via secondary lines: `C1 / Block C · Floor Ground`, `2 Bedroom / 62.5 m²`, `TZS 650,000 / min 6 mo`; added an "All types" facet filter
+- [x] Verified end to end: created C1 with every field → confirmed in psql → edited → duplicate-name rejected with 409 message → deleted; 401 unauthenticated; 404 for unknown property/unit; checkbox contrast checked in both themes
+
 ### Not done
 
-- [ ] Units have no CRUD — a new property starts with zero units and no way to add them in-app. Next obvious step.
+- [ ] Unit amenities are editable/visible in the unit dialog but **not** shown in the units table (chips don't fit) — row expansion would be the fix.
 - [ ] Tenants/leases still have no UI; deleting the seed means new orgs have no tenant data.
 - [ ] Global search and notifications in the mockup header are not implemented.
 

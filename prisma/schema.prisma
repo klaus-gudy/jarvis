@@ -107,11 +107,23 @@ model Property {
 model Unit {
   id    String @id @default(cuid())
   label String
-  /// Monthly rent in whole shillings. TSh has no subunit in practice, so an
+  /// Monthly rent in whole shillings. TZS has no subunit in practice, so an
   /// integer avoids both float rounding and Decimal serialization to clients.
   rentAmount Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  /// Shortest lease the landlord will accept, in months.
+  minTenureMonths Int?
+  /// Unit-level type ("Studio", "2 Bedroom", "Shop") — distinct from
+  /// Property.type, which is RESIDENTIAL/COMMERCIAL for the whole building.
+  unitType String?
+  /// Free text: "Ground", "Mezzanine" and "Basement" are all real floors.
+  floor   String?
+  block   String?
+  sizeSqm Float?
+  /// Amenities belonging to this unit ("Furnished", "Built-in wardrobes"),
+  /// as opposed to Property.amenities which covers shared facilities.
+  amenities String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)

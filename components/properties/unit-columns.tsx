@@ -1,107 +1,177 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDate, formatMoneyFull } from "@/lib/format";
+import { formatCurrencyFull, formatDate } from "@/lib/format";
 
 export type UnitRow = {
   id: string;
   label: string;
   rentAmount: number;
+  minTenureMonths: number | null;
+  unitType: string | null;
+  floor: string | null;
+  block: string | null;
+  sizeSqm: number | null;
+  amenities: string[];
   status: "Occupied" | "Vacant";
   tenantName: string | null;
   leaseStart: string | null;
 };
 
-export const unitColumns: ColumnDef<UnitRow>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={table.getIsAllPageRowsSelected()}
-        // base-ui takes indeterminate as its own prop rather than a checked value.
-        indeterminate={table.getIsSomePageRowsSelected()}
-        onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked)}
-        aria-label="Select all rows"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked)}
-        aria-label={`Select unit ${row.original.label}`}
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "label",
-    header: ({ column }) => (
-      <DataTableColumnHeader
-        title="Unit"
-        sorted={column.getIsSorted()}
-        onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="-ml-2"
-      />
-    ),
-    cell: ({ row }) => <span className="font-medium">{row.original.label}</span>,
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => (
-      <Badge
-        variant={row.original.status === "Occupied" ? "secondary" : "outline"}
-        className="rounded-full font-normal"
-      >
-        {row.original.status}
-      </Badge>
-    ),
-    // Exact match so the Occupied/Vacant dropdown filters cleanly.
-    filterFn: (row, columnId, filterValue) =>
-      row.getValue(columnId) === filterValue,
-  },
-  {
-    accessorKey: "tenantName",
-    header: "Tenant",
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.original.tenantName ?? "—"}</span>
-    ),
-  },
-  {
-    accessorKey: "leaseStart",
-    header: ({ column }) => (
-      <DataTableColumnHeader
-        title="Lease start"
-        sorted={column.getIsSorted()}
-        onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="-ml-2"
-      />
-    ),
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {row.original.leaseStart ? formatDate(new Date(row.original.leaseStart)) : "—"}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "rentAmount",
-    header: ({ column }) => (
-      <DataTableColumnHeader
-        title="Rent / month"
-        sorted={column.getIsSorted()}
-        onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="-mr-2 ml-auto flex"
-      />
-    ),
-    cell: ({ row }) => (
-      <div className="text-right font-mono tabular-nums">
-        TSh {formatMoneyFull(row.original.rentAmount)}
-      </div>
-    ),
-  },
-];
+/** Secondary lines keep six extra attributes readable without six extra columns. */
+export function buildUnitColumns({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: (unit: UnitRow) => void;
+  onDelete: (unit: UnitRow) => void;
+}): ColumnDef<UnitRow>[] {
+  return [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
+          onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked)}
+          aria-label="Select all rows"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(checked) => row.toggleSelected(checked)}
+          aria-label={`Select unit ${row.original.label}`}
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "label",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          title="Unit"
+          sorted={column.getIsSorted()}
+          onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-2"
+        />
+      ),
+      cell: ({ row }) => {
+        const { label, block, floor } = row.original;
+        const place = [block ? `Block ${block}` : null, floor ? `Floor ${floor}` : null]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <div className="leading-tight">
+            <div className="font-medium">{label}</div>
+            {place && <div className="text-xs text-muted-foreground">{place}</div>}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "unitType",
+      header: "Type",
+      cell: ({ row }) => {
+        const { unitType, sizeSqm } = row.original;
+        return (
+          <div className="leading-tight">
+            <div>{unitType ?? "—"}</div>
+            {sizeSqm != null && (
+              <div className="text-xs text-muted-foreground">{sizeSqm} m²</div>
+            )}
+          </div>
+        );
+      },
+      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <Badge
+          variant={row.original.status === "Occupied" ? "secondary" : "outline"}
+          className="rounded-full font-normal"
+        >
+          {row.original.status}
+        </Badge>
+      ),
+      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+    },
+    {
+      accessorKey: "tenantName",
+      header: "Tenant",
+      cell: ({ row }) => {
+        const { tenantName, leaseStart } = row.original;
+        return (
+          <div className="leading-tight">
+            <div className="text-muted-foreground">{tenantName ?? "—"}</div>
+            {leaseStart && (
+              <div className="text-xs text-muted-foreground">
+                from {formatDate(new Date(leaseStart))}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "rentAmount",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          title="Rent / month"
+          sorted={column.getIsSorted()}
+          onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-mr-2 ml-auto flex"
+        />
+      ),
+      cell: ({ row }) => {
+        const { rentAmount, minTenureMonths } = row.original;
+        return (
+          <div className="text-right leading-tight">
+            <div className="font-mono tabular-nums">
+              {formatCurrencyFull(rentAmount)}
+            </div>
+            {minTenureMonths != null && (
+              <div className="text-xs text-muted-foreground">
+                min {minTenureMonths} mo
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit(row.original)}
+            aria-label={`Edit unit ${row.original.label}`}
+          >
+            <PencilIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onDelete(row.original)}
+            aria-label={`Delete unit ${row.original.label}`}
+          >
+            <Trash2Icon />
+          </Button>
+        </div>
+      ),
+      enableSorting: false,
+    },
+  ];
+}
