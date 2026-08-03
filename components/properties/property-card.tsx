@@ -4,12 +4,9 @@ import { PropertyIcon } from "@/components/properties/property-icon";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
-import { occupancyTone, type PropertySummary } from "@/lib/properties";
-import { cn } from "@/lib/utils";
+import type { PropertySummary } from "@/lib/properties";
 
 export function PropertyCard({ property }: { property: PropertySummary }) {
-  const tone = occupancyTone(property.occupancyRate);
-
   return (
     <Card
       className="gap-0 p-0 transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring"
@@ -42,7 +39,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
             <span className="text-muted-foreground">
               {property.occupiedUnits}/{property.totalUnits} occupied
             </span>
-            <span className={cn("font-medium tabular-nums", tone.text)}>
+            <span className="font-medium tabular-nums text-secondary-foreground">
               {property.occupancyRate}%
             </span>
           </div>
@@ -55,7 +52,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
             aria-label={`${property.name} occupancy`}
           >
             <div
-              className={cn("h-full rounded-full transition-all", tone.bar)}
+              className="h-full rounded-full bg-secondary-foreground transition-all"
               style={{ width: `${property.occupancyRate}%` }}
             />
           </div>

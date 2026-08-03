@@ -3,8 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BuildingIcon } from "lucide-react"
 
+import { Logo } from "@/components/logo"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -51,9 +51,7 @@ export function AppSidebar({
               onClick={handleNavigate}
               render={<Link href="/dashboard" />}
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <BuildingIcon className="size-4" />
-              </div>
+              <Logo />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{organizationName}</span>
                 <span className="truncate text-xs text-muted-foreground">

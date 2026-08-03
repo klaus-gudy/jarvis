@@ -212,10 +212,3 @@ export async function deleteProperty(organizationId: string, propertyId: string)
   await prisma.property.delete({ where: { id: existing.id } });
   return existing;
 }
-
-/** Occupancy reads as a health signal, so colour it rather than leaving it neutral. */
-export function occupancyTone(rate: number) {
-  if (rate >= 80) return { text: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" };
-  if (rate >= 50) return { text: "text-amber-600 dark:text-amber-500", bar: "bg-amber-500" };
-  return { text: "text-red-600 dark:text-red-400", bar: "bg-red-500" };
-}
