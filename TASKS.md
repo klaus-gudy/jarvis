@@ -128,8 +128,24 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] Table shows the new data compactly via secondary lines: `C1 / Block C · Floor Ground`, `2 Bedroom / 62.5 m²`, `TZS 650,000 / min 6 mo`; added an "All types" facet filter
 - [x] Verified end to end: created C1 with every field → confirmed in psql → edited → duplicate-name rejected with 409 message → deleted; 401 unauthenticated; 404 for unknown property/unit; checkbox contrast checked in both themes
 
+## Phase 15 — Users & Tenants
+
+- [x] Migration `invitations_and_optional_credentials`: `User.email` and `User.passwordHash` nullable, `Invitation` model + `InvitationStatus`
+- [x] **Login rejects null `passwordHash`** with the same generic 401 (verified: assisted-onboarded tenant cannot sign in)
+- [x] `lib/tenants.ts` (status derived: Active/Vacated/Prospect), `lib/members.ts`, `lib/roles.ts`, `lib/invitations.ts`, `lib/user-display.ts`
+- [x] Endpoints: `GET|POST /api/tenants`, `DELETE /api/tenants/[id]`, `GET /api/members`, `DELETE /api/members/[id]`, `GET|POST /api/roles`, `GET|POST /api/invitations`, `DELETE /api/invitations/[id]`, public `POST /api/invitations/accept`
+- [x] `/tenants` — Tenant-role members only, data table with name, contact info, date joined, unit, status
+- [x] Add tenant dialog: name + phone (required) + email (optional), no password
+- [x] `/users` — members table, invite dialog producing a copyable link, pending-invite list with revoke, custom role creation, member removal
+- [x] Public `/invite/[token]` accept page; `proxy.ts` allows `/invite/*` signed out
+- [x] Guards verified live: self-removal 400, **sole-Owner removal 409**, duplicate phone 409, invite replay 410, all endpoints 401 unauthenticated
+- [x] Fixed dangerous default: invite role defaulted to Owner (roles sort alphabetically) — now prefers Tenant
+- [x] Data correction: 11 legacy `"!seeded-no-login"` hashes set to NULL so `canSignIn` is truthful
+
 ### Not done
 
+- [ ] **No DB constraint stops a Lease joining a membership in one org to a unit in another.** Queries now filter it out, but the data can still be created. Worth a check constraint or an org column on Lease.
+- [ ] Changing a member's role isn't implemented (not requested).
 - [ ] Unit amenities are editable/visible in the unit dialog but **not** shown in the units table (chips don't fit) — row expansion would be the fix.
 - [ ] Tenants/leases still have no UI; deleting the seed means new orgs have no tenant data.
 - [ ] Global search and notifications in the mockup header are not implemented.

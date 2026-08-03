@@ -18,12 +18,15 @@ export const getOrganizationOwnerName = cache(async (organizationId: string) => 
       role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
     },
     orderBy: { createdAt: "asc" },
-    include: { user: { select: { name: true, email: true } } },
+    include: { user: { select: { name: true, email: true, phone: true } } },
   });
 
-  if (ownerMembership) {
-    return ownerMembership.user.name ?? ownerMembership.user.email;
-  }
+  // email is optional now, so an owner could have neither name nor email.
+  const ownerLabel =
+    ownerMembership?.user.name ??
+    ownerMembership?.user.email ??
+    ownerMembership?.user.phone;
+  if (ownerLabel) return ownerLabel;
 
   // No Owner-role member (renamed or removed) — the organization itself is the
   // best remaining answer, and beats rendering a blank owner line.

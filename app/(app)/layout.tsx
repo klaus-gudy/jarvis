@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getCurrentUser } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
+import { displayName, primaryContact } from "@/lib/user-display"
 
 export default async function AppLayout({
   children,
@@ -36,8 +37,8 @@ export default async function AppLayout({
       <AppSidebar
         organizationName={membership?.organization.name ?? "Jarvis"}
         user={{
-          name: user.name ?? user.email,
-          email: user.email,
+          name: displayName(user),
+          email: primaryContact(user) ?? "",
           role: membership?.role.name ?? null,
         }}
       />

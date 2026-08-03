@@ -26,6 +26,7 @@ model Organization {
   memberships Membership[]
   properties  Property[]
   roles       Role[]
+  invitations Invitation[]
 }
 
 model Role {
@@ -36,20 +37,54 @@ model Role {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   memberships Membership[]
+  invitations Invitation[]
 
   @@unique([organizationId, name])
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  phone        String?  @unique
-  passwordHash String
+  id String @id @default(cuid())
+  /// Optional because tenants are onboarded by staff and may only have a phone.
+  /// Registration still requires it; the tenant form requires phone instead.
+  email String? @unique
+  phone String? @unique
+  /// Null means the account cannot sign in yet — an assisted-onboarding tenant
+  /// or an invitee who hasn't accepted. Login must reject null explicitly.
+  passwordHash String?
   name         String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   memberships Membership[]
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+model Invitation {
+  id String @id @default(cuid())
+  /// SHA-256 of the token. The raw token only ever exists in the invite link,
+  /// so a database leak doesn't hand out working invitations.
+  tokenHash  String           @unique
+  email      String?
+  phone      String?
+  name       String?
+  status     InvitationStatus @default(PENDING)
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@index([organizationId])
 }
 
 model Membership {

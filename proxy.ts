@@ -5,12 +5,22 @@ import { SESSION_COOKIE } from "@/lib/auth/constants";
 import { verifySessionToken } from "@/lib/auth/jwt";
 
 const AUTH_PAGES = ["/login", "/register"];
+/**
+ * Reachable signed out: the recipient of an invite has no account yet, and the
+ * token in the URL is what authorises them.
+ */
+const PUBLIC_PAGES = ["/invite"];
 
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySessionToken(token) : null;
   const { pathname } = request.nextUrl;
   const isAuthPage = AUTH_PAGES.some((page) => pathname.startsWith(page));
+  const isPublicPage = PUBLIC_PAGES.some((page) => pathname.startsWith(page));
+
+  if (isPublicPage) {
+    return NextResponse.next();
+  }
 
   if (session && isAuthPage) {
     return NextResponse.redirect(new URL("/", request.url));

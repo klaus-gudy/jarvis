@@ -34,9 +34,11 @@ export async function POST(request: Request) {
     },
   });
 
-  // Hash even when the user is unknown so response timing doesn't reveal
-  // which identifiers exist.
-  if (!user) {
+  // Hash even when the user is unknown, or has no password set, so response
+  // timing doesn't reveal which identifiers exist. A null passwordHash means an
+  // assisted-onboarding tenant or an unaccepted invitee: no sign-in, and the
+  // same generic error so the account's existence isn't disclosed.
+  if (!user || !user.passwordHash) {
     await hashPassword(password);
     return Response.json({ error: "Invalid credentials" }, { status: 401 });
   }

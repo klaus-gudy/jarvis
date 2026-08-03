@@ -6,11 +6,19 @@ import type {
   UpdatePropertyInput,
 } from "@/lib/properties-schemas";
 
-/** A lease counts as occupying its unit when it has started and hasn't ended. */
-function activeLeaseFilter(now: Date) {
+/**
+ * A lease counts as occupying its unit when it has started and hasn't ended.
+ *
+ * The membership is also constrained to the same organization: nothing in the
+ * schema stops a Lease from joining a Membership in org A to a Unit in org B,
+ * and without this filter such a row would surface another org's member name
+ * on this org's property page.
+ */
+function activeLeaseFilter(now: Date, organizationId: string) {
   return {
     startDate: { lte: now },
     OR: [{ endDate: null }, { endDate: { gte: now } }],
+    membership: { organizationId },
   };
 }
 
@@ -55,7 +63,11 @@ export async function getProperties(
         units: {
           select: {
             rentAmount: true,
-            leases: { where: activeLeaseFilter(now), select: { id: true }, take: 1 },
+            leases: {
+              where: activeLeaseFilter(now, organizationId),
+              select: { id: true },
+              take: 1,
+            },
           },
         },
       },
@@ -100,7 +112,7 @@ export async function getProperty(organizationId: string, propertyId: string) {
           orderBy: { label: "asc" },
           include: {
             leases: {
-              where: activeLeaseFilter(now),
+              where: activeLeaseFilter(now, organizationId),
               take: 1,
               include: { membership: { include: { user: true } } },
             },

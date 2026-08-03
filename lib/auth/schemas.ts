@@ -12,12 +12,8 @@ export const registerSchema = z.object({
     .trim()
     .toLowerCase()
     .pipe(z.email("Enter a valid email")),
-  // Empty string from an untouched form input counts as "not provided".
-  phone: z
-    .literal("")
-    .transform(() => undefined)
-    .or(phoneSchema)
-    .optional(),
+  // Mandatory: every member must have a phone number on record.
+  phone: phoneSchema,
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
