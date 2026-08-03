@@ -15,6 +15,8 @@ export type TenantRow = {
   membershipId: string;
   userId: string;
   name: string;
+  /** The stored name, null when unset. */
+  rawName: string | null;
   email: string | null;
   phone: string | null;
   joinedAt: string;
@@ -71,6 +73,7 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
       membershipId: membership.id,
       userId: membership.user.id,
       name: membership.user.name ?? membership.user.email ?? membership.user.phone ?? "Unnamed",
+      rawName: membership.user.name,
       email: membership.user.email,
       phone: membership.user.phone,
       joinedAt: membership.createdAt.toISOString(),

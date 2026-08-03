@@ -103,16 +103,17 @@ export default function RegisterPage() {
                 <FieldError errors={fieldErrors.email?.map((m) => ({ message: m }))} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="phone">Phone (optional)</FieldLabel>
+                <FieldLabel htmlFor="phone">Phone</FieldLabel>
                 <Input
                   id="phone"
                   name="phone"
                   type="tel"
                   autoComplete="tel"
                   placeholder="+255700000000"
+                  required
                 />
                 <FieldDescription>
-                  You can use this instead of your email to sign in.
+                  Required. You can also use this instead of your email to sign in.
                 </FieldDescription>
                 <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
               </Field>

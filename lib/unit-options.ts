@@ -27,12 +27,3 @@ export const UNIT_AMENITY_OPTIONS = [
   "Private entrance",
   "Sea view",
 ] as const;
-
-/** Common minimum-tenure choices, in months. */
-export const MIN_TENURE_OPTIONS = [
-  { value: 1, label: "1 month" },
-  { value: 3, label: "3 months" },
-  { value: 6, label: "6 months" },
-  { value: 12, label: "12 months" },
-  { value: 24, label: "24 months" },
-] as const;

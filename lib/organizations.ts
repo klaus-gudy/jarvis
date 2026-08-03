@@ -37,3 +37,22 @@ export const getOrganizationOwnerName = cache(async (organizationId: string) => 
 
   return organization?.name ?? "—";
 });
+
+/**
+ * Creates an organization for an existing signed-in user and makes them its
+ * Owner. Mirrors what registration does, minus creating the user — used when
+ * someone ends up with no organization (never invited, or their last one was
+ * deleted) and would otherwise be locked out of a working app.
+ */
+export async function createOrganizationForUser(userId: string, name: string) {
+  return prisma.$transaction(async (tx) => {
+    const organization = await tx.organization.create({ data: { name } });
+    const ownerRole = await tx.role.create({
+      data: { name: OWNER_ROLE_NAME, organizationId: organization.id },
+    });
+    await tx.membership.create({
+      data: { userId, organizationId: organization.id, roleId: ownerRole.id },
+    });
+    return organization;
+  });
+}

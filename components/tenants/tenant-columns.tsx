@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Trash2Icon } from "lucide-react";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +21,10 @@ const STATUS_VARIANT: Record<
 };
 
 export function buildTenantColumns({
+  onEdit,
   onDelete,
 }: {
+  onEdit: (tenant: TenantRow) => void;
   onDelete: (tenant: TenantRow) => void;
 }): ColumnDef<TenantRow>[] {
   return [
@@ -129,7 +131,15 @@ export function buildTenantColumns({
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit(row.original)}
+            aria-label={`Edit ${row.original.name}`}
+          >
+            <PencilIcon />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

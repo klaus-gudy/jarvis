@@ -34,11 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CURRENCY } from "@/lib/format";
-import {
-  MIN_TENURE_OPTIONS,
-  UNIT_AMENITY_OPTIONS,
-  UNIT_TYPE_OPTIONS,
-} from "@/lib/unit-options";
+import { UNIT_AMENITY_OPTIONS, UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
 
 export type UnitFormValues = {
   label: string;
@@ -56,7 +52,7 @@ const NONE = "__none__";
 const EMPTY: UnitFormValues = {
   label: "",
   rentAmount: "",
-  minTenureMonths: NONE,
+  minTenureMonths: "",
   unitType: NONE,
   floor: "",
   block: "",
@@ -110,8 +106,9 @@ export function UnitFormDialog({
     const payload = {
       label: values.label,
       rentAmount: Number(values.rentAmount),
-      minTenureMonths:
-        values.minTenureMonths === NONE ? null : Number(values.minTenureMonths),
+      minTenureMonths: values.minTenureMonths.trim()
+        ? Number(values.minTenureMonths)
+        : null,
       unitType: values.unitType === NONE ? null : values.unitType,
       floor: values.floor || undefined,
       block: values.block || undefined,
@@ -148,6 +145,7 @@ export function UnitFormDialog({
     values.block ? `Block ${values.block}` : null,
     values.floor ? `Floor ${values.floor}` : null,
     values.sizeSqm ? `${values.sizeSqm} m²` : null,
+    values.minTenureMonths ? `min ${values.minTenureMonths} mo` : null,
     values.amenities.length > 0 ? `${values.amenities.length} amenities` : null,
   ]
     .filter(Boolean)
@@ -158,6 +156,7 @@ export function UnitFormDialog({
       fieldErrors.floor ||
       fieldErrors.block ||
       fieldErrors.sizeSqm ||
+      fieldErrors.minTenureMonths ||
       fieldErrors.amenities
   );
 
@@ -168,8 +167,8 @@ export function UnitFormDialog({
           <DialogHeader>
             <DialogTitle>{mode === "create" ? "Add unit" : "Edit unit"}</DialogTitle>
             <DialogDescription>
-              Name, monthly rate and minimum tenure are the essentials. Everything
-              else is optional.
+              Name and monthly rate are the essentials. Everything else is
+              optional.
             </DialogDescription>
           </DialogHeader>
 
@@ -207,37 +206,6 @@ export function UnitFormDialog({
               </Field>
             </div>
 
-            <Field>
-              <FieldLabel htmlFor="unit-tenure">Minimum tenure</FieldLabel>
-              <Select
-                value={values.minTenureMonths}
-                onValueChange={(next) => next && set("minTenureMonths", next)}
-              >
-                <SelectTrigger id="unit-tenure" className="w-full">
-                  <SelectValue>
-                    {(selected: string) =>
-                      selected === NONE
-                        ? "Not set"
-                        : (MIN_TENURE_OPTIONS.find(
-                            (o) => String(o.value) === selected
-                          )?.label ?? selected)
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Not set</SelectItem>
-                  {MIN_TENURE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError
-                errors={fieldErrors.minTenureMonths?.map((m) => ({ message: m }))}
-              />
-            </Field>
-
             <Accordion
               className="rounded-lg border px-4"
               defaultValue={extrasHaveError ? ["extras"] : []}
@@ -245,7 +213,7 @@ export function UnitFormDialog({
               <AccordionItem value="extras">
                 <AccordionTrigger>
                   <span className="flex flex-1 items-center justify-between gap-3 pr-2">
-                    Unit details &amp; amenities
+                    Other unit details
                     <span className="truncate text-xs font-normal text-muted-foreground">
                       {extrasSummary || "Optional"}
                     </span>
@@ -295,6 +263,28 @@ export function UnitFormDialog({
                         />
                         <FieldError
                           errors={fieldErrors.sizeSqm?.map((m) => ({ message: m }))}
+                        />
+                      </Field>
+
+                      <Field>
+                        <FieldLabel htmlFor="unit-tenure">Minimum tenure</FieldLabel>
+                        <Input
+                          id="unit-tenure"
+                          type="number"
+                          min={1}
+                          step={1}
+                          inputMode="numeric"
+                          value={values.minTenureMonths}
+                          onChange={(event) =>
+                            set("minTenureMonths", event.target.value)
+                          }
+                          placeholder="6"
+                        />
+                        <FieldDescription>In months.</FieldDescription>
+                        <FieldError
+                          errors={fieldErrors.minTenureMonths?.map((m) => ({
+                            message: m,
+                          }))}
                         />
                       </Field>
 

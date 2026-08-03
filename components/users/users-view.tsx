@@ -3,8 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusIcon, Trash2Icon, UserPlusIcon, XIcon } from "lucide-react";
+import {
+  PencilIcon,
+  PlusIcon,
+  SendIcon,
+  Trash2Icon,
+  UserPlusIcon,
+  XIcon,
+} from "lucide-react";
 
+import { MemberEditDialog } from "@/components/member-edit-dialog";
+import { PersonCell } from "@/components/person-cell";
 import { InviteDialog } from "@/components/users/invite-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +46,8 @@ export function UsersView({
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [roleOpen, setRoleOpen] = React.useState(false);
   const [removing, setRemoving] = React.useState<MemberRow | null>(null);
+  const [inviting, setInviting] = React.useState<MemberRow | null>(null);
+  const [editing, setEditing] = React.useState<MemberRow | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -45,14 +56,7 @@ export function UsersView({
       {
         accessorKey: "name",
         header: "Name",
-        cell: ({ row }) => (
-          <div className="leading-tight">
-            <div className="font-medium">{row.original.name}</div>
-            {!row.original.canSignIn && (
-              <div className="text-xs text-muted-foreground">No sign-in yet</div>
-            )}
-          </div>
-        ),
+        cell: ({ row }) => <PersonCell name={row.original.name} />,
       },
       {
         id: "contact",
@@ -96,7 +100,27 @@ export function UsersView({
         id: "actions",
         header: "",
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-1">
+            {/* Members onboarded by staff have no password — this is how they
+                get a link to set one and gain access. */}
+            {!row.original.canSignIn && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setInviting(row.original)}
+              >
+                <SendIcon />
+                Invite
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setEditing(row.original)}
+              aria-label={`Edit ${row.original.name}`}
+            >
+              <PencilIcon />
+            </Button>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -215,6 +239,27 @@ export function UsersView({
         onOpenChange={setInviteOpen}
         roles={roles}
       />
+
+      <MemberEditDialog
+        key={`edit-${editing?.membershipId ?? "none"}`}
+        member={editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+      />
+
+      {inviting && (
+        <InviteDialog
+          key={`member-invite-${inviting.membershipId}`}
+          open
+          onOpenChange={(open) => !open && setInviting(null)}
+          roles={roles}
+          prefill={{
+            name: inviting.name,
+            email: inviting.email,
+            phone: inviting.phone,
+            roleId: inviting.roleId,
+          }}
+        />
+      )}
 
       <NewRoleDialog
         key={`role-${roleOpen}`}

@@ -13,12 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -35,10 +30,18 @@ export function InviteDialog({
   open,
   onOpenChange,
   roles,
+  /** Pre-fills the form when inviting a member who already exists but can't sign in. */
+  prefill,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roles: { id: string; name: string }[];
+  prefill?: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    roleId: string;
+  };
 }) {
   const router = useRouter();
   // Roles arrive sorted by name, so roles[0] is usually "Owner" — a dangerous
@@ -49,10 +52,10 @@ export function InviteDialog({
     roles[0]?.id ??
     "";
   const [values, setValues] = React.useState<Values>({
-    name: "",
-    email: "",
-    phone: "",
-    roleId: defaultRoleId,
+    name: prefill?.name ?? "",
+    email: prefill?.email ?? "",
+    phone: prefill?.phone ?? "",
+    roleId: prefill?.roleId ?? defaultRoleId,
   });
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -156,12 +159,13 @@ export function InviteDialog({
                 value={values.phone}
                 onChange={(event) => set("phone", event.target.value)}
                 placeholder="+255712345678"
+                required
               />
               <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="invite-email">Email</FieldLabel>
+              <FieldLabel htmlFor="invite-email">Email (optional)</FieldLabel>
               <Input
                 id="invite-email"
                 type="email"
@@ -169,9 +173,6 @@ export function InviteDialog({
                 onChange={(event) => set("email", event.target.value)}
                 placeholder="neema@example.com"
               />
-              <FieldDescription>
-                Provide at least one of phone or email.
-              </FieldDescription>
               <FieldError errors={fieldErrors.email?.map((m) => ({ message: m }))} />
             </Field>
 

@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { AppHeader } from "@/components/app-header"
+import { CreateOrganizationDialog } from "@/components/create-organization-dialog"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getCurrentUser } from "@/lib/auth/session"
@@ -16,17 +17,20 @@ export default async function AppLayout({
   const user = await getCurrentUser()
   if (!user) redirect("/login")
 
-  const membership = user.activeOrgId
-    ? await prisma.membership.findUnique({
-        where: {
-          userId_organizationId: {
-            userId: user.id,
-            organizationId: user.activeOrgId,
-          },
-        },
-        include: { organization: true, role: true },
-      })
-    : null
+  // Read real memberships rather than trusting the session: activeOrgId can be
+  // stale if the organization was deleted while the user was signed in.
+  const memberships = await prisma.membership.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "asc" },
+    include: { organization: true, role: true },
+  })
+
+  const membership =
+    memberships.find((m) => m.organizationId === user.activeOrgId) ??
+    memberships[0] ??
+    null
+
+  const needsOrganization = memberships.length === 0
 
   // Restore the sidebar's collapsed state on the server so it doesn't flash
   // open before the client reads the cookie.
@@ -46,6 +50,9 @@ export default async function AppLayout({
         <AppHeader />
         <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
       </SidebarInset>
+      {needsOrganization && (
+        <CreateOrganizationDialog userName={displayName(user)} />
+      )}
     </SidebarProvider>
   )
 }

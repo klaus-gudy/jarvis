@@ -132,21 +132,13 @@ export function buildUnitColumns({
           className="-mr-2 ml-auto flex"
         />
       ),
-      cell: ({ row }) => {
-        const { rentAmount, minTenureMonths } = row.original;
-        return (
-          <div className="text-right leading-tight">
-            <div className="font-mono tabular-nums">
-              {formatCurrencyFull(rentAmount)}
-            </div>
-            {minTenureMonths != null && (
-              <div className="text-xs text-muted-foreground">
-                min {minTenureMonths} mo
-              </div>
-            )}
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        // minTenureMonths stays background data — kept on the row for the edit
+        // dialog, but not surfaced in this table.
+        <div className="text-right font-mono tabular-nums">
+          {formatCurrencyFull(row.original.rentAmount)}
+        </div>
+      ),
     },
     {
       id: "actions",

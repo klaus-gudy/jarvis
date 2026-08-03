@@ -142,8 +142,38 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] Fixed dangerous default: invite role defaulted to Owner (roles sort alphabetically) — now prefers Tenant
 - [x] Data correction: 11 legacy `"!seeded-no-login"` hashes set to NULL so `canSignIn` is truthful
 
+## Phase 16 — Users/Tenants polish
+
+- [x] Removed the "No sign-in yet" caption from both tables
+- [x] `components/person-cell.tsx` — rounded avatar with initials, shared by the Users and Tenants name columns
+- [x] **Phone is mandatory everywhere a member is created**: registration, tenant onboarding, and invitations all reject a missing phone (verified: 400 on each)
+- [x] Users table shows an **Invite** button on any member who can't sign in, pre-filled with their name/phone/email and existing role
+- [x] `acceptInvitation` now *activates* an existing passwordless member (sets their password) instead of returning "already a member" — this was required for the Invite button to work at all
+- [x] Verified end to end via API: create passwordless tenant → invite → accept → **one** membership (no duplicate), password set, sign-in succeeds
+
+## Phase 17 — Edit member
+
+- [x] `PATCH /api/members/[membershipId]` — one endpoint serving both pages (a tenant is a member); org-scoped, 404 for unknown/foreign ids
+- [x] `updateMember` in `lib/members.ts` — reports a phone/email clash as a field-level 409 instead of a raw unique-constraint error
+- [x] `components/member-edit-dialog.tsx` — shared name/phone/email form; phone stays mandatory so an edit can't strip it
+- [x] Pencil button added to both the Users and Tenants tables
+- [x] Added `rawName` to both row types: the tables show a fallback (email/phone) when `name` is null, and prefilling the form with that would have silently saved the fallback as the real name
+- [x] Verified: 401 unauthenticated, 400 missing phone, 409 duplicate phone, 404 unknown id, successful update, and clearing email stores NULL
+
+## Phase 18 — Organization-less recovery
+
+- [x] `POST /api/organizations` — creates Organization + Owner role + Membership in one transaction and **re-issues the session** with the new orgId
+- [x] `createOrganizationForUser` in `lib/organizations.ts`, mirroring registration minus user creation
+- [x] `components/create-organization-dialog.tsx` — non-dismissible prompt (no close button, no outside-click escape) with a Sign out escape hatch so nobody is trapped
+- [x] Wired into `app/(app)/layout.tsx`, so it covers every page at once
+- [x] Layout now reads **actual memberships** instead of trusting `activeOrgId`, which can point at a deleted organization
+- [x] Verified: org-less login renders the prompt → create → Owner membership in DB → session updated → prompt gone, all APIs 200; 401 unauthenticated, 400 on blank name
+
 ### Not done
 
+- [ ] If the session's org is deleted but the user still belongs to *other* orgs, the layout falls back to one of them for the sidebar, but page queries still use the stale `activeOrgId` and show empty states until re-login.
+- [ ] Role is not editable — you excluded "change a member's role" when scoping the Users page. Say the word and it's a small addition.
+- [ ] `User.phone` is still nullable in the DB — 11 legacy users have none, so NOT NULL would mean inventing numbers. Enforced in every form instead; backfill those rows to tighten the column.
 - [ ] **No DB constraint stops a Lease joining a membership in one org to a unit in another.** Queries now filter it out, but the data can still be created. Worth a check constraint or an org column on Lease.
 - [ ] Changing a member's role isn't implemented (not requested).
 - [ ] Unit amenities are editable/visible in the unit dialog but **not** shown in the units table (chips don't fit) — row expansion would be the fix.

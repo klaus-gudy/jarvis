@@ -31,7 +31,7 @@ function toFormValues(unit: UnitRow): UnitFormValues {
     label: unit.label,
     rentAmount: String(unit.rentAmount),
     minTenureMonths:
-      unit.minTenureMonths == null ? NONE : String(unit.minTenureMonths),
+      unit.minTenureMonths == null ? "" : String(unit.minTenureMonths),
     unitType: unit.unitType ?? NONE,
     floor: unit.floor ?? "",
     block: unit.block ?? "",
