@@ -155,10 +155,10 @@ export default async function LeaseDetailPage({
               <CardTitle className="text-base">Lease terms</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {/* Two columns on wide screens. DetailRow's own `last:border-b-0`
+              {/* Two columns on wide screens. DetailRow's own `last:after:hidden`
                   only clears the final cell, so the whole bottom row is cleared
                   here — otherwise the second-to-last cell keeps a stray divider. */}
-              <dl className="md:grid md:grid-cols-2 md:[&>*:nth-last-child(-n+2)]:border-b-0">
+              <dl className="md:grid md:grid-cols-2 md:[&>*:nth-last-child(-n+2)]:after:hidden">
                 <DetailRow label="Start date" value={formatDate(lease.startDate)} />
                 <DetailRow label="End date" value={formatDate(lease.endDate)} />
                 <DetailRow

@@ -151,7 +151,7 @@ export default async function TenantDetailPage({
               <CardTitle className="text-base">Emergency contact</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <dl className="md:grid md:grid-cols-3 md:[&>*:nth-last-child(-n+3)]:border-b-0">
+              <dl className="md:grid md:grid-cols-3 md:[&>*:nth-last-child(-n+3)]:after:hidden">
                 <DetailRow
                   label="Name"
                   value={orDash(profile.emergencyContactName)}

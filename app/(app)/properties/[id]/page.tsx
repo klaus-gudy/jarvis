@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon } from "lucide-react";
 
+import { DetailRow } from "@/components/detail-row";
 import { PropertyActions } from "@/components/properties/property-actions";
 import { PropertyIcon } from "@/components/properties/property-icon";
 import { UnitsTable } from "@/components/properties/units-table";
@@ -96,17 +97,15 @@ export default async function PropertyDetailPage({
               <CardContent className="p-0">
                 <dl>
                   {details.map((detail) => (
-                    <div
+                    <DetailRow
                       key={detail.label}
-                      className="flex items-center justify-between gap-4 border-b px-6 py-3.5 text-sm last:border-b-0"
-                    >
-                      <dt className="text-muted-foreground">{detail.label}</dt>
-                      <dd className="text-right font-medium">{detail.value}</dd>
-                    </div>
+                      label={detail.label}
+                      value={detail.value}
+                    />
                   ))}
-                  <div className="flex items-center justify-between gap-4 px-6 py-3.5 text-sm">
-                    <dt className="text-muted-foreground">Status</dt>
-                    <dd>
+                  <DetailRow
+                    label="Status"
+                    value={
                       <span
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
@@ -124,8 +123,8 @@ export default async function PropertyDetailPage({
                         />
                         {isActive ? "Active" : "Inactive"}
                       </span>
-                    </dd>
-                  </div>
+                    }
+                  />
                 </dl>
               </CardContent>
             </Card>
