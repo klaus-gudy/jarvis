@@ -86,6 +86,7 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
           },
         ]}
         emptyMessage="No tenants yet. Use “Add tenant” to record the first one."
+        getRowHref={(tenant) => `/tenants/${tenant.membershipId}`}
       />
 
       <MemberEditDialog

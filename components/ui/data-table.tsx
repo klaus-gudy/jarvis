@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -53,6 +54,7 @@ export function DataTable<TData, TValue>({
   facetFilters = [],
   pageSize = 10,
   emptyMessage = "No results.",
+  getRowHref,
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -61,7 +63,15 @@ export function DataTable<TData, TValue>({
   facetFilters?: FacetFilter[];
   pageSize?: number;
   emptyMessage?: string;
+  /**
+   * Detail route for a row. Supplying it makes double-clicking the row navigate
+   * there. Rows stay single-click inert, so selecting text and using the
+   * checkbox still behave normally; the explicit view button in the actions
+   * column remains the keyboard-reachable path.
+   */
+  getRowHref?: (row: TData) => string | undefined;
 }) {
+  const router = useRouter();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -178,10 +188,33 @@ export function DataTable<TData, TValue>({
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
+                table.getRowModel().rows.map((row) => {
+                  const href = getRowHref?.(row.original);
+                  return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
+                    className={href ? "cursor-pointer" : undefined}
+                    onDoubleClick={
+                      href
+                        ? (event) => {
+                            // Ignore double-clicks that land on a control —
+                            // the checkbox, the row's own action buttons, or a
+                            // link already do their own thing.
+                            if (
+                              (event.target as HTMLElement).closest(
+                                "a,button,input,select,textarea,[role=checkbox]"
+                              )
+                            ) {
+                              return;
+                            }
+                            // Double-click selects a word first; drop it so the
+                            // page isn't left with a stray highlight.
+                            window.getSelection()?.removeAllRanges();
+                            router.push(href);
+                          }
+                        : undefined
+                    }
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
@@ -189,7 +222,8 @@ export function DataTable<TData, TValue>({
                       </TableCell>
                     ))}
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

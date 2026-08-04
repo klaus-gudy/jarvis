@@ -89,6 +89,7 @@ export function LeasesTable({
           },
         ]}
         emptyMessage="No leases yet. Use “Create lease” to connect a tenant to a unit."
+        getRowHref={(lease) => `/leases/${lease.id}`}
       />
 
       <LeaseFormDialog

@@ -58,19 +58,16 @@ export function UsersView({
         cell: ({ row }) => <PersonCell name={row.original.name} />,
       },
       {
-        id: "contact",
-        header: "Contact info",
-        cell: ({ row }) => {
-          const { phone, email } = row.original;
-          if (!phone && !email)
-            return <span className="text-muted-foreground">—</span>;
-          return (
-            <div className="leading-tight">
-              {phone && <div>{phone}</div>}
-              {email && <div className="text-xs text-muted-foreground">{email}</div>}
-            </div>
-          );
-        },
+        accessorKey: "phone",
+        header: "Phone",
+        cell: ({ row }) =>
+          row.original.phone ?? <span className="text-muted-foreground">—</span>,
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+        cell: ({ row }) =>
+          row.original.email ?? <span className="text-muted-foreground">—</span>,
       },
       {
         accessorKey: "roleName",
@@ -190,6 +187,7 @@ export function UsersView({
           },
         ]}
         emptyMessage="No members yet."
+        getRowHref={(member) => `/tenants/${member.membershipId}`}
       />
 
       {invitations.length > 0 && (
