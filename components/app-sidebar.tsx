@@ -47,6 +47,7 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
+              className="h-12 px-3"
               tooltip={organizationName}
               onClick={handleNavigate}
               render={<Link href="/dashboard" />}
@@ -67,12 +68,13 @@ export function AppSidebar({
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Manage</SidebarGroupLabel>
+          {/* <SidebarGroupLabel>Manage</SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
+                    className="h-10"
                     isActive={item.url === activeItem?.url}
                     tooltip={item.title}
                     onClick={handleNavigate}
