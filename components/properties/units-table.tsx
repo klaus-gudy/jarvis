@@ -95,7 +95,6 @@ export function UnitsTable({
     <div className="space-y-3">
       <div className="flex justify-end">
         <Button
-          size="sm"
           onClick={() => {
             setEditing(null);
             setFormOpen(true);

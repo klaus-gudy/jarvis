@@ -8,7 +8,6 @@ import {
   PlusIcon,
   SendIcon,
   Trash2Icon,
-  UserPlusIcon,
   XIcon,
 } from "lucide-react";
 
@@ -169,12 +168,11 @@ export function UsersView({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={() => setRoleOpen(true)}>
+        <Button variant="outline" onClick={() => setRoleOpen(true)}>
           <PlusIcon />
           New role
         </Button>
-        <Button size="sm" onClick={() => setInviteOpen(true)}>
-          <UserPlusIcon />
+        <Button onClick={() => setInviteOpen(true)}>
           Invite user
         </Button>
       </div>

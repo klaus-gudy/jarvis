@@ -18,7 +18,6 @@ export default async function NewPropertyPage() {
     <div className="max-w-3xl space-y-6">
       <Button
         variant="ghost"
-        size="sm"
         className="-ml-2 w-fit text-muted-foreground"
         nativeButton={false}
         render={<Link href="/properties" />}

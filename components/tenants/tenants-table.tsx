@@ -63,7 +63,7 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => setFormOpen(true)}>
+        <Button onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Add tenant
         </Button>

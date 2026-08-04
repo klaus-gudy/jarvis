@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BuildingIcon } from "lucide-react";
+import { BuildingIcon, PlusIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { PropertyCard } from "@/components/properties/property-card";
@@ -52,7 +52,6 @@ export default async function PropertiesPage({
               <Button
                 key={filter.label}
                 variant={isActive ? "default" : "outline"}
-                size="sm"
                 className={cn("rounded-full", !isActive && "bg-background")}
                 nativeButton={false}
                 render={<Link href={filter.href} />}
@@ -62,7 +61,8 @@ export default async function PropertiesPage({
             );
           })}
         </div>
-        <Button size="sm" nativeButton={false} render={<Link href="/properties/new" />}>
+        <Button nativeButton={false} render={<Link href="/properties/new" />}>
+         <PlusIcon />
           Add property
         </Button>
       </div>
