@@ -29,11 +29,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
-import {
-  addMonths,
-  DURATION_OPTIONS,
-  durationLabel,
-} from "@/lib/leases-schemas";
+import { addMonths, DURATION_OPTIONS } from "@/lib/leases-schemas";
 import type { LeaseOptions } from "@/lib/leases";
 
 type Option = { value: string; label: string };
@@ -141,18 +137,19 @@ export function LeaseFormDialog({
     label: item.name,
   }));
 
-  // The unit's minimum tenure is itself offered, so a unit set to e.g. 7 months
-  // isn't forced up to the next preset.
-  const durationItems: Option[] = Array.from(
-    new Set<number>([...DURATION_OPTIONS, ...(minTenure ? [minTenure] : [])])
-  )
-    .filter((months) => months >= minTenure)
-    .sort((a, b) => a - b)
-    .map((months) => ({ value: String(months), label: durationLabel(months) }));
+  // Duration is typed freely, so it has to be range-checked here rather than
+  // being guaranteed by the list of choices. The server re-checks both bounds.
+  const durationMonths = Number(duration);
+  const durationValid =
+    duration.trim() !== "" &&
+    Number.isInteger(durationMonths) &&
+    durationMonths >= 1 &&
+    durationMonths <= 120;
+  const tooShort = durationValid && durationMonths < minTenure;
 
   const start = parseIsoDate(startDate);
   const endDate =
-    start && duration ? addMonths(start, Number(duration)) : null;
+    start && durationValid && !tooShort ? addMonths(start, durationMonths) : null;
 
   // Dependent choices are cleared in the handlers rather than an effect, which
   // the codebase's set-state-in-effect rule disallows.
@@ -164,9 +161,8 @@ export function LeaseFormDialog({
 
   function handleUnitChange(next: string) {
     setUnitId(next);
-    const nextUnit = property?.units.find((item) => item.id === next);
-    const nextMin = nextUnit?.minTenureMonths ?? 0;
-    if (duration && Number(duration) < nextMin) setDuration("");
+    // A typed duration is left alone when the unit changes — silently wiping
+    // what someone entered is worse than flagging it via `tooShort`.
   }
 
   const canSubmit =
@@ -174,7 +170,8 @@ export function LeaseFormDialog({
     unitId !== "" &&
     membershipId !== "" &&
     startDate !== "" &&
-    duration !== "";
+    durationValid &&
+    !tooShort;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -190,7 +187,7 @@ export function LeaseFormDialog({
         unitId,
         membershipId,
         startDate,
-        durationMonths: Number(duration),
+        durationMonths,
       }),
     });
 
@@ -300,19 +297,36 @@ export function LeaseFormDialog({
 
               <Field>
                 <FieldLabel htmlFor="lease-duration">Duration</FieldLabel>
-                <SearchSelect
+                {/* Free integer entry rather than a fixed list of terms — a
+                    landlord may agree any number of months. `list` offers the
+                    common terms as suggestions without restricting the field. */}
+                <Input
                   id="lease-duration"
-                  options={durationItems}
+                  type="number"
+                  min={Math.max(1, minTenure)}
+                  max={120}
+                  step={1}
+                  inputMode="numeric"
+                  list="lease-duration-presets"
                   value={duration}
-                  onChange={setDuration}
-                  placeholder={unitId ? "Select term…" : "Pick a unit first"}
+                  onChange={(event) => setDuration(event.target.value)}
+                  placeholder="12"
                   disabled={!unitId}
                 />
-                {minTenure > 0 && (
-                  <FieldDescription>
-                    This unit&apos;s minimum tenure is {minTenure} months.
-                  </FieldDescription>
-                )}
+                <datalist id="lease-duration-presets">
+                  {DURATION_OPTIONS.filter((months) => months >= minTenure).map(
+                    (months) => (
+                      <option key={months} value={months} />
+                    )
+                  )}
+                </datalist>
+                <FieldDescription>
+                  {tooShort
+                    ? `Minimum tenure for this unit is ${minTenure} months.`
+                    : minTenure > 0
+                      ? `In months. Minimum ${minTenure} for this unit.`
+                      : "In months."}
+                </FieldDescription>
                 <FieldError
                   errors={fieldErrors.durationMonths?.map((m) => ({ message: m }))}
                 />

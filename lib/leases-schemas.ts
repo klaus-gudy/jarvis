@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 /**
- * Offered lease terms, in months. The form picks one of these and the end date
- * is derived from it — leases are always fixed-term, never open-ended.
+ * Common lease terms, in months. Offered as suggestions only — the duration
+ * field accepts any whole number of months, so a term outside this list is
+ * perfectly valid. The end date is derived from whatever is entered.
  */
 export const DURATION_OPTIONS = [3, 6, 12, 18, 24, 36] as const;
 
@@ -24,14 +25,6 @@ export function addMonths(date: Date, months: number) {
     result.setUTCDate(0);
   }
   return result;
-}
-
-export function durationLabel(months: number) {
-  if (months % 12 === 0) {
-    const years = months / 12;
-    return `${months} months · ${years} year${years === 1 ? "" : "s"}`;
-  }
-  return `${months} months`;
 }
 
 export const createLeaseSchema = z.object({

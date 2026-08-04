@@ -92,21 +92,25 @@ export function buildTenantColumns({
       ),
     },
     {
-      id: "unit",
+      accessorKey: "propertyName",
+      header: "Property",
+      cell: ({ row }) =>
+        row.original.propertyName ?? (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      accessorKey: "unitLabel",
       header: "Unit",
       cell: ({ row }) => {
-        const { unitLabel, propertyName, status } = row.original;
+        const { unitLabel, status } = row.original;
         if (!unitLabel) return <span className="text-muted-foreground">—</span>;
-        return (
-          <div className="leading-tight">
-            <div className={status === "Vacated" ? "text-muted-foreground" : ""}>
-              {unitLabel}
-              {status === "Vacated" && " (past)"}
-            </div>
-            {propertyName && (
-              <div className="text-xs text-muted-foreground">{propertyName}</div>
-            )}
-          </div>
+        // A vacated tenant's unit is where they used to live, so it is dimmed
+        // and marked rather than reading as a current occupancy.
+        return status === "Vacated" ? (
+          <span className="text-muted-foreground">{unitLabel} (past)</span>
+        ) : (
+          unitLabel
         );
       },
     },
