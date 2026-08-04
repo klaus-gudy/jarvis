@@ -44,12 +44,8 @@ model Role {
 
 model User {
   id String @id @default(cuid())
-  /// Optional because tenants are onboarded by staff and may only have a phone.
-  /// Registration still requires it; the tenant form requires phone instead.
   email String? @unique
   phone String? @unique
-  /// Null means the account cannot sign in yet — an assisted-onboarding tenant
-  /// or an invitee who hasn't accepted. Login must reject null explicitly.
   passwordHash String?
   name         String?
   createdAt    DateTime @default(now())
@@ -66,8 +62,6 @@ enum InvitationStatus {
 
 model Invitation {
   id String @id @default(cuid())
-  /// SHA-256 of the token. The raw token only ever exists in the invite link,
-  /// so a database leak doesn't hand out working invitations.
   tokenHash  String           @unique
   email      String?
   phone      String?
@@ -120,13 +114,9 @@ model Property {
   id   String       @id @default(cuid())
   name String
   type PropertyType
-  /// What the units are, shown next to the address: "Apartments", "Office suites".
   category String
-  address  String
-  /// Owner is not stored — it is derived from the organization's Owner-role member.
   status PropertyStatus @default(ACTIVE)
   description String?
-  /// Shared facilities for the whole building: "CCTV", "Lift", "Borehole water".
   amenities String[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -142,20 +132,12 @@ model Property {
 model Unit {
   id    String @id @default(cuid())
   label String
-  /// Monthly rent in whole shillings. TZS has no subunit in practice, so an
-  /// integer avoids both float rounding and Decimal serialization to clients.
   rentAmount Int
-  /// Shortest lease the landlord will accept, in months.
   minTenureMonths Int?
-  /// Unit-level type ("Studio", "2 Bedroom", "Shop") — distinct from
-  /// Property.type, which is RESIDENTIAL/COMMERCIAL for the whole building.
   unitType String?
-  /// Free text: "Ground", "Mezzanine" and "Basement" are all real floors.
   floor   String?
   block   String?
   sizeSqm Float?
-  /// Amenities belonging to this unit ("Furnished", "Built-in wardrobes"),
-  /// as opposed to Property.amenities which covers shared facilities.
   amenities String[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -172,9 +154,9 @@ model Unit {
 model Lease {
   id        String   @id @default(cuid())
   startDate DateTime
-  /// Required: leases are always for a fixed term. The form takes a duration in
-  /// months and this is derived from it, so there are no open-ended contracts.
   endDate   DateTime
+  durationMonths Int
+  leaseAmount    Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

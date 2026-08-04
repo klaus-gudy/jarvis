@@ -10,20 +10,12 @@ export type LeaseRow = {
   tenantName: string;
   unitLabel: string;
   propertyName: string;
-  rentAmount: number;
   startDate: string;
   endDate: string;
   durationMonths: number;
+  leaseAmount: number;
   status: LeaseStatus;
 };
-
-/** Inverse of addMonths, for displaying the agreed term. */
-function termMonths(start: Date, end: Date) {
-  return (
-    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
-    (end.getUTCMonth() - start.getUTCMonth())
-  );
-}
 
 function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
   if (startDate > now) return "Upcoming";
@@ -63,12 +55,107 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
       "Unnamed",
     unitLabel: lease.unit.label,
     propertyName: lease.unit.property.name,
-    rentAmount: lease.unit.rentAmount,
     startDate: lease.startDate.toISOString(),
     endDate: lease.endDate.toISOString(),
-    durationMonths: termMonths(lease.startDate, lease.endDate),
+    durationMonths: lease.durationMonths,
+    leaseAmount: lease.leaseAmount,
     status: leaseStatus(now, lease.startDate, lease.endDate),
   }));
+}
+
+/**
+ * There is no lease-number column, so the reference is derived from the tail of
+ * the cuid — stable for the life of the row, but not a sequential "L-05".
+ */
+export function leaseReference(id: string) {
+  return `L-${id.slice(-5).toUpperCase()}`;
+}
+
+export type LeaseDetail = {
+  id: string;
+  reference: string;
+  status: LeaseStatus;
+  tenant: {
+    membershipId: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+  };
+  unit: {
+    id: string;
+    label: string;
+    unitType: string | null;
+    floor: string | null;
+    block: string | null;
+    sizeSqm: number | null;
+    rentAmount: number;
+  };
+  property: {
+    id: string;
+    name: string;
+    address: string;
+    category: string;
+  };
+  startDate: Date;
+  endDate: Date;
+  durationMonths: number;
+  leaseAmount: number;
+};
+
+/** Scoped through both relations, matching getLeases, so one org can't read another's lease. */
+export async function getLease(
+  organizationId: string,
+  leaseId: string
+): Promise<LeaseDetail | null> {
+  const lease = await prisma.lease.findFirst({
+    where: {
+      id: leaseId,
+      membership: { organizationId },
+      unit: { property: { organizationId } },
+    },
+    include: {
+      unit: { include: { property: true } },
+      membership: {
+        include: { user: { select: { name: true, email: true, phone: true } } },
+      },
+    },
+  });
+  if (!lease) return null;
+
+  return {
+    id: lease.id,
+    reference: leaseReference(lease.id),
+    status: leaseStatus(new Date(), lease.startDate, lease.endDate),
+    tenant: {
+      membershipId: lease.membershipId,
+      name:
+        lease.membership.user.name ??
+        lease.membership.user.email ??
+        lease.membership.user.phone ??
+        "Unnamed",
+      phone: lease.membership.user.phone,
+      email: lease.membership.user.email,
+    },
+    unit: {
+      id: lease.unit.id,
+      label: lease.unit.label,
+      unitType: lease.unit.unitType,
+      floor: lease.unit.floor,
+      block: lease.unit.block,
+      sizeSqm: lease.unit.sizeSqm,
+      rentAmount: lease.unit.rentAmount,
+    },
+    property: {
+      id: lease.unit.property.id,
+      name: lease.unit.property.name,
+      address: lease.unit.property.address,
+      category: lease.unit.property.category,
+    },
+    startDate: lease.startDate,
+    endDate: lease.endDate,
+    durationMonths: lease.durationMonths,
+    leaseAmount: lease.leaseAmount,
+  };
 }
 
 export type LeaseUnitOption = {
@@ -154,7 +241,7 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
       propertyId: input.propertyId,
       property: { organizationId },
     },
-    select: { id: true, minTenureMonths: true },
+    select: { id: true, minTenureMonths: true, rentAmount: true },
   });
   if (!unit) return { error: "unit-not-found" as const };
 
@@ -194,6 +281,10 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
       membershipId: membership.id,
       startDate: input.startDate,
       endDate,
+      durationMonths: input.durationMonths,
+      // Locked in at the rent that applied when the lease was signed, so a
+      // later change to the unit's rentAmount doesn't rewrite this lease's history.
+      leaseAmount: unit.rentAmount * input.durationMonths,
     },
     select: { id: true },
   });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Trash2Icon } from "lucide-react";
 
@@ -56,20 +57,32 @@ export function buildLeaseColumns({
           className="-ml-2"
         />
       ),
-      cell: ({ row }) => <PersonCell name={row.original.tenantName} />,
+      // The only route into the lease detail page, so the whole cell is the link.
+      cell: ({ row }) => (
+        <Link
+          href={`/leases/${row.original.id}`}
+          className="rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <PersonCell name={row.original.tenantName} />
+        </Link>
+      ),
     },
     {
-      id: "unit",
+      accessorKey: "propertyName",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          title="Property"
+          sorted={column.getIsSorted()}
+          onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-2"
+        />
+      ),
+      cell: ({ row }) => row.original.propertyName,
+    },
+    {
+      accessorKey: "unitLabel",
       header: "Unit",
-      cell: ({ row }) => {
-        const { unitLabel, propertyName } = row.original;
-        return (
-          <div className="leading-tight">
-            <div className="font-medium">{unitLabel}</div>
-            <div className="text-xs text-muted-foreground">{propertyName}</div>
-          </div>
-        );
-      },
+      cell: ({ row }) => <span className="font-medium">{row.original.unitLabel}</span>,
     },
     {
       accessorKey: "startDate",
@@ -86,15 +99,18 @@ export function buildLeaseColumns({
     {
       accessorKey: "endDate",
       header: "End date",
-      // Leases are always fixed-term, so there is no open-ended case to render.
-      cell: ({ row }) => (
-        <div className="leading-tight">
-          <div>{formatDate(new Date(row.original.endDate))}</div>
-          <div className="text-xs text-muted-foreground">
-            {row.original.durationMonths} months
-          </div>
-        </div>
+      cell: ({ row }) => formatDate(new Date(row.original.endDate)),
+    },
+    {
+      accessorKey: "durationMonths",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          title="Duration"
+          sorted={column.getIsSorted()}
+          onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        />
       ),
+      cell: ({ row }) => `${row.original.durationMonths} months`,
     },
     {
       accessorKey: "status",
@@ -110,10 +126,10 @@ export function buildLeaseColumns({
       filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
     },
     {
-      accessorKey: "rentAmount",
+      accessorKey: "leaseAmount",
       header: ({ column }) => (
         <DataTableColumnHeader
-          title="Rent / month"
+          title="Lease amount"
           sorted={column.getIsSorted()}
           onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="-mr-2 ml-auto flex"
@@ -121,7 +137,7 @@ export function buildLeaseColumns({
       ),
       cell: ({ row }) => (
         <div className="text-right font-mono tabular-nums">
-          {formatCurrencyFull(row.original.rentAmount)}
+          {formatCurrencyFull(row.original.leaseAmount)}
         </div>
       ),
     },
