@@ -71,6 +71,9 @@
   --shadow-opacity: var(--shadow-opacity);
   --color-shadow-color: var(--shadow-color);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-stat: var(--stat);
+  --color-stat-foreground: var(--stat-foreground);
+  --color-stat-accent: var(--stat-accent);
 }
 
 :root {
@@ -127,9 +130,23 @@
   --shadow-xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.10), 0px 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
+  /*
+   * The dashboard's lead card is a filled slab that must stay dark in both
+   * themes, so it can't ride on --primary: that token is navy in light but
+   * gold in dark, which would turn the card into a gold block. --stat-accent
+   * is the gold used for figures that need attention; it is deliberately the
+   * same value in both themes so it reads as an accent either way.
+   */
+  --stat: oklch(0.2972 0.0398 246.6002);
+  --stat-foreground: oklch(1.0000 0 0);
+  --stat-accent: oklch(0.6325 0.0904 80.9413);
 }
 
 .dark {
+  /* Deeper than --background so the slab still separates from the page. */
+  --stat: oklch(0.2210 0.0253 246.6492);
+  --stat-foreground: oklch(0.9219 0 0);
+  --stat-accent: oklch(0.6325 0.0904 80.9413);
   --background: oklch(0.2598 0.0306 262.6666);
   --foreground: oklch(0.9219 0 0);
   --card: oklch(0.3106 0.0301 268.6365);

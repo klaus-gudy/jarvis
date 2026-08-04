@@ -169,6 +169,22 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] Layout now reads **actual memberships** instead of trusting `activeOrgId`, which can point at a deleted organization
 - [x] Verified: org-less login renders the prompt → create → Owner membership in DB → session updated → prompt gone, all APIs 200; 401 unauthenticated, 400 on blank name
 
+## Phase 19 — Dashboard summary cards
+
+- [x] `lib/dashboard.ts` — `getDashboardStats()`, one org-scoped `Promise.all`; leases scoped through **both** the membership and the unit's property, matching `getLeases`
+- [x] Rent collected = each lease's full value, limited to the months of its term falling in this calendar year (`leaseMonthsInYear`), so a 6-month lease at 100k books 600k the day it's signed rather than trickling in
+- [x] Expected = `Σ Unit.rentAmount × 12` — the whole portfolio fully let, so the percentage has a fixed ceiling and the bar can't run past 100%
+- [x] Card shows collected · `est. X/yr`, the percentage as pill + bar, and `TZS 1.4M/mo across 4 units` as the footer so the yearly figure has a visible basis
+- [x] `components/dashboard/metric-card.tsx` — **one** `MetricCard` behind both looks via `variant="filled" | "default"`, so the row's proportions (size-9 icon tile, `text-2xl` figure, rule, `text-[11px]` sub-labels) are defined once. Optional `href` / `badge` / `progress` / `footer` / `stats` cover every slot
+- [x] Whole card is one `Link` when `href` is set; the "View →" is decorative so no anchor nests inside another
+- [x] Dropped the first pass's `stat-card.tsx` (separate `RentCard` + `StatCard`) — two components meant two sets of proportions to keep in sync
+- [x] Cards link to `/leases`, `/properties`, `/tenants`, `/leases`
+- [x] Greeting header: uppercase long date + time-of-day greeting + first name
+- [x] **New tokens `--stat` / `--stat-foreground` / `--stat-accent`** — the lead card can't ride on `--primary` because that token is navy in light but *gold* in dark, which turned the card into a gold block. Sub-stat tones are plain vs gold for the same reason (`--secondary-foreground` and `--primary` swap roles between themes)
+- [x] Tenants card leads with the total; Prospective (gold) and Active sit under it. Leases card says "Expiring soon" — the 60-day window is `EXPIRY_WINDOW_DAYS`, not label text
+- [x] "View →" underlines on hover anywhere over the card (`group-hover/card:underline`), since the whole card is the link
+- [x] Verified live: TZS 900,000 / est. 16.8M / 5% matches the DB by hand (2 leases: 2 mo × 300k + 3 mo × 100k; 4 units × 1.4M/mo × 12), hover underlines only the hovered card, Properties card click lands on `/properties`, no console errors, no horizontal overflow at 375px, filled card reads as a deep slab in both themes
+
 ### Not done
 
 - [ ] If the session's org is deleted but the user still belongs to *other* orgs, the layout falls back to one of them for the sidebar, but page queries still use the stale `activeOrgId` and show empty states until re-login.

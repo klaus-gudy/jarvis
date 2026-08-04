@@ -1,54 +1,116 @@
 import { redirect } from "next/navigation"
-
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+  BuildingIcon,
+  FileTextIcon,
+  UsersIcon,
+  WalletIcon,
+} from "lucide-react"
+
+import { MetricCard } from "@/components/dashboard/metric-card"
 import { getCurrentUser } from "@/lib/auth/session"
-import { prisma } from "@/lib/prisma"
+import { getDashboardStats } from "@/lib/dashboard"
+import { formatCurrency, formatCurrencyFull } from "@/lib/format"
+
+/** "Good morning" until noon, "Good afternoon" until 17:00, then "Good evening". */
+function greeting(hour: number) {
+  if (hour < 12) return "Good morning"
+  if (hour < 17) return "Good afternoon"
+  return "Good evening"
+}
 
 export default async function DashboardPage() {
   const user = await getCurrentUser()
   if (!user) redirect("/login")
 
-  const orgId = user.activeOrgId
+  const stats = await getDashboardStats(user.activeOrgId ?? null)
 
-  const [properties, units, leases, members] = orgId
-    ? await Promise.all([
-        prisma.property.count({ where: { organizationId: orgId } }),
-        prisma.unit.count({ where: { property: { organizationId: orgId } } }),
-        prisma.lease.count({
-          // "Active" is a date range now that every lease is fixed-term; the
-          // old `endDate: null` proxy would count nothing.
-          where: {
-            membership: { organizationId: orgId },
-            startDate: { lte: new Date() },
-            endDate: { gte: new Date() },
-          },
-        }),
-        prisma.membership.count({ where: { organizationId: orgId } }),
-      ])
-    : [0, 0, 0, 0]
-
-  const stats = [
-    { label: "Properties", value: properties },
-    { label: "Units", value: units },
-    { label: "Active leases", value: leases },
-    { label: "Members", value: members },
-  ]
+  const now = new Date()
+  // First name only — the greeting reads as an address, not a record.
+  const firstName = user.name?.trim().split(/\s+/)[0] ?? null
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => (
-        <Card key={stat.label}>
-          <CardHeader>
-            <CardDescription>{stat.label}</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{stat.value}</CardTitle>
-          </CardHeader>
-        </Card>
-      ))}
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          {new Intl.DateTimeFormat("en-GB", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }).format(now)}
+        </p>
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          {greeting(now.getHours())}
+          {firstName ? `, ${firstName}` : ""}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Here&apos;s how your portfolio is performing this month.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          variant="filled"
+          href="/leases"
+          icon={WalletIcon}
+          value={formatCurrencyFull(stats.rent.collected)}
+          label={`Rent collected · est. ${formatCurrency(stats.rent.expectedYear)}/yr`}
+          badge={`${stats.rent.collectedPercent}%`}
+          progress={stats.rent.collectedPercent}
+          // Spells out where the yearly expectation comes from, so the
+          // percentage isn't a number without a basis.
+          footer={`${formatCurrency(stats.rent.expectedMonthly)}/mo across ${
+            stats.properties.totalUnits
+          } ${stats.properties.totalUnits === 1 ? "unit" : "units"}`}
+        />
+
+        <MetricCard
+          href="/properties"
+          icon={BuildingIcon}
+          value={stats.properties.total}
+          label={`Properties · ${stats.properties.occupancyRate}% occupied`}
+          stats={[
+            { label: "Occupied units", value: stats.properties.occupiedUnits },
+            {
+              label: "Vacant units",
+              value: stats.properties.vacantUnits,
+              tone: "accent",
+            },
+          ]}
+        />
+
+        <MetricCard
+          href="/tenants"
+          icon={UsersIcon}
+          value={stats.tenants.total}
+          label="Tenants"
+          stats={[
+            {
+              label: "Prospective",
+              value: stats.tenants.prospect,
+              tone: "accent",
+            },
+            { label: "Active", value: stats.tenants.active },
+          ]}
+        />
+
+        <MetricCard
+          href="/leases"
+          icon={FileTextIcon}
+          value={stats.leases.total}
+          label="Leases"
+          stats={[
+            { label: "Active", value: stats.leases.active },
+            {
+              // The 60-day window is a detail of getDashboardStats, not
+              // something the card needs to spell out.
+              label: "Expiring soon",
+              value: stats.leases.expiringSoon,
+              tone: "accent",
+            },
+          ]}
+        />
+      </div>
     </div>
   )
 }
