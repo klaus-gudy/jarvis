@@ -62,23 +62,18 @@ export function buildTenantColumns({
       cell: ({ row }) => <PersonCell name={row.original.name} />,
     },
     {
-      id: "contact",
-      header: "Contact info",
-      // Phone leads: it's the identifier assisted onboarding requires.
-      cell: ({ row }) => {
-        const { phone, email } = row.original;
-        if (!phone && !email) {
-          return <span className="text-muted-foreground">—</span>;
-        }
-        return (
-          <div className="leading-tight">
-            {phone && <div>{phone}</div>}
-            {email && (
-              <div className="text-xs text-muted-foreground">{email}</div>
-            )}
-          </div>
-        );
-      },
+      accessorKey: "phone",
+      // Phone comes first: it's the identifier assisted onboarding requires,
+      // whereas email is optional for a tenant.
+      header: "Phone",
+      cell: ({ row }) =>
+        row.original.phone ?? <span className="text-muted-foreground">—</span>,
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) =>
+        row.original.email ?? <span className="text-muted-foreground">—</span>,
     },
     {
       accessorKey: "joinedAt",
