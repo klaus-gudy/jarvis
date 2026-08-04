@@ -1,3 +1,5 @@
+import { leaseReference, type LeaseStatus } from "@/lib/leases";
+import type { UpdateMemberProfileInput } from "@/lib/member-profile-schemas";
 import { prisma } from "@/lib/prisma";
 import { ensureRole, TENANT_ROLE_NAME } from "@/lib/roles";
 import type { CreateTenantInput } from "@/lib/tenants-schemas";
@@ -83,6 +85,150 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
       canSignIn: membership.user.passwordHash !== null,
     };
   });
+}
+
+export type MemberProfileFields = {
+  occupation: string | null;
+  nidaNumber: string | null;
+  employer: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelation: string | null;
+};
+
+const EMPTY_PROFILE: MemberProfileFields = {
+  occupation: null,
+  nidaNumber: null,
+  employer: null,
+  emergencyContactName: null,
+  emergencyContactPhone: null,
+  emergencyContactRelation: null,
+};
+
+export type TenantDetail = {
+  membershipId: string;
+  userId: string;
+  name: string;
+  rawName: string | null;
+  phone: string | null;
+  email: string | null;
+  roleName: string;
+  joinedAt: Date;
+  canSignIn: boolean;
+  status: TenantStatus;
+  profile: MemberProfileFields;
+  leases: {
+    id: string;
+    reference: string;
+    propertyName: string;
+    unitLabel: string;
+    startDate: Date;
+    endDate: Date;
+    durationMonths: number;
+    leaseAmount: number;
+    status: LeaseStatus;
+  }[];
+};
+
+/** Scoped by organizationId, so a membership id from another org reads as missing. */
+export async function getTenantDetail(
+  organizationId: string,
+  membershipId: string
+): Promise<TenantDetail | null> {
+  const now = new Date();
+
+  const membership = await prisma.membership.findFirst({
+    where: { id: membershipId, organizationId },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, phone: true, passwordHash: true },
+      },
+      role: { select: { name: true } },
+      profile: true,
+      leases: {
+        orderBy: { startDate: "desc" },
+        include: { unit: { include: { property: { select: { name: true } } } } },
+      },
+    },
+  });
+  if (!membership) return null;
+
+  const hasActive = membership.leases.some(
+    (lease) => lease.startDate <= now && lease.endDate >= now
+  );
+
+  return {
+    membershipId: membership.id,
+    userId: membership.user.id,
+    name:
+      membership.user.name ??
+      membership.user.email ??
+      membership.user.phone ??
+      "Unnamed",
+    rawName: membership.user.name,
+    phone: membership.user.phone,
+    email: membership.user.email,
+    roleName: membership.role.name,
+    joinedAt: membership.createdAt,
+    canSignIn: membership.user.passwordHash !== null,
+    status: hasActive
+      ? "Active"
+      : membership.leases.length > 0
+        ? "Vacated"
+        : "Prospect",
+    // A member with no profile row is normal, so absent reads as all-blank
+    // rather than forcing every caller to null-check the relation.
+    profile: membership.profile
+      ? {
+          occupation: membership.profile.occupation,
+          nidaNumber: membership.profile.nidaNumber,
+          employer: membership.profile.employer,
+          emergencyContactName: membership.profile.emergencyContactName,
+          emergencyContactPhone: membership.profile.emergencyContactPhone,
+          emergencyContactRelation: membership.profile.emergencyContactRelation,
+        }
+      : EMPTY_PROFILE,
+    leases: membership.leases.map((lease) => ({
+      id: lease.id,
+      reference: leaseReference(lease.id),
+      propertyName: lease.unit.property.name,
+      unitLabel: lease.unit.label,
+      startDate: lease.startDate,
+      endDate: lease.endDate,
+      durationMonths: lease.durationMonths,
+      leaseAmount: lease.leaseAmount,
+      status:
+        lease.startDate > now
+          ? "Upcoming"
+          : lease.endDate < now
+            ? "Ended"
+            : "Active",
+    })),
+  };
+}
+
+/**
+ * Upserts because the profile row is created lazily — a member only gets one
+ * the first time somebody actually fills these details in.
+ */
+export async function updateMemberProfile(
+  organizationId: string,
+  membershipId: string,
+  input: UpdateMemberProfileInput
+) {
+  const membership = await prisma.membership.findFirst({
+    where: { id: membershipId, organizationId },
+    select: { id: true },
+  });
+  if (!membership) return { error: "not-found" as const };
+
+  await prisma.memberProfile.upsert({
+    where: { membershipId: membership.id },
+    create: { membershipId: membership.id, ...input },
+    update: input,
+  });
+
+  return { ok: true as const };
 }
 
 /**

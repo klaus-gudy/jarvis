@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
+import { DetailRow, orDash } from "@/components/detail-row";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,21 +22,6 @@ const STATUS_DOT: Record<LeaseStatus, string> = {
   Upcoming: "bg-amber-500",
   Ended: "bg-muted-foreground",
 };
-
-/** One label/value line, matching the rows on the property detail page. */
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b px-6 py-3.5 text-sm last:border-b-0">
-      <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="truncate text-right font-medium">{value}</dd>
-    </div>
-  );
-}
-
-/** Optional values render as an em dash rather than collapsing the row. */
-function orDash(value: string | number | null | undefined) {
-  return value === null || value === undefined || value === "" ? "—" : value;
-}
 
 export default async function LeaseDetailPage({
   params,

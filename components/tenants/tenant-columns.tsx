@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +133,15 @@ export function buildTenantColumns({
       header: "",
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            nativeButton={false}
+            render={<Link href={`/tenants/${row.original.membershipId}`} />}
+            aria-label={`View ${row.original.name}`}
+          >
+            <EyeIcon />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

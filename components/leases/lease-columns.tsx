@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Trash2Icon } from "lucide-react";
+import { EyeIcon, Trash2Icon } from "lucide-react";
 
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
@@ -57,15 +57,7 @@ export function buildLeaseColumns({
           className="-ml-2"
         />
       ),
-      // The only route into the lease detail page, so the whole cell is the link.
-      cell: ({ row }) => (
-        <Link
-          href={`/leases/${row.original.id}`}
-          className="rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <PersonCell name={row.original.tenantName} />
-        </Link>
-      ),
+      cell: ({ row }) => <PersonCell name={row.original.tenantName} />,
     },
     {
       accessorKey: "propertyName",
@@ -145,7 +137,16 @@ export function buildLeaseColumns({
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            nativeButton={false}
+            render={<Link href={`/leases/${row.original.id}`} />}
+            aria-label={`View lease for ${row.original.tenantName}`}
+          >
+            <EyeIcon />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"
