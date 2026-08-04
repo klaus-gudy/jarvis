@@ -163,9 +163,9 @@
   --sidebar-ring: oklch(0.6397 0.1720 36.4421);
   --destructive-foreground: oklch(1.0000 0 0);
   --radius: 0.75rem;
-  --font-sans: Inter, sans-serif;
-  --font-serif: Source Serif 4, serif;
-  --font-mono: JetBrains Mono, monospace;
+  --font-sans: var(--font-hanken), system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-sora), var(--font-hanken), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --shadow-color: hsl(0 0% 0%);
   --shadow-opacity: 0.1;
   --shadow-blur: 3px;
