@@ -1,9 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import type { CreateLeaseInput } from "@/lib/leases-schemas";
+import { addMonths, type CreateLeaseInput } from "@/lib/leases-schemas";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
-
-/** Sentinel for "no end date" when checking interval overlap against a fixed upper bound. */
-const FAR_FUTURE = new Date(8640000000000000);
 
 export type LeaseStatus = "Active" | "Upcoming" | "Ended";
 
@@ -15,20 +12,29 @@ export type LeaseRow = {
   propertyName: string;
   rentAmount: number;
   startDate: string;
-  endDate: string | null;
+  endDate: string;
+  durationMonths: number;
   status: LeaseStatus;
 };
 
-function leaseStatus(now: Date, startDate: Date, endDate: Date | null): LeaseStatus {
+/** Inverse of addMonths, for displaying the agreed term. */
+function termMonths(start: Date, end: Date) {
+  return (
+    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    (end.getUTCMonth() - start.getUTCMonth())
+  );
+}
+
+function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
   if (startDate > now) return "Upcoming";
-  if (endDate && endDate < now) return "Ended";
+  if (endDate < now) return "Ended";
   return "Active";
 }
 
 /**
- * Scoped through both the membership and the unit's property, so a lease
- * that somehow joins a membership in one org to a unit in another (nothing
- * in the schema forbids it) can never surface on this org's page.
+ * Scoped through both the membership and the unit's property, so a lease that
+ * somehow joins a membership in one org to a unit in another (nothing in the
+ * schema forbids it) can never surface on this org's page.
  */
 export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
   const now = new Date();
@@ -59,33 +65,46 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     propertyName: lease.unit.property.name,
     rentAmount: lease.unit.rentAmount,
     startDate: lease.startDate.toISOString(),
-    endDate: lease.endDate?.toISOString() ?? null,
+    endDate: lease.endDate.toISOString(),
+    durationMonths: termMonths(lease.startDate, lease.endDate),
     status: leaseStatus(now, lease.startDate, lease.endDate),
   }));
 }
 
+export type LeaseUnitOption = {
+  id: string;
+  label: string;
+  rentAmount: number;
+  /** Floors the duration the form will accept for this unit. */
+  minTenureMonths: number | null;
+};
+
 export type LeaseOptions = {
-  units: { id: string; label: string; propertyName: string; rentAmount: number }[];
+  properties: { id: string; name: string; units: LeaseUnitOption[] }[];
   tenants: { membershipId: string; name: string }[];
 };
 
-/** A new lease can only be built from a currently-vacant unit and a Tenant-role member. */
+/**
+ * Drives the property → unit → tenant cascade.
+ *
+ * A unit counts as available when it has no lease that ends in the future,
+ * which excludes both current occupants and units already committed to an
+ * upcoming lease. Properties with nothing available are dropped so the first
+ * step never leads to an empty second step.
+ */
 export async function getLeaseOptions(organizationId: string): Promise<LeaseOptions> {
   const now = new Date();
 
-  const [units, tenantMemberships] = await Promise.all([
-    prisma.unit.findMany({
-      where: {
-        property: { organizationId },
-        leases: {
-          none: {
-            startDate: { lte: now },
-            OR: [{ endDate: null }, { endDate: { gte: now } }],
-          },
+  const [properties, tenantMemberships] = await Promise.all([
+    prisma.property.findMany({
+      where: { organizationId },
+      orderBy: { name: "asc" },
+      include: {
+        units: {
+          where: { leases: { none: { endDate: { gte: now } } } },
+          orderBy: { label: "asc" },
         },
       },
-      orderBy: { label: "asc" },
-      include: { property: { select: { name: true } } },
     }),
     prisma.membership.findMany({
       where: {
@@ -98,12 +117,18 @@ export async function getLeaseOptions(organizationId: string): Promise<LeaseOpti
   ]);
 
   return {
-    units: units.map((unit) => ({
-      id: unit.id,
-      label: unit.label,
-      propertyName: unit.property.name,
-      rentAmount: unit.rentAmount,
-    })),
+    properties: properties
+      .filter((property) => property.units.length > 0)
+      .map((property) => ({
+        id: property.id,
+        name: property.name,
+        units: property.units.map((unit) => ({
+          id: unit.id,
+          label: unit.label,
+          rentAmount: unit.rentAmount,
+          minTenureMonths: unit.minTenureMonths,
+        })),
+      })),
     tenants: tenantMemberships.map((membership) => ({
       membershipId: membership.id,
       name:
@@ -116,15 +141,20 @@ export async function getLeaseOptions(organizationId: string): Promise<LeaseOpti
 }
 
 /**
- * The unit and tenant ids are re-validated server-side rather than trusted
- * from the options list a client fetched earlier: the unit must belong to
- * this org and be free for the requested period, and the membership must
- * belong to this org and actually hold the Tenant role.
+ * Everything the client sent is re-checked here rather than trusted from the
+ * options payload it fetched earlier: the unit must belong to the named
+ * property *and* to this org, the membership must be a Tenant in this org, the
+ * term must clear the unit's minimum tenure, and the resulting period must not
+ * overlap an existing lease on that unit.
  */
 export async function createLease(organizationId: string, input: CreateLeaseInput) {
   const unit = await prisma.unit.findFirst({
-    where: { id: input.unitId, property: { organizationId } },
-    select: { id: true },
+    where: {
+      id: input.unitId,
+      propertyId: input.propertyId,
+      property: { organizationId },
+    },
+    select: { id: true, minTenureMonths: true },
   });
   if (!unit) return { error: "unit-not-found" as const };
 
@@ -138,13 +168,21 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
   });
   if (!membership) return { error: "tenant-not-found" as const };
 
-  // Interval overlap: an existing lease conflicts if it starts before this
-  // one ends, and ends (or never ends) after this one starts.
+  if (unit.minTenureMonths != null && input.durationMonths < unit.minTenureMonths) {
+    return {
+      error: "duration-too-short" as const,
+      minTenureMonths: unit.minTenureMonths,
+    };
+  }
+
+  const endDate = addMonths(input.startDate, input.durationMonths);
+
+  // Half-open interval, so a lease starting the day another ends is allowed.
   const overlapping = await prisma.lease.findFirst({
     where: {
       unitId: unit.id,
-      startDate: { lte: input.endDate ?? FAR_FUTURE },
-      OR: [{ endDate: null }, { endDate: { gte: input.startDate } }],
+      startDate: { lt: endDate },
+      endDate: { gt: input.startDate },
     },
     select: { id: true },
   });
@@ -155,7 +193,7 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
       unitId: unit.id,
       membershipId: membership.id,
       startDate: input.startDate,
-      endDate: input.endDate ?? null,
+      endDate,
     },
     select: { id: true },
   });

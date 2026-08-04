@@ -55,8 +55,7 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
   return memberships.map((membership) => {
     const activeLease =
       membership.leases.find(
-        (lease) =>
-          lease.startDate <= now && (lease.endDate === null || lease.endDate >= now)
+        (lease) => lease.startDate <= now && lease.endDate >= now
       ) ?? null;
 
     // Falls back to the most recent lease so a vacated tenant still shows

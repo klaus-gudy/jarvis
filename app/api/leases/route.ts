@@ -39,6 +39,19 @@ export async function POST(request: Request) {
   if (result.error === "tenant-not-found") {
     return Response.json({ error: "Tenant not found" }, { status: 404 });
   }
+  if (result.error === "duration-too-short") {
+    return Response.json(
+      {
+        error: "Validation failed",
+        issues: {
+          durationMonths: [
+            `This unit has a minimum tenure of ${result.minTenureMonths} months`,
+          ],
+        },
+      },
+      { status: 400 }
+    );
+  }
   if (result.error === "unit-occupied") {
     return Response.json(
       { error: "This unit already has a lease over that period" },

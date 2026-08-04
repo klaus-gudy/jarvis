@@ -170,11 +170,13 @@ model Unit {
 }
 
 model Lease {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   startDate DateTime
-  endDate   DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  /// Required: leases are always for a fixed term. The form takes a duration in
+  /// months and this is derived from it, so there are no open-ended contracts.
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   unitId String
   unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)

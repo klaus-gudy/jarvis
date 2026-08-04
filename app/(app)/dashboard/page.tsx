@@ -20,7 +20,13 @@ export default async function DashboardPage() {
         prisma.property.count({ where: { organizationId: orgId } }),
         prisma.unit.count({ where: { property: { organizationId: orgId } } }),
         prisma.lease.count({
-          where: { membership: { organizationId: orgId }, endDate: null },
+          // "Active" is a date range now that every lease is fixed-term; the
+          // old `endDate: null` proxy would count nothing.
+          where: {
+            membership: { organizationId: orgId },
+            startDate: { lte: new Date() },
+            endDate: { gte: new Date() },
+          },
         }),
         prisma.membership.count({ where: { organizationId: orgId } }),
       ])

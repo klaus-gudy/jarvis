@@ -17,7 +17,8 @@ import type {
 function activeLeaseFilter(now: Date, organizationId: string) {
   return {
     startDate: { lte: now },
-    OR: [{ endDate: null }, { endDate: { gte: now } }],
+    // Leases are always fixed-term, so there is no open-ended case to allow for.
+    endDate: { gte: now },
     membership: { organizationId },
   };
 }

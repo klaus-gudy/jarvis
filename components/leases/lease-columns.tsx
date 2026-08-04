@@ -86,14 +86,15 @@ export function buildLeaseColumns({
     {
       accessorKey: "endDate",
       header: "End date",
-      cell: ({ row }) => {
-        const { endDate } = row.original;
-        return endDate ? (
-          formatDate(new Date(endDate))
-        ) : (
-          <span className="text-muted-foreground">Ongoing</span>
-        );
-      },
+      // Leases are always fixed-term, so there is no open-ended case to render.
+      cell: ({ row }) => (
+        <div className="leading-tight">
+          <div>{formatDate(new Date(row.original.endDate))}</div>
+          <div className="text-xs text-muted-foreground">
+            {row.original.durationMonths} months
+          </div>
+        </div>
+      ),
     },
     {
       accessorKey: "status",
