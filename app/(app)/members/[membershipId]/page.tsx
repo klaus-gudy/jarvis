@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { getTenantDetail, type TenantStatus } from "@/lib/tenants";
 import { initials } from "@/lib/user-display";
 import { cn } from "@/lib/utils";
@@ -26,20 +27,32 @@ const STATUS_DOT: Record<TenantStatus, string> = {
   Vacated: "bg-muted-foreground",
 };
 
-export default async function TenantDetailPage({
+/**
+ * Detail view for any member of the organization, not just tenants — it is
+ * reached from both the Tenants and the Users table. The route is deliberately
+ * role-neutral: an Owner sitting under /tenants/... read as though they had
+ * somehow become a tenant.
+ */
+export default async function MemberDetailPage({
   params,
 }: {
   params: Promise<{ membershipId: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!user.activeOrgId) redirect("/tenants");
+  if (!user.activeOrgId) redirect("/users");
 
   const { membershipId } = await params;
-  const tenant = await getTenantDetail(user.activeOrgId, membershipId);
-  if (!tenant) notFound();
+  const member = await getTenantDetail(user.activeOrgId, membershipId);
+  if (!member) notFound();
 
-  const { profile } = tenant;
+  const { profile } = member;
+
+  // Send people back where the member is actually listed.
+  const isTenant =
+    member.roleName.toLowerCase() === TENANT_ROLE_NAME.toLowerCase();
+  const backHref = isTenant ? "/tenants" : "/users";
+  const backLabel = isTenant ? "All tenants" : "All users";
 
   return (
     <div className="space-y-6">
@@ -47,42 +60,49 @@ export default async function TenantDetailPage({
         variant="ghost"
         className="-ml-2 w-fit text-muted-foreground"
         nativeButton={false}
-        render={<Link href="/tenants" />}
+        render={<Link href={backHref} />}
       >
         <ArrowLeftIcon />
-        All tenants
+        {backLabel}
       </Button>
 
       <Card>
         <CardContent className="flex items-center gap-4">
           <Avatar className="size-12 shrink-0">
             <AvatarFallback className="text-sm">
-              {initials(tenant.name)}
+              {initials(member.name)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-2.5">
               <h2 className="truncate text-xl font-semibold tracking-tight">
-                {tenant.name}
+                {member.name}
               </h2>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                  STATUS_TONE[tenant.status]
-                )}
-              >
+              {/* Occupancy status only describes tenants — an Owner showing
+                  "Prospect" just meant "has never held a lease". */}
+              {isTenant && (
                 <span
-                  aria-hidden
-                  className={cn("size-1.5 rounded-full", STATUS_DOT[tenant.status])}
-                />
-                {tenant.status}
-              </span>
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                    STATUS_TONE[member.status]
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      STATUS_DOT[member.status]
+                    )}
+                  />
+                  {member.status}
+                </span>
+              )}
             </div>
             <p className="truncate text-sm text-muted-foreground">
-              {tenant.roleName} · Joined {formatDate(tenant.joinedAt)}
+              {member.roleName} · Joined {formatDate(member.joinedAt)}
             </p>
           </div>
-          <ProfileEditDialog membershipId={tenant.membershipId} profile={profile} />
+          <ProfileEditDialog membershipId={member.membershipId} profile={profile} />
         </CardContent>
       </Card>
 
@@ -94,7 +114,7 @@ export default async function TenantDetailPage({
           <TabsTrigger value="leases" className="flex-none gap-2 px-3">
             Lease
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {tenant.leases.length}
+              {member.leases.length}
             </span>
           </TabsTrigger>
         </TabsList>
@@ -103,21 +123,21 @@ export default async function TenantDetailPage({
           <div className="grid gap-5 lg:grid-cols-2">
             <Card>
               <CardHeader className="border-b">
-                <CardTitle className="text-base">Tenant details</CardTitle>
+                <CardTitle className="text-base">Member details</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <dl>
-                  <DetailRow label="Full name" value={tenant.name} />
-                  <DetailRow label="Phone" value={orDash(tenant.phone)} />
-                  <DetailRow label="Email" value={orDash(tenant.email)} />
-                  <DetailRow label="Role" value={tenant.roleName} />
+                  <DetailRow label="Full name" value={member.name} />
+                  <DetailRow label="Phone" value={orDash(member.phone)} />
+                  <DetailRow label="Email" value={orDash(member.email)} />
+                  <DetailRow label="Role" value={member.roleName} />
                   <DetailRow
                     label="Date joined"
-                    value={formatDate(tenant.joinedAt)}
+                    value={formatDate(member.joinedAt)}
                   />
                   <DetailRow
                     label="Portal access"
-                    value={tenant.canSignIn ? "Can sign in" : "Not invited yet"}
+                    value={member.canSignIn ? "Can sign in" : "Not invited yet"}
                   />
                 </dl>
               </CardContent>
@@ -174,14 +194,16 @@ export default async function TenantDetailPage({
             <CardHeader className="border-b">
               <CardTitle className="text-base">Leases</CardTitle>
             </CardHeader>
-            <CardContent className={tenant.leases.length === 0 ? undefined : "p-0"}>
-              {tenant.leases.length === 0 ? (
+            <CardContent className={member.leases.length === 0 ? undefined : "p-0"}>
+              {member.leases.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  This tenant has no leases yet.
+                  {isTenant
+                    ? "This tenant has no leases yet."
+                    : `${member.roleName} members do not normally hold leases.`}
                 </p>
               ) : (
                 <ul>
-                  {tenant.leases.map((lease) => (
+                  {member.leases.map((lease) => (
                     <li
                       key={lease.id}
                       className="border-b last:border-b-0 hover:bg-muted/40"

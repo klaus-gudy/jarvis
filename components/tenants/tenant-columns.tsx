@@ -132,7 +132,7 @@ export function buildTenantColumns({
             variant="ghost"
             size="icon-sm"
             nativeButton={false}
-            render={<Link href={`/tenants/${row.original.membershipId}`} />}
+            render={<Link href={`/members/${row.original.membershipId}`} />}
             aria-label={`View ${row.original.name}`}
           >
             <EyeIcon />

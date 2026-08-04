@@ -187,7 +187,7 @@ export function UsersView({
           },
         ]}
         emptyMessage="No members yet."
-        getRowHref={(member) => `/tenants/${member.membershipId}`}
+        getRowHref={(member) => `/members/${member.membershipId}`}
       />
 
       {invitations.length > 0 && (

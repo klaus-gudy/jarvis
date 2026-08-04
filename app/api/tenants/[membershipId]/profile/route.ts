@@ -37,8 +37,9 @@ export async function PATCH(
     return Response.json({ error: "Member not found" }, { status: 404 });
   }
 
-  revalidatePath(`/tenants/${membershipId}`);
+  revalidatePath(`/members/${membershipId}`);
   revalidatePath("/tenants");
+  revalidatePath("/users");
 
   return Response.json({ ok: true });
 }
