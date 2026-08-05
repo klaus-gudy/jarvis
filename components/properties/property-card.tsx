@@ -52,7 +52,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
             aria-label={`${property.name} occupancy`}
           >
             <div
-              className="h-full rounded-full bg-secondary-foreground transition-all"
+              className="h-full rounded-full bg-stat-accent transition-all"
               style={{ width: `${property.occupancyRate}%` }}
             />
           </div>
