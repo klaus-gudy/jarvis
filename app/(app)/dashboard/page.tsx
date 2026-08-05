@@ -2,14 +2,24 @@ import { redirect } from "next/navigation"
 import {
   BuildingIcon,
   FileTextIcon,
+  TrendingDownIcon,
   UsersIcon,
   WalletIcon,
 } from "lucide-react"
 
 import { MetricCard } from "@/components/dashboard/metric-card"
+import {
+  ActivityPanel,
+  MoveInsPanel,
+  NeedsInvitePanel,
+  OccupancyPanel,
+  RenewalsPanel,
+  VacantUnitsPanel,
+} from "@/components/dashboard/panels"
 import { getCurrentUser } from "@/lib/auth/session"
-import { getDashboardStats } from "@/lib/dashboard"
+import { getDashboardStats, getDashboardPanels } from "@/lib/dashboard"
 import { formatCurrency, formatCurrencyFull } from "@/lib/format"
+import { getProperties } from "@/lib/properties"
 
 /** "Good morning" until noon, "Good afternoon" until 17:00, then "Good evening". */
 function greeting(hour: number) {
@@ -22,7 +32,17 @@ export default async function DashboardPage() {
   const user = await getCurrentUser()
   if (!user) redirect("/login")
 
-  const stats = await getDashboardStats(user.activeOrgId ?? null)
+  const orgId = user.activeOrgId ?? null
+  const [stats, panels, properties] = await Promise.all([
+    getDashboardStats(orgId),
+    getDashboardPanels(orgId),
+    orgId ? getProperties(orgId) : Promise.resolve([]),
+  ])
+
+  // Worst first: the point of the breakdown is to find what drags the average.
+  const byOccupancy = [...properties].sort(
+    (a, b) => a.occupancyRate - b.occupancyRate
+  )
 
   const now = new Date()
   // First name only — the greeting reads as an address, not a record.
@@ -48,7 +68,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           variant="filled"
           href="/leases"
@@ -110,6 +130,30 @@ export default async function DashboardPage() {
             },
           ]}
         />
+
+        <MetricCard
+          href="/properties"
+          icon={TrendingDownIcon}
+          value={formatCurrencyFull(stats.vacancy.lossMonthly)}
+          label={`Vacancy loss · ${formatCurrency(stats.vacancy.lossYear)}/yr`}
+          stats={[
+            {
+              label: "Empty units",
+              value: stats.properties.vacantUnits,
+              tone: "accent",
+            },
+            { label: "of asking rent", value: `${stats.vacancy.lossPercent}%` },
+          ]}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <RenewalsPanel renewals={panels.renewals} />
+        <OccupancyPanel properties={byOccupancy} />
+        <VacantUnitsPanel units={panels.vacantUnits} />
+        <MoveInsPanel moveIns={panels.moveIns} />
+        <NeedsInvitePanel members={panels.needsInvite} />
+        <ActivityPanel activity={panels.activity} />
       </div>
     </div>
   )

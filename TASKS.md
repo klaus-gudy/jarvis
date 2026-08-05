@@ -185,6 +185,27 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 - [x] "View →" underlines on hover anywhere over the card (`group-hover/card:underline`), since the whole card is the link
 - [x] Verified live: TZS 900,000 / est. 16.8M / 5% matches the DB by hand (2 leases: 2 mo × 300k + 3 mo × 100k; 4 units × 1.4M/mo × 12), hover underlines only the hovered card, Properties card click lands on `/properties`, no console errors, no horizontal overflow at 375px, filled card reads as a deep slab in both themes
 
+## Phase 20 — Dashboard key indicators
+
+Picked from a menu of candidates; the ones turned down are listed at the end.
+
+- [x] **Vacancy loss** as a 5th `MetricCard`: asking rent of every empty unit, monthly + annualised + as a share of asking rent. Falls out of the units query — `unit.count` for occupancy was replaced by a `findMany` selecting `rentAmount` plus a single active lease, so income, occupancy and vacancy loss now come from one row each instead of two queries
+- [x] `components/dashboard/panel.tsx` — `DashboardPanel` (title, icon, count, "view all" link, empty state) + `PanelRow` (leading slot, title/subtitle, trailing figure with `default | accent | muted` tone). The list counterpart to `MetricCard`, for the same reason: six panels, one set of proportions
+- [x] `getDashboardPanels()` in `lib/dashboard.ts` — six lists in one `Promise.all`, separate from `getDashboardStats` so the page awaits both at once
+- [x] Panels: Renewals due (≤90d, gold under 30), Occupancy by property (worst first, reusing `getProperties`), Longest vacant (never-let sorts first — no end date means no number to compare), Upcoming move-ins (≤30d), Awaiting invite (`passwordHash: null`), Recent activity (leases + tenants merged in JS after two `take: 5` queries, cheaper than a union)
+- [x] `formatRelativeTime()` + `formatDayMonth()` in `lib/format.ts`
+- [x] Metric figure size now keys off the **value's type** — money arrives as a formatted string and steps down to `text-xl`, counts are numbers at `text-2xl`. Was keyed off `variant`, which made the vacancy card's money larger than the rent card's
+- [x] Sub-stats moved from `flex gap-5` to `grid grid-cols-2` — at five cards across, flex sizing had truncated "Occupied units" to an ellipsis
+- [x] Verified live: all 5 cards + 6 panels render with real data, the move-ins empty state shows, no horizontal overflow at 375px, both themes checked
+
+### Turned down (offered, not wanted)
+
+- 12-month rent trend chart — the only candidate needing a new dependency (`npx shadcn add chart` → recharts)
+- Average remaining lease term, average rent per unit
+- Rent roll by property, residential/commercial split
+- Unit type & size mix — **blocked anyway**: only 1 of 4 units has `unitType` or `sizeSqm`, so it would read mostly "Unknown"
+- "Signed this month" counters (the activity feed was preferred)
+
 ### Not done
 
 - [ ] If the session's org is deleted but the user still belongs to *other* orgs, the layout falls back to one of them for the sidebar, but page queries still use the stale `activeOrgId` and show empty states until re-login.

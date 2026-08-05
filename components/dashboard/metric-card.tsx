@@ -98,9 +98,10 @@ export function MetricCard({
         <p
           className={cn(
             "font-bold tracking-tight tabular-nums",
-            // A currency string is several times longer than a count, so the
-            // filled card steps down a size to keep it on one line.
-            filled ? "text-xl" : "text-2xl"
+            // Counts arrive as numbers, money as an already-formatted string —
+            // and "TZS 1,300,000" needs a smaller step than "3" to stay on one
+            // line. Keying off the type keeps every money card the same size.
+            typeof value === "string" ? "text-xl" : "text-2xl"
           )}
         >
           {value}
@@ -144,8 +145,10 @@ export function MetricCard({
           </p>
         )}
 
+        {/* An even split rather than content-width columns: at five cards
+            across, flex sizing squeezed "Occupied units" into an ellipsis. */}
         {stats && stats.length > 0 && (
-          <div className="mt-3 flex items-start gap-5 border-t pt-3">
+          <div className="mt-3 grid grid-cols-2 gap-3 border-t pt-3">
             {stats.map((stat) => (
               <div key={stat.label} className="min-w-0">
                 <p
@@ -156,7 +159,7 @@ export function MetricCard({
                 >
                   {stat.value}
                 </p>
-                <p className="truncate text-[11px] text-muted-foreground">
+                <p className="text-[11px] leading-tight text-muted-foreground">
                   {stat.label}
                 </p>
               </div>

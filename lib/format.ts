@@ -29,6 +29,33 @@ export function formatMoneyFull(amount: number) {
   return new Intl.NumberFormat("en-US").format(amount);
 }
 
+/** "3 days ago", "yesterday" — for activity lists where the exact time is noise. */
+export function formatRelativeTime(date: Date, now = new Date()) {
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const diffMinutes = Math.round((date.getTime() - now.getTime()) / 60_000);
+
+  if (Math.abs(diffMinutes) < 60) return formatter.format(diffMinutes, "minute");
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) return formatter.format(diffHours, "hour");
+
+  const diffDays = Math.round(diffHours / 24);
+  if (Math.abs(diffDays) < 30) return formatter.format(diffDays, "day");
+
+  const diffMonths = Math.round(diffDays / 30);
+  if (Math.abs(diffMonths) < 12) return formatter.format(diffMonths, "month");
+
+  return formatter.format(Math.round(diffMonths / 12), "year");
+}
+
+/** "12 Jun" — dense enough for a list row. */
+export function formatDayMonth(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
 export function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
