@@ -13,6 +13,7 @@ import type {
   ActivityRow,
   MoveInRow,
   NeedsInviteRow,
+  PanelList,
   RenewalRow,
   VacantUnitRow,
 } from "@/lib/dashboard";
@@ -30,17 +31,21 @@ function PersonAvatar({ name }: { name: string }) {
 }
 
 /** Leases running out inside 90 days, soonest first. */
-export function RenewalsPanel({ renewals }: { renewals: RenewalRow[] }) {
+export function RenewalsPanel({
+  renewals,
+}: {
+  renewals: PanelList<RenewalRow>;
+}) {
   return (
     <DashboardPanel
       title="Renewals due"
       icon={ClockIcon}
       href="/leases"
       linkLabel="All leases"
-      count={renewals.length}
+      count={renewals.total}
       empty="No leases ending in the next 90 days."
     >
-      {renewals.map((renewal) => (
+      {renewals.items.map((renewal) => (
         <PanelRow
           key={renewal.id}
           href={`/leases/${renewal.id}`}
@@ -58,17 +63,17 @@ export function RenewalsPanel({ renewals }: { renewals: RenewalRow[] }) {
 }
 
 /** Leases that start within the month — units to have ready. */
-export function MoveInsPanel({ moveIns }: { moveIns: MoveInRow[] }) {
+export function MoveInsPanel({ moveIns }: { moveIns: PanelList<MoveInRow> }) {
   return (
     <DashboardPanel
       title="Upcoming move-ins"
       icon={DoorOpenIcon}
       href="/leases"
       linkLabel="All leases"
-      count={moveIns.length}
+      count={moveIns.total}
       empty="No move-ins scheduled in the next 30 days."
     >
-      {moveIns.map((moveIn) => (
+      {moveIns.items.map((moveIn) => (
         <PanelRow
           key={moveIn.id}
           href={`/leases/${moveIn.id}`}
@@ -84,17 +89,21 @@ export function MoveInsPanel({ moveIns }: { moveIns: MoveInRow[] }) {
 }
 
 /** Empty units, longest-standing first — what to market next. */
-export function VacantUnitsPanel({ units }: { units: VacantUnitRow[] }) {
+export function VacantUnitsPanel({
+  units,
+}: {
+  units: PanelList<VacantUnitRow>;
+}) {
   return (
     <DashboardPanel
       title="Longest vacant"
       icon={DoorOpenIcon}
       href="/properties"
       linkLabel="Properties"
-      count={units.length}
+      count={units.total}
       empty="Every unit is occupied."
     >
-      {units.map((unit) => (
+      {units.items.map((unit) => (
         <PanelRow
           key={unit.id}
           href={`/properties/${unit.propertyId}`}
@@ -127,29 +136,43 @@ export function OccupancyPanel({
     >
       {properties.map((property) => (
         <li key={property.id} className="px-5 py-3">
+          {/* Name and figures share one line so each property costs two rows
+              rather than three — the caption used to sit under the bar. */}
           <div className="flex items-baseline justify-between gap-3">
-            <p className="truncate text-sm font-medium">{property.name}</p>
-            <p className="shrink-0 text-sm font-semibold tabular-nums">
-              {property.occupancyRate}%
+            <p className="min-w-0 truncate text-sm">
+              <span className="font-medium">{property.name}</span>
+              <span className="text-muted-foreground">
+                {" · "}
+                {property.totalUnits === 0
+                  ? "No units yet"
+                  : `${property.occupiedUnits}/${property.totalUnits} units · ${formatCurrency(
+                      property.monthlyRentRoll
+                    )}/mo`}
+              </span>
             </p>
+            {property.totalUnits > 0 && (
+              <p className="shrink-0 text-sm font-semibold tabular-nums">
+                {property.occupancyRate}%
+              </p>
+            )}
           </div>
-          <div
-            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
-            role="progressbar"
-            aria-valuenow={property.occupancyRate}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`${property.name} occupancy`}
-          >
+          {/* No units means no occupancy to draw. A 0% bar would read as a
+              building standing empty, which is a different problem. */}
+          {property.totalUnits > 0 && (
             <div
-              className="h-full rounded-full bg-stat-accent transition-all"
-              style={{ width: `${property.occupancyRate}%` }}
-            />
-          </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {property.occupiedUnits}/{property.totalUnits} units ·{" "}
-            {formatCurrency(property.monthlyRentRoll)}/mo
-          </p>
+              className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-valuenow={property.occupancyRate}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${property.name} occupancy`}
+            >
+              <div
+                className="h-full rounded-full bg-stat-accent transition-all"
+                style={{ width: `${property.occupancyRate}%` }}
+              />
+            </div>
+          )}
         </li>
       ))}
     </DashboardPanel>
@@ -157,17 +180,21 @@ export function OccupancyPanel({
 }
 
 /** Members recorded in the org who still have no way to sign in. */
-export function NeedsInvitePanel({ members }: { members: NeedsInviteRow[] }) {
+export function NeedsInvitePanel({
+  members,
+}: {
+  members: PanelList<NeedsInviteRow>;
+}) {
   return (
     <DashboardPanel
       title="Awaiting invite"
       icon={MailPlusIcon}
       href="/users"
       linkLabel="Users"
-      count={members.length}
+      count={members.total}
       empty="Everyone can sign in."
     >
-      {members.map((member) => (
+      {members.items.map((member) => (
         <PanelRow
           key={member.membershipId}
           href={`/members/${member.membershipId}`}

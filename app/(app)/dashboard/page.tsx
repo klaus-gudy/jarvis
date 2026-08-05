@@ -40,9 +40,13 @@ export default async function DashboardPage() {
   ])
 
   // Worst first: the point of the breakdown is to find what drags the average.
-  const byOccupancy = [...properties].sort(
-    (a, b) => a.occupancyRate - b.occupancyRate
-  )
+  // A property with no units yet has no occupancy to speak of — it computes as
+  // 0% and would otherwise outrank a genuinely empty building, so it sorts last.
+  const byOccupancy = [...properties].sort((a, b) => {
+    if (a.totalUnits === 0) return b.totalUnits === 0 ? 0 : 1
+    if (b.totalUnits === 0) return -1
+    return a.occupancyRate - b.occupancyRate
+  })
 
   const now = new Date()
   // First name only — the greeting reads as an address, not a record.
@@ -150,10 +154,10 @@ export default async function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <RenewalsPanel renewals={panels.renewals} />
         <OccupancyPanel properties={byOccupancy} />
-        <VacantUnitsPanel units={panels.vacantUnits} />
+        {/* <VacantUnitsPanel units={panels.vacantUnits} /> */}
         <MoveInsPanel moveIns={panels.moveIns} />
         <NeedsInvitePanel members={panels.needsInvite} />
-        <ActivityPanel activity={panels.activity} />
+        {/* <ActivityPanel activity={panels.activity} /> */}
       </div>
     </div>
   )

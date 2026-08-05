@@ -245,8 +245,12 @@ export async function getDashboardStats(
 const RENEWAL_WINDOW_DAYS = 90;
 /** Move-ins far enough out to still prepare the unit. */
 const MOVE_IN_WINDOW_DAYS = 30;
-/** Lists are a glance, not a table — each links through to the full page. */
-const PANEL_ROWS = 5;
+/**
+ * Rows a panel shows at most. The badge beside each title reports the real
+ * total, so a capped list never reads as the whole picture — follow the panel's
+ * link for the rest.
+ */
+const PANEL_ROWS = 6;
 
 export type RenewalRow = {
   id: string;
@@ -291,19 +295,31 @@ export type ActivityRow = {
   createdAt: Date;
 };
 
+/**
+ * A capped list plus the count it was capped from. Kept as one shape so a
+ * caller can't accidentally badge `items.length` and under-report.
+ */
+export type PanelList<T> = {
+  items: T[];
+  total: number;
+};
+
 export type DashboardPanels = {
-  renewals: RenewalRow[];
-  moveIns: MoveInRow[];
-  vacantUnits: VacantUnitRow[];
-  needsInvite: NeedsInviteRow[];
+  renewals: PanelList<RenewalRow>;
+  moveIns: PanelList<MoveInRow>;
+  vacantUnits: PanelList<VacantUnitRow>;
+  needsInvite: PanelList<NeedsInviteRow>;
+  /** A feed has no meaningful total, so it carries no badge. */
   activity: ActivityRow[];
 };
 
+const EMPTY_LIST = { items: [], total: 0 };
+
 const EMPTY_PANELS: DashboardPanels = {
-  renewals: [],
-  moveIns: [],
-  vacantUnits: [],
-  needsInvite: [],
+  renewals: EMPTY_LIST,
+  moveIns: EMPTY_LIST,
+  vacantUnits: EMPTY_LIST,
+  needsInvite: EMPTY_LIST,
   activity: [],
 };
 
@@ -337,27 +353,50 @@ export async function getDashboardPanels(
     },
   } as const;
 
-  const [renewals, moveIns, vacantUnits, needsInvite, recentLeases, recentTenants] =
-    await Promise.all([
+  // Each filter is defined once and used by both the capped list and its
+  // count, so the badge can never describe a different set than the rows.
+  const renewalFilter = {
+    ...orgLease,
+    startDate: { lte: now },
+    endDate: { gte: now, lte: renewalCutoff },
+  };
+  const moveInFilter = {
+    ...orgLease,
+    startDate: { gt: now, lte: moveInCutoff },
+  };
+  const needsInviteFilter = {
+    organizationId,
+    user: { passwordHash: null },
+  };
+
+  const [
+    renewals,
+    renewalsTotal,
+    moveIns,
+    moveInsTotal,
+    vacantUnits,
+    needsInvite,
+    needsInviteTotal,
+    recentLeases,
+    recentTenants,
+  ] = await Promise.all([
       prisma.lease.findMany({
-        where: {
-          ...orgLease,
-          startDate: { lte: now },
-          endDate: { gte: now, lte: renewalCutoff },
-        },
+        where: renewalFilter,
+        // Soonest to expire first — the whole point of the panel is what needs
+        // chasing next.
         orderBy: { endDate: "asc" },
         take: PANEL_ROWS,
         select: { id: true, endDate: true, ...tenantTitle },
       }),
+      prisma.lease.count({ where: renewalFilter }),
       prisma.lease.findMany({
-        where: {
-          ...orgLease,
-          startDate: { gt: now, lte: moveInCutoff },
-        },
+        where: moveInFilter,
+        // Soonest to start first, same reasoning.
         orderBy: { startDate: "asc" },
         take: PANEL_ROWS,
         select: { id: true, startDate: true, ...tenantTitle },
       }),
+      prisma.lease.count({ where: moveInFilter }),
       // Every unit nobody is in right now. The single past lease that comes
       // back is only there to date the vacancy.
       prisma.unit.findMany({
@@ -379,7 +418,9 @@ export async function getDashboardPanels(
         },
       }),
       prisma.membership.findMany({
-        where: { organizationId, user: { passwordHash: null } },
+        where: needsInviteFilter,
+        // Most recently added first — a new member is the one most likely to
+        // still be waiting on their invite.
         orderBy: { createdAt: "desc" },
         take: PANEL_ROWS,
         select: {
@@ -388,6 +429,7 @@ export async function getDashboardPanels(
           user: { select: { name: true, email: true, phone: true } },
         },
       }),
+      prisma.membership.count({ where: needsInviteFilter }),
       prisma.lease.findMany({
         where: orgLease,
         orderBy: { createdAt: "desc" },
@@ -425,49 +467,65 @@ export async function getDashboardPanels(
       createdAt: membership.createdAt,
     })),
   ]
-    // Merged after the fact rather than in SQL: two `take: 5` queries and one
-    // sort is cheaper than a union across unrelated tables.
+    // Merged after the fact rather than in SQL: one capped query per source
+    // plus a sort is cheaper than a union across unrelated tables.
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, PANEL_ROWS + 1);
+    .slice(0, PANEL_ROWS);
+
+  // Ranked in JS because `daysVacant` is derived, not a column — so the whole
+  // vacant set has to come back before it can be ordered. `total` is taken
+  // before the cap, which is why it is read off the unsliced array.
+  const rankedVacant = vacantUnits
+    .map((unit) => ({
+      id: unit.id,
+      label: unit.label,
+      propertyId: unit.property.id,
+      propertyName: unit.property.name,
+      rentAmount: unit.rentAmount,
+      daysVacant: unit.leases[0]
+        ? daysBetween(unit.leases[0].endDate, now)
+        : null,
+    }))
+    // Never-let units sort first: they are the longest-standing vacancy there
+    // is, and no end date means no number to compare.
+    .sort((a, b) => (b.daysVacant ?? Infinity) - (a.daysVacant ?? Infinity));
 
   return {
-    renewals: renewals.map((lease) => ({
-      id: lease.id,
-      tenantName: displayName(lease.membership.user),
-      unitLabel: lease.unit.label,
-      propertyName: lease.unit.property.name,
-      endDate: lease.endDate,
-      daysLeft: daysBetween(now, lease.endDate),
-    })),
-    moveIns: moveIns.map((lease) => ({
-      id: lease.id,
-      tenantName: displayName(lease.membership.user),
-      unitLabel: lease.unit.label,
-      propertyName: lease.unit.property.name,
-      startDate: lease.startDate,
-      daysUntil: daysBetween(now, lease.startDate),
-    })),
-    vacantUnits: vacantUnits
-      .map((unit) => ({
-        id: unit.id,
-        label: unit.label,
-        propertyId: unit.property.id,
-        propertyName: unit.property.name,
-        rentAmount: unit.rentAmount,
-        daysVacant: unit.leases[0]
-          ? daysBetween(unit.leases[0].endDate, now)
-          : null,
-      }))
-      // Never-let units sort first: they are the longest-standing vacancy
-      // there is, and no end date means no number to compare.
-      .sort((a, b) => (b.daysVacant ?? Infinity) - (a.daysVacant ?? Infinity))
-      .slice(0, PANEL_ROWS),
-    needsInvite: needsInvite.map((membership) => ({
-      membershipId: membership.id,
-      name: displayName(membership.user),
-      contact: primaryContact(membership.user),
-      roleName: membership.role.name,
-    })),
+    renewals: {
+      total: renewalsTotal,
+      items: renewals.map((lease) => ({
+        id: lease.id,
+        tenantName: displayName(lease.membership.user),
+        unitLabel: lease.unit.label,
+        propertyName: lease.unit.property.name,
+        endDate: lease.endDate,
+        daysLeft: daysBetween(now, lease.endDate),
+      })),
+    },
+    moveIns: {
+      total: moveInsTotal,
+      items: moveIns.map((lease) => ({
+        id: lease.id,
+        tenantName: displayName(lease.membership.user),
+        unitLabel: lease.unit.label,
+        propertyName: lease.unit.property.name,
+        startDate: lease.startDate,
+        daysUntil: daysBetween(now, lease.startDate),
+      })),
+    },
+    vacantUnits: {
+      total: rankedVacant.length,
+      items: rankedVacant.slice(0, PANEL_ROWS),
+    },
+    needsInvite: {
+      total: needsInviteTotal,
+      items: needsInvite.map((membership) => ({
+        membershipId: membership.id,
+        name: displayName(membership.user),
+        contact: primaryContact(membership.user),
+        roleName: membership.role.name,
+      })),
+    },
     activity,
   };
 }

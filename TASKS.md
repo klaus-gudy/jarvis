@@ -198,6 +198,15 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] Sub-stats moved from `flex gap-5` to `grid grid-cols-2` — at five cards across, flex sizing had truncated "Occupied units" to an ellipsis
 - [x] Verified live: all 5 cards + 6 panels render with real data, the move-ins empty state shows, no horizontal overflow at 375px, both themes checked
 
+## Phase 21 — Panel caps, ordering, occupancy density
+
+- [x] `PANEL_ROWS` 5 → **6**, and every panel's data is now `PanelList<T> = { items, total }` — the badge reads `total` (a real `prisma.count`), the list renders `items`. Kept as one shape so a caller can't badge `items.length` and silently under-report
+- [x] Each list's `where` clause is hoisted into a named filter shared by the `findMany` and its `count`, so badge and rows can never describe different sets
+- [x] Ordering (all at the DB, so the cap can't reshuffle it): renewals `endDate asc` (soonest expiry on top), move-ins `startDate asc` (soonest first), awaiting invite `createdAt desc` (most recent first). Vacant units still rank in JS — `daysVacant` is derived, not a column — with `total` taken before the slice
+- [x] Occupancy rows put the caption beside the name (`Java · 2/3 units · TZS 700k/mo` … `67%`), dropping each property from three lines to two
+- [x] **A property with no units no longer reports 0%**: it computed as 0% and, under worst-first sorting, took the top slot ahead of genuinely empty buildings. Now reads "No units yet", renders no bar, and sorts last
+- [x] Verified by temporarily setting `PANEL_ROWS = 1`: the Renewals badge still read **2** while rendering **1** row, and the row kept was the 29-day one — proving both the cap and the soonest-first order. Restored to 6
+
 ### Turned down (offered, not wanted)
 
 - 12-month rent trend chart — the only candidate needing a new dependency (`npx shadcn add chart` → recharts)
