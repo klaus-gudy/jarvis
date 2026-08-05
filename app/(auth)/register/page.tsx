@@ -73,6 +73,7 @@ export default function RegisterPage() {
               name="name"
               autoComplete="name"
               placeholder="Neema Kimaro"
+              className="bg-card"
               required
             />
             <FieldError errors={fieldErrors.name?.map((m) => ({ message: m }))} />
@@ -84,6 +85,7 @@ export default function RegisterPage() {
               id="organizationName"
               name="organizationName"
               placeholder="Acme Property Group"
+              className="bg-card"
               required
             />
             <FieldError
@@ -99,6 +101,7 @@ export default function RegisterPage() {
               type="email"
               autoComplete="email"
               placeholder="you@company.co.tz"
+              className="bg-card"
               required
             />
             <FieldError errors={fieldErrors.email?.map((m) => ({ message: m }))} />
@@ -112,6 +115,7 @@ export default function RegisterPage() {
               type="tel"
               autoComplete="tel"
               placeholder="+255700000000"
+              className="bg-card"
               required
             />
             <FieldDescription>
@@ -126,6 +130,7 @@ export default function RegisterPage() {
               id="password"
               name="password"
               autoComplete="new-password"
+              className="bg-card"
               required
               minLength={8}
             />

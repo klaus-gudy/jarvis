@@ -19,7 +19,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { NyumbaLogo } from "@/components/logo"
+import { RentopsLogo } from "@/components/logo"
 import { findActiveNavItem, navItems } from "@/lib/nav"
 
 export function AppSidebar({
@@ -54,7 +54,7 @@ export function AppSidebar({
             >
               {/* size-8! beats the sidebar's `[&_svg]:size-4`, which would
                   otherwise clamp the mark to icon size. */}
-              <NyumbaLogo className="size-8!" />
+              <RentopsLogo className="size-8!" />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{organizationName}</span>
                 <span className="truncate text-xs text-muted-foreground">

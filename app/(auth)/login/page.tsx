@@ -53,7 +53,7 @@ export default function LoginPage() {
     <>
       <AuthHeader
         title="Welcome back"
-        subtitle="Sign in to your Nyumba workspace."
+        subtitle="Sign in to your Rentops workspace."
       />
 
       <form onSubmit={handleSubmit}>
@@ -65,6 +65,7 @@ export default function LoginPage() {
               name="identifier"
               autoComplete="username"
               placeholder="you@company.co.tz"
+              className="bg-card"
               required
             />
           </Field>
@@ -75,6 +76,7 @@ export default function LoginPage() {
               id="password"
               name="password"
               autoComplete="current-password"
+              className="bg-card"
               required
             />
           </Field>
@@ -104,7 +106,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        New to Nyumba?{" "}
+        New to Rentops?{" "}
         <Link
           href="/register"
           className="font-medium text-primary hover:underline"

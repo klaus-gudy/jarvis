@@ -1,4 +1,4 @@
-import { NyumbaLogo } from "@/components/logo";
+import { RentopsLogo } from "@/components/logo";
 
 /**
  * Brand row + page heading shared by every (auth) page. The logo repeats here
@@ -15,8 +15,8 @@ export function AuthHeader({
   return (
     <div className="mb-8 space-y-6">
       <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-        <NyumbaLogo className="size-9" />
-        Nyumba
+        <RentopsLogo className="size-9" />
+        Rentops
       </div>
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">

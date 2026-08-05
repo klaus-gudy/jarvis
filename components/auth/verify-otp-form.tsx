@@ -48,7 +48,7 @@ export function VerifyOtpForm({ identifier }: { identifier: string | null }) {
                   <InputOTPSlot
                     key={index}
                     index={index}
-                    className="size-11 rounded-lg border text-base"
+                    className="size-11 rounded-lg border bg-card text-base"
                   />
                 ))}
               </InputOTPGroup>

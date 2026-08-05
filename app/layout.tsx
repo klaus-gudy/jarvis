@@ -24,7 +24,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jarvis",
+  title: "Rentops",
   description: "Multi-tenant property management",
 };
 

@@ -38,6 +38,7 @@ export default function ForgotPasswordPage() {
               id="identifier"
               autoComplete="username"
               placeholder="you@company.co.tz"
+              className="bg-card"
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
               required

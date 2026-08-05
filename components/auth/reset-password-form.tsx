@@ -63,6 +63,7 @@ export function ResetPasswordForm({
           <PasswordInput
             id="new-password"
             autoComplete="new-password"
+            className="bg-card"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
@@ -76,6 +77,7 @@ export function ResetPasswordForm({
           <PasswordInput
             id="confirm-password"
             autoComplete="new-password"
+            className="bg-card"
             value={confirm}
             onChange={(event) => setConfirm(event.target.value)}
             required

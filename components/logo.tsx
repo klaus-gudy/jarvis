@@ -1,23 +1,23 @@
 import { cn } from "@/lib/utils";
 
 /** Brand colours live here rather than in the theme: the mark must read the same on every surface. */
-const BLUE = "#d6e4f0";
 const GOLD = "#a68446";
+const BLUE = "#d6e4f0";
 
 /**
- * The Nyumba mark — a gabled house with a gold eave accent.
+ * The Rentops mark — a gabled house with a gold badge and a pale accent dot.
  *
  * Sized by `className` rather than width/height attributes, because any svg
  * inside a SidebarMenuButton is clamped to size-4 by the sidebar's
  * `[&_svg]:size-4` rule; only a class (with `!`) can win that.
  */
-export function NyumbaLogo({ className }: { className?: string }) {
+export function RentopsLogo({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 56 56"
       className={cn("size-8 shrink-0", className)}
       role="img"
-      aria-label="Nyumba"
+      aria-label="Rentops"
     >
       <rect width="56" height="56" rx="12" fill={GOLD} />
       <path
@@ -46,11 +46,11 @@ export function NyumbaLogo({ className }: { className?: string }) {
  * invite). The name is real text rather than an svg <text> node so it uses the
  * app's font and inherits the current colour instead of hard-coding white.
  */
-export function NyumbaWordmark({ className }: { className?: string }) {
+export function RentopsWordmark({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <NyumbaLogo className="size-9" />
-      <span className="text-xl font-semibold tracking-tight">Nyumba</span>
+      <RentopsLogo className="size-9" />
+      <span className="text-xl font-semibold tracking-tight">Rentops</span>
     </span>
   );
 }

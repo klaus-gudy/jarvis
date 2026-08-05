@@ -74,6 +74,7 @@ export function AcceptInviteForm({
           <FieldLabel htmlFor="accept-name">Your name</FieldLabel>
           <Input
             id="accept-name"
+            className="bg-card"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
@@ -95,6 +96,7 @@ export function AcceptInviteForm({
           <PasswordInput
             id="accept-password"
             autoComplete="new-password"
+            className="bg-card"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
