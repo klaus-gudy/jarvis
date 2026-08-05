@@ -80,6 +80,7 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
             placeholder: "All statuses",
             options: [
               { label: "Active", value: "Active" },
+              { label: "Upcoming", value: "Upcoming" },
               { label: "Prospect", value: "Prospect" },
               { label: "Vacated", value: "Vacated" },
             ],

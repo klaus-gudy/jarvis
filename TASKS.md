@@ -215,6 +215,16 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - Unit type & size mix — **blocked anyway**: only 1 of 4 units has `unitType` or `sizeSqm`, so it would read mostly "Unknown"
 - "Signed this month" counters (the activity feed was preferred)
 
+## Phase 22 — Tenant status bug fix: "Upcoming" was missing
+
+- [x] `TenantStatus` gained a fourth value, **Upcoming** — a tenant with a signed lease that hasn't started yet, and nothing active. Previously fell through to Vacated, which reads as "used to live here" for someone who hasn't moved in yet
+- [x] `deriveTenantStatus()` in `lib/tenants.ts` is the single source both `getTenants` and `getTenantDetail` call — they'd each hand-rolled the same three-way branch and were one edit away from silently diverging again
+- [x] Precedence: a lease covering *now* wins outright; short of that, any lease still to come outranks any that's already ended, since nothing has been vacated
+- [x] Tenants table: badge variant, unit column now dims + annotates both non-current states — `(past)` for Vacated, `(upcoming)` for Prospect's opposite number — and the status facet filter gained the option
+- [x] Member detail page: status pill gained a `sky` tone for Upcoming, distinct from Prospect's `amber` — the two mean different things (no lease ever vs. a signed one not yet started) and shouldn't share a color
+- [x] Left `lib/dashboard.ts`'s tenant card alone — it only shows total/active/prospect by prior request, and "active" correctly excluding an upcoming tenant is the right behavior there, not the bug
+- [x] Verified against Jackson Mayunga (real case that surfaced this): lease starts 2 Sept, today 5 Aug → now reads **Upcoming** everywhere (tenants table, unit shows "C2 (upcoming)", member detail pill), confirmed in both themes
+
 ### Not done
 
 - [ ] If the session's org is deleted but the user still belongs to *other* orgs, the layout falls back to one of them for the sidebar, but page queries still use the stale `activeOrgId` and show empty states until re-login.

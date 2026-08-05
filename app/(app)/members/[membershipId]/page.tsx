@@ -17,12 +17,14 @@ import { cn } from "@/lib/utils";
 
 const STATUS_TONE: Record<TenantStatus, string> = {
   Active: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  Upcoming: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
   Prospect: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   Vacated: "bg-muted text-muted-foreground",
 };
 
 const STATUS_DOT: Record<TenantStatus, string> = {
   Active: "bg-emerald-500",
+  Upcoming: "bg-sky-500",
   Prospect: "bg-amber-500",
   Vacated: "bg-muted-foreground",
 };

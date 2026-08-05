@@ -8,10 +8,29 @@ import type { CreateTenantInput } from "@/lib/tenants-schemas";
  * Status is derived from leases rather than stored, so it can never drift out
  * of sync with the actual lease data:
  *   Active   — has a lease running right now
- *   Vacated  — had a lease, but it has ended
+ *   Upcoming — has a signed lease that hasn't started yet, nothing running now
+ *   Vacated  — had a lease that has ended, and nothing running or upcoming
  *   Prospect — never had a lease (usually just onboarded)
  */
-export type TenantStatus = "Active" | "Vacated" | "Prospect";
+export type TenantStatus = "Active" | "Upcoming" | "Vacated" | "Prospect";
+
+/**
+ * Shared by `getTenants` and `getTenantDetail` so the two can't derive
+ * different statuses for the same membership. A lease covering right now wins
+ * outright; short of that, a lease still to come outranks one that's already
+ * ended, since the tenant hasn't vacated anything yet.
+ */
+function deriveTenantStatus(
+  now: Date,
+  leases: { startDate: Date; endDate: Date }[]
+): TenantStatus {
+  if (leases.some((lease) => lease.startDate <= now && lease.endDate >= now)) {
+    return "Active";
+  }
+  if (leases.some((lease) => lease.startDate > now)) return "Upcoming";
+  if (leases.length > 0) return "Vacated";
+  return "Prospect";
+}
 
 export type TenantRow = {
   membershipId: string;
@@ -60,15 +79,12 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
         (lease) => lease.startDate <= now && lease.endDate >= now
       ) ?? null;
 
-    // Falls back to the most recent lease so a vacated tenant still shows
-    // which unit they left.
+    // Falls back to the most recent lease (by startDate, the query's sort) so
+    // a Vacated tenant still shows which unit they left and an Upcoming one
+    // already shows which unit they're moving into.
     const relevantLease = activeLease ?? membership.leases[0] ?? null;
 
-    const status: TenantStatus = activeLease
-      ? "Active"
-      : membership.leases.length > 0
-        ? "Vacated"
-        : "Prospect";
+    const status = deriveTenantStatus(now, membership.leases);
 
     return {
       membershipId: membership.id,
@@ -153,10 +169,6 @@ export async function getTenantDetail(
   });
   if (!membership) return null;
 
-  const hasActive = membership.leases.some(
-    (lease) => lease.startDate <= now && lease.endDate >= now
-  );
-
   return {
     membershipId: membership.id,
     userId: membership.user.id,
@@ -171,11 +183,7 @@ export async function getTenantDetail(
     roleName: membership.role.name,
     joinedAt: membership.createdAt,
     canSignIn: membership.user.passwordHash !== null,
-    status: hasActive
-      ? "Active"
-      : membership.leases.length > 0
-        ? "Vacated"
-        : "Prospect",
+    status: deriveTenantStatus(now, membership.leases),
     // A member with no profile row is normal, so absent reads as all-blank
     // rather than forcing every caller to null-check the relation.
     profile: membership.profile

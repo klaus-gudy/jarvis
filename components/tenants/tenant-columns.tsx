@@ -17,6 +17,7 @@ const STATUS_VARIANT: Record<
   "secondary" | "outline" | "destructive"
 > = {
   Active: "secondary",
+  Upcoming: "outline",
   Prospect: "outline",
   Vacated: "outline",
 };
@@ -105,13 +106,16 @@ export function buildTenantColumns({
       cell: ({ row }) => {
         const { unitLabel, status } = row.original;
         if (!unitLabel) return <span className="text-muted-foreground">—</span>;
-        // A vacated tenant's unit is where they used to live, so it is dimmed
-        // and marked rather than reading as a current occupancy.
-        return status === "Vacated" ? (
-          <span className="text-muted-foreground">{unitLabel} (past)</span>
-        ) : (
-          unitLabel
-        );
+        // Neither a Vacated nor an Upcoming tenant is in the unit right now,
+        // so both are dimmed and marked rather than reading as a current
+        // occupancy — "past" for one, "from" for the other.
+        if (status === "Vacated") {
+          return <span className="text-muted-foreground">{unitLabel} (past)</span>;
+        }
+        if (status === "Upcoming") {
+          return <span className="text-muted-foreground">{unitLabel} (upcoming)</span>;
+        }
+        return unitLabel;
       },
     },
     {
