@@ -3,20 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  PencilIcon,
-  PlusIcon,
-  SendIcon,
-  Trash2Icon,
-  XIcon,
-} from "lucide-react";
+import { PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react";
 
 import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { PersonCell } from "@/components/person-cell";
 import { InviteDialog } from "@/components/users/invite-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -26,11 +19,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/data-table";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/format";
 import type { InvitationRow } from "@/lib/invitations";
 import type { MemberRow } from "@/lib/members";
+import type { RoleRow } from "@/lib/roles";
+
+/** The label an invitation goes by before there is a user account behind it. */
+function invitationLabel(invitation: InvitationRow) {
+  return invitation.name ?? invitation.email ?? invitation.phone ?? "Invitation";
+}
 
 export function UsersView({
   members,
@@ -38,19 +36,19 @@ export function UsersView({
   invitations,
 }: {
   members: MemberRow[];
-  roles: { id: string; name: string; memberCount: number }[];
+  roles: RoleRow[];
   invitations: InvitationRow[];
 }) {
   const router = useRouter();
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const [roleOpen, setRoleOpen] = React.useState(false);
   const [removing, setRemoving] = React.useState<MemberRow | null>(null);
   const [inviting, setInviting] = React.useState<MemberRow | null>(null);
   const [editing, setEditing] = React.useState<MemberRow | null>(null);
+  const [revoking, setRevoking] = React.useState<InvitationRow | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const columns = React.useMemo<ColumnDef<MemberRow>[]>(
+  const memberColumns = React.useMemo<ColumnDef<MemberRow>[]>(
     () => [
       {
         accessorKey: "name",
@@ -136,6 +134,82 @@ export function UsersView({
     []
   );
 
+  const invitationColumns = React.useMemo<ColumnDef<InvitationRow>[]>(
+    () => [
+      {
+        id: "name",
+        // Searches the label actually on screen. `Invitation.name` is nullable,
+        // so keying off the raw column would fail to match an invite that is
+        // only identified by its email or phone.
+        accessorFn: (invitation) => invitationLabel(invitation),
+        header: "Invitee",
+        // The same avatar treatment as the members table, so a person reads
+        // the same either side of accepting.
+        cell: ({ row }) => <PersonCell name={invitationLabel(row.original)} />,
+      },
+      {
+        accessorKey: "phone",
+        header: "Phone",
+        cell: ({ row }) =>
+          row.original.phone ?? <span className="text-muted-foreground">—</span>,
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+        cell: ({ row }) =>
+          row.original.email ?? <span className="text-muted-foreground">—</span>,
+      },
+      {
+        accessorKey: "roleName",
+        header: "Role",
+        cell: ({ row }) => (
+          <Badge variant="outline" className="rounded-full font-normal">
+            {row.original.roleName}
+          </Badge>
+        ),
+        filterFn: (row, columnId, filterValue) =>
+          row.getValue(columnId) === filterValue,
+      },
+      {
+        accessorKey: "expiresAt",
+        header: "Expires",
+        cell: ({ row }) =>
+          row.original.isExpired ? (
+            // An expired invite still occupies the list until it is revoked,
+            // so it says so plainly rather than showing a past date alone.
+            <Badge variant="outline" className="rounded-full font-normal text-stat-accent">
+              Expired
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground">
+              {formatDate(new Date(row.original.expiresAt))}
+            </span>
+          ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setError(null);
+                setRevoking(row.original);
+              }}
+            >
+              <XIcon />
+              Revoke
+            </Button>
+          </div>
+        ),
+        enableSorting: false,
+      },
+    ],
+    []
+  );
+
   async function handleRemove() {
     if (!removing) return;
     setPending(true);
@@ -157,77 +231,92 @@ export function UsersView({
     setPending(false);
   }
 
-  async function revokeInvite(id: string) {
-    await fetch(`/api/invitations/${id}`, { method: "DELETE" });
-    router.refresh();
+  async function handleRevoke() {
+    if (!revoking) return;
+    setPending(true);
+    setError(null);
+
+    const response = await fetch(`/api/invitations/${revoking.id}`, {
+      method: "DELETE",
+    });
+
+    if (response.ok) {
+      setRevoking(null);
+      setPending(false);
+      router.refresh();
+      return;
+    }
+
+    const data = await response.json().catch(() => null);
+    setError(data?.error ?? "Could not revoke this invitation");
+    setPending(false);
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" onClick={() => setRoleOpen(true)}>
-          <PlusIcon />
-          New role
-        </Button>
-        <Button onClick={() => setInviteOpen(true)}>
-          Invite user
-        </Button>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => setInviteOpen(true)}>Invite user</Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={members}
-        searchColumnId="name"
-        searchPlaceholder="Search members…"
-        facetFilters={[
-          {
-            columnId: "roleName",
-            placeholder: "All roles",
-            options: roles.map((role) => ({ label: role.name, value: role.name })),
-          },
-        ]}
-        emptyMessage="No members yet."
-        getRowHref={(member) => `/members/${member.membershipId}`}
-      />
+      <Tabs defaultValue="members">
+        <TabsList variant="line" className="w-full justify-start border-b">
+          <TabsTrigger value="members" className="flex-none gap-2 px-3">
+            All users
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+              {members.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="invitations" className="flex-none gap-2 px-3">
+            Pending invites
+            {invitations.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {invitations.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {invitations.length > 0 && (
-        <Card className="gap-4 p-4">
-          <CardHeader className="p-0">
-            <CardTitle className="text-base">Pending invitations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 p-0">
-            {invitations.map((invitation) => (
-              <div
-                key={invitation.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-sm"
-              >
-                <div className="leading-tight">
-                  <div className="font-medium">
-                    {invitation.name ??
-                      invitation.phone ??
-                      invitation.email ??
-                      "Invitation"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {invitation.roleName} ·{" "}
-                    {invitation.isExpired
-                      ? "Expired"
-                      : `expires ${formatDate(new Date(invitation.expiresAt))}`}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => revokeInvite(invitation.id)}
-                >
-                  <XIcon />
-                  Revoke
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="members" className="pt-4">
+          <DataTable
+            columns={memberColumns}
+            data={members}
+            searchColumnId="name"
+            searchPlaceholder="Search members…"
+            facetFilters={[
+              {
+                columnId: "roleName",
+                placeholder: "All roles",
+                options: roles.map((role) => ({
+                  label: role.name,
+                  value: role.name,
+                })),
+              },
+            ]}
+            emptyMessage="No members yet."
+            getRowHref={(member) => `/members/${member.membershipId}`}
+          />
+        </TabsContent>
+
+        <TabsContent value="invitations" className="pt-4">
+          <DataTable
+            columns={invitationColumns}
+            data={invitations}
+            searchColumnId="name"
+            searchPlaceholder="Search invites…"
+            facetFilters={[
+              {
+                columnId: "roleName",
+                placeholder: "All roles",
+                options: roles.map((role) => ({
+                  label: role.name,
+                  value: role.name,
+                })),
+              },
+            ]}
+            emptyMessage="No pending invites. Use “Invite user” to send one."
+          />
+        </TabsContent>
+      </Tabs>
 
       <InviteDialog
         key={String(inviteOpen)}
@@ -257,12 +346,6 @@ export function UsersView({
         />
       )}
 
-      <NewRoleDialog
-        key={`role-${roleOpen}`}
-        open={roleOpen}
-        onOpenChange={setRoleOpen}
-      />
-
       <Dialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
@@ -290,88 +373,40 @@ export function UsersView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
 
-function NewRoleDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const router = useRouter();
-  const [name, setName] = React.useState("");
-  const [pending, setPending] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPending(true);
-    setError(null);
-
-    const response = await fetch("/api/roles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-
-    if (response.ok) {
-      onOpenChange(false);
-      setPending(false);
-      router.refresh();
-      return;
-    }
-
-    const data = await response.json().catch(() => null);
-    setError(
-      data?.issues?.name?.[0] ?? data?.error ?? "Could not create this role"
-    );
-    setPending(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit}>
+      <Dialog
+        open={revoking !== null}
+        onOpenChange={(open) => !open && setRevoking(null)}
+      >
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>New role</DialogTitle>
+            <DialogTitle>
+              Revoke invite for {revoking ? invitationLabel(revoking) : ""}?
+            </DialogTitle>
             <DialogDescription>
-              Roles are specific to your organization — for example Manager or
-              Caretaker.
+              The invite link stops working immediately. You can send a new one
+              at any time.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="py-4">
-            <Field>
-              <FieldLabel htmlFor="role-name">Role name</FieldLabel>
-              <Input
-                id="role-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Manager"
-                required
-              />
-              {error && <FieldError>{error}</FieldError>}
-            </Field>
-          </div>
-
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button
-              type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => setRevoking(null)}
               disabled={pending}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Creating…" : "Create role"}
+            <Button
+              variant="destructive"
+              onClick={handleRevoke}
+              disabled={pending}
+            >
+              {pending ? "Revoking…" : "Revoke invite"}
             </Button>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

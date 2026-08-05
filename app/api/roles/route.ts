@@ -43,6 +43,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // Both pages read roles: /roles lists them, /users uses them for the invite
+  // dialog and the role filter.
+  revalidatePath("/roles");
   revalidatePath("/users");
   return Response.json({ role: result.role }, { status: 201 });
 }

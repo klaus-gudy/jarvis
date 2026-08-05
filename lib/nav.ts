@@ -2,6 +2,7 @@ import {
   BuildingIcon,
   FileTextIcon,
   LayoutDashboardIcon,
+  ShieldCheckIcon,
   UsersIcon,
   UserCogIcon,
   type LucideIcon,
@@ -44,6 +45,12 @@ export const navItems: NavItem[] = [
     url: "/users",
     icon: UserCogIcon,
     description: "Members of your organization and their roles",
+  },
+  {
+    title: "Roles & permissions",
+    url: "/roles",
+    icon: ShieldCheckIcon,
+    description: "Roles people can hold, and what each one may do",
   },
 ];
 

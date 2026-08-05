@@ -225,8 +225,24 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] Left `lib/dashboard.ts`'s tenant card alone — it only shows total/active/prospect by prior request, and "active" correctly excluding an upcoming tenant is the right behavior there, not the bug
 - [x] Verified against Jackson Mayunga (real case that surfaced this): lease starts 2 Sept, today 5 Aug → now reads **Upcoming** everywhere (tenants table, unit shows "C2 (upcoming)", member detail pill), confirmed in both themes
 
+## Phase 23 — Roles & permissions page, Users tabs
+
+- [x] New nav item **Roles & permissions** → `/roles` (`ShieldCheckIcon`), `app/(app)/roles/page.tsx` + `components/roles/roles-view.tsx`
+- [x] `RoleRow` type from `getRoles()`: name, member count, **pending invite count** (filtered `_count` on `status: PENDING` — accepted/revoked invites say nothing about current use), and `isSystem`
+- [x] **Owner and Tenant are marked "Built-in"** — both are load-bearing (the sole-Owner guard in `lib/members.ts`, every tenant query matching on name), so the table shows them as not-ordinary rather than presenting them as freely editable
+- [x] Roles table: search, Built-in/Custom facet filter, and an inert **Permissions** column reading "Not configured" — says where permissions will live without implying any are in force. Page copy states plainly that permissions aren't enforced yet
+- [x] `NewRoleDialog` extracted from `users-view.tsx` into `components/roles/role-form-dialog.tsx`; the "New role" button moved off the Users page onto `/roles`
+- [x] `POST /api/roles` now revalidates **both** `/roles` and `/users` — the invite dialog and the members role-filter both read roles
+- [x] Users page split into **All users / Pending invites** tabs (`TabsList variant="line"`, matching the property detail page), each with a count badge
+- [x] Pending invites is now a `DataTable` matching the members table column-for-column (avatar+name, phone, email, role badge, expires, action) — it was a bespoke card list of bordered `div`s
+- [x] Invite row search uses an `accessorFn` on the displayed label, not the raw `Invitation.name`: that column is nullable, so an invite identified only by email or phone would have been unsearchable
+- [x] Revoke moved behind a confirmation dialog, consistent with member removal — it was a bare one-click button
+- [x] Verified live: created "Caretaker" → appeared as Custom / 0 members without a reload; duplicate "caretaker" rejected 409 case-insensitively with the error inline and the dialog held open; both tabs render with counts; dark mode + 375px checked (table scrolls in-container, no page overflow). **Test role deleted afterwards** — there is no delete-role UI, so it could not be removed through the app
+
 ### Not done
 
+- [ ] **Roles can be created but not renamed or deleted** — no UI and no `PATCH`/`DELETE /api/roles/[id]`. Deleting needs care: `Role.memberships`/`invitations` have no `onDelete`, so Postgres restricts, and deleting Owner or Tenant would break the guards that match on those names.
+- [ ] Permissions are named but not modelled — no `Permission` table, no enforcement. Every signed-in member can still reach every page.
 - [ ] If the session's org is deleted but the user still belongs to *other* orgs, the layout falls back to one of them for the sidebar, but page queries still use the stale `activeOrgId` and show empty states until re-login.
 - [ ] Role is not editable — you excluded "change a member's role" when scoping the Users page. Say the word and it's a small addition.
 - [ ] `User.phone` is still nullable in the DB — 11 legacy users have none, so NOT NULL would mean inventing numbers. Enforced in every form instead; backfill those rows to tighten the column.

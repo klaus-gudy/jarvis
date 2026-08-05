@@ -5,17 +5,45 @@ export const OWNER_ROLE_NAME = "Owner";
 /** Tenants are the members the Tenants page lists. */
 export const TENANT_ROLE_NAME = "Tenant";
 
-export async function getRoles(organizationId: string) {
+export type RoleRow = {
+  id: string;
+  name: string;
+  memberCount: number;
+  pendingInviteCount: number;
+  /**
+   * Owner and Tenant are load-bearing: the sole-Owner guard in `lib/members.ts`
+   * and every tenant query match on these names, so the UI marks them as
+   * built-in rather than presenting them as ordinary editable rows.
+   */
+  isSystem: boolean;
+};
+
+const SYSTEM_ROLE_NAMES = [OWNER_ROLE_NAME, TENANT_ROLE_NAME].map((name) =>
+  name.toLowerCase()
+);
+
+export async function getRoles(organizationId: string): Promise<RoleRow[]> {
   const roles = await prisma.role.findMany({
     where: { organizationId },
     orderBy: { name: "asc" },
-    include: { _count: { select: { memberships: true } } },
+    include: {
+      _count: {
+        select: {
+          memberships: true,
+          // Only invites still outstanding count — accepted and revoked ones
+          // say nothing about the role's current use.
+          invitations: { where: { status: "PENDING" } },
+        },
+      },
+    },
   });
 
   return roles.map((role) => ({
     id: role.id,
     name: role.name,
     memberCount: role._count.memberships,
+    pendingInviteCount: role._count.invitations,
+    isSystem: SYSTEM_ROLE_NAMES.includes(role.name.toLowerCase()),
   }));
 }
 
