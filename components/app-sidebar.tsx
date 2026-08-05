@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { NavUser } from "@/components/nav-user"
+import { OrgSwitcher, type OrganizationOption } from "@/components/org-switcher"
 import {
   Sidebar,
   SidebarContent,
@@ -19,15 +20,16 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { RentopsLogo } from "@/components/logo"
 import { findActiveNavItem, navItems } from "@/lib/nav"
 
 export function AppSidebar({
-  organizationName,
+  organizations,
+  activeOrgId,
   user,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
-  organizationName: string
+  organizations: OrganizationOption[]
+  activeOrgId: string | null
   user: { name: string; email: string; role: string | null }
 }) {
   const pathname = usePathname()
@@ -43,27 +45,7 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="h-12 px-3"
-              tooltip={organizationName}
-              onClick={handleNavigate}
-              render={<Link href="/dashboard" />}
-            >
-              {/* size-8! beats the sidebar's `[&_svg]:size-4`, which would
-                  otherwise clamp the mark to icon size. */}
-              <RentopsLogo className="size-8!" />
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{organizationName}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  Property management
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <OrgSwitcher organizations={organizations} activeOrgId={activeOrgId} />
       </SidebarHeader>
 
       <SidebarContent>

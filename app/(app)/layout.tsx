@@ -17,8 +17,8 @@ export default async function AppLayout({
   const user = await getCurrentUser()
   if (!user) redirect("/login")
 
-  // Read real memberships rather than trusting the session: activeOrgId can be
-  // stale if the organization was deleted while the user was signed in.
+  // getCurrentUser has already validated activeOrgId against live memberships;
+  // this query re-fetches them with org + role names for the switcher.
   const memberships = await prisma.membership.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" },
@@ -26,9 +26,7 @@ export default async function AppLayout({
   })
 
   const membership =
-    memberships.find((m) => m.organizationId === user.activeOrgId) ??
-    memberships[0] ??
-    null
+    memberships.find((m) => m.organizationId === user.activeOrgId) ?? null
 
   const needsOrganization = memberships.length === 0
 
@@ -39,7 +37,12 @@ export default async function AppLayout({
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
       <AppSidebar
-        organizationName={membership?.organization.name ?? "Jarvis"}
+        organizations={memberships.map((m) => ({
+          id: m.organizationId,
+          name: m.organization.name,
+          roleName: m.role.name,
+        }))}
+        activeOrgId={user.activeOrgId}
         user={{
           name: displayName(user),
           email: primaryContact(user) ?? "",

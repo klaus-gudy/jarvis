@@ -12,13 +12,13 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
       className="gap-0 p-0 transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring"
       data-testid="property-card"
     >
-      <Link href={`/properties/${property.id}`} className="block p-5 outline-none">
+      <Link href={`/properties/${property.id}`} className="block p-4 outline-none">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <PropertyIcon
               category={property.category}
               type={property.type}
-              className="size-5"
+              className="size-4.5"
             />
           </div>
           <Badge variant="secondary" className="rounded-full font-normal">
@@ -26,7 +26,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
           </Badge>
         </div>
 
-        <div className="mt-4 space-y-0.5">
+        <div className="mt-3 space-y-0.5">
           <h3 className="font-semibold tracking-tight">{property.name}</h3>
           <p className="text-sm text-muted-foreground">
             {property.category} · {property.address}
@@ -34,7 +34,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
           <p className="text-sm text-muted-foreground">Owner · {property.ownerName}</p>
         </div>
 
-        <div className="mt-5 space-y-2">
+        <div className="mt-3 space-y-1.5">
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">
               {property.occupiedUnits}/{property.totalUnits} occupied
@@ -58,7 +58,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
           </div>
         </div>
 
-        <div className="mt-5 flex items-end justify-between border-t pt-4">
+        <div className="mt-3 flex items-end justify-between border-t pt-3">
           <div>
             <p className="font-mono text-lg font-semibold tabular-nums">
               {formatCurrency(property.monthlyRentRoll)}

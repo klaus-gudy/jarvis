@@ -5,6 +5,12 @@ export const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
 export type SessionPayload = {
   sub: string;
   orgId: string | null;
+  /**
+   * Whether the cookie was issued with a maxAge ("Remember me"). Carried in
+   * the token so re-issuing it — e.g. on an organization switch — can keep the
+   * same persistence instead of silently upgrading a session-only cookie.
+   */
+  persist: boolean;
 };
 
 function getSecret() {
@@ -14,7 +20,7 @@ function getSecret() {
 }
 
 export async function signSessionToken(payload: SessionPayload) {
-  return new SignJWT({ orgId: payload.orgId })
+  return new SignJWT({ orgId: payload.orgId, persist: payload.persist })
     .setSubject(payload.sub)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -30,7 +36,12 @@ export async function verifySessionToken(
       algorithms: ["HS256"],
     });
     if (!payload.sub) return null;
-    return { sub: payload.sub, orgId: (payload.orgId as string | null) ?? null };
+    return {
+      sub: payload.sub,
+      orgId: (payload.orgId as string | null) ?? null,
+      // Tokens minted before the claim existed were all persistent cookies.
+      persist: (payload.persist as boolean | undefined) ?? true,
+    };
   } catch {
     return null;
   }

@@ -45,7 +45,7 @@ Design details in `plan.md` → "Auth design". Check items off as they land; don
 ## Phase 6 — Org handling
 
 - [x] Org created at registration (see scope change above)
-- [ ] Org switcher component for multi-org users (re-issues cookie) — deferred until org invites exist
+- [x] Org switcher component for multi-org users (re-issues cookie) — done in Phase 24
 
 ## Phase 7 — Verify
 
@@ -239,11 +239,33 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] Revoke moved behind a confirmation dialog, consistent with member removal — it was a bare one-click button
 - [x] Verified live: created "Caretaker" → appeared as Custom / 0 members without a reload; duplicate "caretaker" rejected 409 case-insensitively with the error inline and the dialog held open; both tabs render with counts; dark mode + 375px checked (table scrolls in-container, no page overflow). **Test role deleted afterwards** — there is no delete-role UI, so it could not be removed through the app
 
+## Phase 24 — Multi-organization support (org switcher)
+
+- [x] **Security fix that motivated the design**: `getCurrentUser()` used to return the JWT's `orgId` untouched — a member removed from an org kept full access to its data for the token's remaining lifetime (up to 7 days). It now validates the claim against live memberships on every request (same DB roundtrip, via `include`) and falls back to the oldest membership — the default login uses
+- [x] JWT gained a `persist` claim so re-issuing the cookie (switch) keeps the original "Remember me" choice instead of upgrading a session-only cookie to 7 days; old tokens read as persistent
+- [x] `POST /api/organizations/switch` — verifies membership at mint time, re-issues the cookie, `revalidatePath("/", "layout")`; 404 for non-membership (same shape whether the org never existed or was just revoked, so it can't probe)
+- [x] `components/org-switcher.tsx` — the sidebar identity block: plain link home with one org, dropdown with several (org name + your role, check on active). Switching lands on `/dashboard` because a detail page from the old org 404s in the new one; `pending` held until navigation so a second click can't race
+- [x] `app/(app)/layout.tsx` — dropped its display-only `?? memberships[0]` fallback; everything now agrees with the validated `user.activeOrgId`
+- [x] Queries needed **no** changes — every page and API was already org-scoped through `activeOrgId`; this phase fixed which org that is
+- [x] Verified live: switcher lists both orgs with roles; switching flips every dashboard figure and the properties list to Sunrise Estates data; **membership revoked mid-session → very next request silently falls back to the remaining org, no data from the revoked one**; switch API to a revoked org → 404; mobile dropdown opens below and works; desktop + mobile checked
+- [x] Test data left in place: Chris patt belongs to "Melinda Gates" and "Sunrise Estates" (1 property, 1 vacant unit) so the switcher stays demonstrable
+
+## Phase 25 — Switcher one-way bug + one org per owner
+
+- [x] **Bug: you could switch once, then never again.** `handleSwitch` set `pending` and deliberately never cleared it on success, reasoning the tree would unmount. It doesn't — the sidebar lives in the persistent `app/(app)/layout.tsx` and survives `router.push` + `refresh`, so `pending` stayed `true` forever and left every menu item `disabled`. The org *did* change; the switcher was simply dead afterwards
+- [x] Fix: split into `switching` (covers the fetch, cleared explicitly) + `useTransition`'s `isPending` (covers the navigation, **cleared by React** when the refresh lands). The rule this encodes: a flag we set must also be one we clear — never rely on unmount inside a persistent layout
+- [x] Verified: 4 consecutive hops Melinda → Sunrise → Melinda → Sunrise, no reload between, each flipping the sidebar name and the dashboard figures; menu items re-enabled on reopen (`anyDisabled: false`)
+- [x] **One organization per owner**: `createOrganizationForUser` now refuses a user already holding an Owner membership anywhere, returning `{ error: "already-owner", organizationName }`; `POST /api/organizations` maps it to **409** with "You already own X — one organization per owner."
+- [x] The check runs **inside** the `$transaction`, so two concurrent creates can't both pass it
+- [x] `create-organization-dialog.tsx` needed no change — it already renders `data.error`
+- [x] Registration needs no separate guard, and this was **tested rather than assumed**: re-registering with an existing owner's email returns 409 on the unique constraint and the transaction rolls back, leaving no orphaned organization. Confirmed in the DB — still exactly 2 orgs
+- [x] Non-owners are unaffected: a Tenant-only member can still create an organization (verified against Jackson Mayunga's membership)
+
 ### Not done
 
 - [ ] **Roles can be created but not renamed or deleted** — no UI and no `PATCH`/`DELETE /api/roles/[id]`. Deleting needs care: `Role.memberships`/`invitations` have no `onDelete`, so Postgres restricts, and deleting Owner or Tenant would break the guards that match on those names.
 - [ ] Permissions are named but not modelled — no `Permission` table, no enforcement. Every signed-in member can still reach every page.
-- [ ] If the session's org is deleted but the user still belongs to *other* orgs, the layout falls back to one of them for the sidebar, but page queries still use the stale `activeOrgId` and show empty states until re-login.
+- [x] ~~Stale `activeOrgId` after org deletion showed empty states~~ — fixed in Phase 24: `getCurrentUser()` validates the org claim per request and falls back for layout, pages, and APIs alike
 - [ ] Role is not editable — you excluded "change a member's role" when scoping the Users page. Say the word and it's a small addition.
 - [ ] `User.phone` is still nullable in the DB — 11 legacy users have none, so NOT NULL would mean inventing numbers. Enforced in every form instead; backfill those rows to tighten the column.
 - [ ] **No DB constraint stops a Lease joining a membership in one org to a unit in another.** Queries now filter it out, but the data can still be created. Worth a check constraint or an org column on Lease.

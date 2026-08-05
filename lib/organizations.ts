@@ -43,9 +43,29 @@ export const getOrganizationOwnerName = cache(async (organizationId: string) => 
  * Owner. Mirrors what registration does, minus creating the user — used when
  * someone ends up with no organization (never invited, or their last one was
  * deleted) and would otherwise be locked out of a working app.
+ *
+ * One organization per owner: a user already holding an Owner membership
+ * anywhere is refused. Registration can't produce a second org for the same
+ * person (a duplicate email/phone 409s before any org is created), so this
+ * endpoint is the only door and the check lives inside the transaction where
+ * it can't race a concurrent create.
  */
 export async function createOrganizationForUser(userId: string, name: string) {
   return prisma.$transaction(async (tx) => {
+    const existingOwnership = await tx.membership.findFirst({
+      where: {
+        userId,
+        role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
+      },
+      select: { organization: { select: { name: true } } },
+    });
+    if (existingOwnership) {
+      return {
+        error: "already-owner" as const,
+        organizationName: existingOwnership.organization.name,
+      };
+    }
+
     const organization = await tx.organization.create({ data: { name } });
     const ownerRole = await tx.role.create({
       data: { name: OWNER_ROLE_NAME, organizationId: organization.id },
@@ -53,6 +73,6 @@ export async function createOrganizationForUser(userId: string, name: string) {
     await tx.membership.create({
       data: { userId, organizationId: organization.id, roleId: ownerRole.id },
     });
-    return organization;
+    return { organization };
   });
 }

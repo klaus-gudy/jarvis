@@ -16,7 +16,7 @@ export async function createSession(
   orgId: string | null,
   { persist = true }: { persist?: boolean } = {}
 ) {
-  const token = await signSessionToken({ sub: userId, orgId });
+  const token = await signSessionToken({ sub: userId, orgId, persist });
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -46,11 +46,34 @@ export const getCurrentUser = cache(async () => {
 
   const user = await prisma.user.findUnique({
     where: { id: session.sub },
-    select: { id: true, email: true, phone: true, name: true },
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      name: true,
+      memberships: {
+        orderBy: { createdAt: "asc" },
+        select: { organizationId: true },
+      },
+    },
   });
   if (!user) return null;
 
-  return { ...user, activeOrgId: session.orgId };
+  // The token's orgId is a claim, not a fact: the membership may have been
+  // revoked (or the org deleted) since it was signed, and trusting it would
+  // let a removed member keep reading that org's data for the token's
+  // remaining lifetime. Validate against live memberships on every request,
+  // falling back to the oldest remaining one — the same default login uses.
+  // Cookies can't be rewritten during render, so the correction is
+  // per-request; the cookie itself catches up on the next switch or login.
+  const { memberships, ...rest } = user;
+  const orgIds = memberships.map((m) => m.organizationId);
+  const activeOrgId =
+    session.orgId && orgIds.includes(session.orgId)
+      ? session.orgId
+      : orgIds[0] ?? null;
+
+  return { ...rest, activeOrgId };
 });
 
 export async function requireUser() {

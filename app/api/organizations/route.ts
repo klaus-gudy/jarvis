@@ -33,7 +33,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const organization = await createOrganizationForUser(user.id, parsed.data.name);
+  const result = await createOrganizationForUser(user.id, parsed.data.name);
+
+  if ("error" in result) {
+    return Response.json(
+      {
+        error: `You already own ${result.organizationName} — one organization per owner.`,
+      },
+      { status: 409 }
+    );
+  }
+
+  const { organization } = result;
 
   // The session carries the active org, so re-issue it or the user would land
   // back in the "no organization" state they just resolved.
