@@ -79,15 +79,8 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">Roles</h2>
-          <p className="text-sm text-muted-foreground">
-            Roles label the people in your organization. Permissions aren&apos;t
-            enforced yet — every signed-in member can currently reach every page.
-          </p>
-        </div>
+    <div className="space-y-3">
+      <div className="flex justify-end">
         <Button onClick={() => setFormOpen(true)}>
           <PlusIcon />
           New role
