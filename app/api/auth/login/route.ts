@@ -49,7 +49,9 @@ export async function POST(request: Request) {
   }
 
   const activeMembership = user.memberships[0] ?? null;
-  await createSession(user.id, activeMembership?.organizationId ?? null);
+  await createSession(user.id, activeMembership?.organizationId ?? null, {
+    persist: parsed.data.remember ?? true,
+  });
 
   return Response.json({
     user: { id: user.id, name: user.name, email: user.email, phone: user.phone },

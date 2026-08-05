@@ -28,6 +28,8 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   identifier: z.string().trim().min(1, "Enter your email or phone"),
   password: z.string().min(1, "Enter your password"),
+  /** When false the session cookie lasts only until the browser closes. */
+  remember: z.boolean().optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

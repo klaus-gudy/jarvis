@@ -11,14 +11,20 @@ import {
 
 export { SESSION_COOKIE };
 
-export async function createSession(userId: string, orgId: string | null) {
+export async function createSession(
+  userId: string,
+  orgId: string | null,
+  { persist = true }: { persist?: boolean } = {}
+) {
   const token = await signSessionToken({ sub: userId, orgId });
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: SESSION_DURATION_SECONDS,
+    // Without maxAge the cookie dies with the browser — "Remember me" off.
+    // The JWT keeps its own 7-day expiry either way.
+    ...(persist ? { maxAge: SESSION_DURATION_SECONDS } : {}),
     path: "/",
   });
 }

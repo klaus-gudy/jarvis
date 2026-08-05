@@ -1,17 +1,12 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+import { AuthHeader } from "@/components/auth/auth-header"
+import { PasswordInput } from "@/components/auth/password-input"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   Field,
   FieldDescription,
@@ -63,90 +58,97 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create your account</CardTitle>
-          <CardDescription>
-            This also creates your organization — you&apos;ll be its owner.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="name">Your name</FieldLabel>
-                <Input id="name" name="name" autoComplete="name" required />
-                <FieldError errors={fieldErrors.name?.map((m) => ({ message: m }))} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="organizationName">Organization name</FieldLabel>
-                <Input
-                  id="organizationName"
-                  name="organizationName"
-                  placeholder="Acme Property Group"
-                  required
-                />
-                <FieldError
-                  errors={fieldErrors.organizationName?.map((m) => ({ message: m }))}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                />
-                <FieldError errors={fieldErrors.email?.map((m) => ({ message: m }))} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="phone">Phone</FieldLabel>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  placeholder="+255700000000"
-                  required
-                />
-                <FieldDescription>
-                  Required. You can also use this instead of your email to sign in.
-                </FieldDescription>
-                <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                />
-                <FieldError
-                  errors={fieldErrors.password?.map((m) => ({ message: m }))}
-                />
-              </Field>
-              {formError && <FieldError>{formError}</FieldError>}
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="flex-col gap-3">
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? "Creating account…" : "Create account"}
-            </Button>
+    <>
+      <AuthHeader
+        title="Create your account"
+        subtitle="This also creates your organization — you'll be its owner."
+      />
+
+      <form onSubmit={handleSubmit}>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="name">Your name</FieldLabel>
+            <Input
+              id="name"
+              name="name"
+              autoComplete="name"
+              placeholder="Neema Kimaro"
+              required
+            />
+            <FieldError errors={fieldErrors.name?.map((m) => ({ message: m }))} />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="organizationName">Organization name</FieldLabel>
+            <Input
+              id="organizationName"
+              name="organizationName"
+              placeholder="Acme Property Group"
+              required
+            />
+            <FieldError
+              errors={fieldErrors.organizationName?.map((m) => ({ message: m }))}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="email">Email address</FieldLabel>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@company.co.tz"
+              required
+            />
+            <FieldError errors={fieldErrors.email?.map((m) => ({ message: m }))} />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="phone">Phone</FieldLabel>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              placeholder="+255700000000"
+              required
+            />
             <FieldDescription>
-              Already have an account?{" "}
-              <a href="/login" className="underline underline-offset-4">
-                Sign in
-              </a>
+              You can sign in with this instead of your email.
             </FieldDescription>
-          </CardFooter>
-        </form>
-      </Card>
-    </main>
+            <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <PasswordInput
+              id="password"
+              name="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+            />
+            <FieldDescription>At least 8 characters.</FieldDescription>
+            <FieldError
+              errors={fieldErrors.password?.map((m) => ({ message: m }))}
+            />
+          </Field>
+
+          {formError && <FieldError>{formError}</FieldError>}
+
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Creating account…" : "Create account"}
+          </Button>
+        </FieldGroup>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        Already have an account?{" "}
+        <Link href="/login" className="font-medium text-primary hover:underline">
+          Sign in
+        </Link>
+      </p>
+    </>
   )
 }

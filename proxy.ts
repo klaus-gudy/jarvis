@@ -4,7 +4,14 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth/constants";
 import { verifySessionToken } from "@/lib/auth/jwt";
 
-const AUTH_PAGES = ["/login", "/register"];
+/** Signed-out only — a signed-in visitor is bounced back into the app. */
+const AUTH_PAGES = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-otp",
+];
 /**
  * Reachable signed out: the recipient of an invite has no account yet, and the
  * token in the URL is what authorises them.

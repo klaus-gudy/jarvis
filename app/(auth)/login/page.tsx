@@ -1,20 +1,15 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+import { AuthHeader } from "@/components/auth/auth-header"
+import { PasswordInput } from "@/components/auth/password-input"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -23,6 +18,7 @@ import { Input } from "@/components/ui/input"
 
 export default function LoginPage() {
   const router = useRouter()
+  const [remember, setRemember] = React.useState(true)
   const [pending, setPending] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -38,6 +34,7 @@ export default function LoginPage() {
       body: JSON.stringify({
         identifier: form.get("identifier"),
         password: form.get("password"),
+        remember,
       }),
     })
 
@@ -53,52 +50,68 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Welcome back</CardTitle>
-          <CardDescription>
-            Sign in with your email or phone number.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="identifier">Email or phone</FieldLabel>
-                <Input
-                  id="identifier"
-                  name="identifier"
-                  autoComplete="username"
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                />
-              </Field>
-              {error && <FieldError>{error}</FieldError>}
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="flex-col gap-3">
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? "Signing in…" : "Sign in"}
-            </Button>
-            <FieldDescription>
-              New here?{" "}
-              <a href="/register" className="underline underline-offset-4">
-                Create an account
-              </a>
-            </FieldDescription>
-          </CardFooter>
-        </form>
-      </Card>
-    </main>
+    <>
+      <AuthHeader
+        title="Welcome back"
+        subtitle="Sign in to your Nyumba workspace."
+      />
+
+      <form onSubmit={handleSubmit}>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="identifier">Email or phone</FieldLabel>
+            <Input
+              id="identifier"
+              name="identifier"
+              autoComplete="username"
+              placeholder="you@company.co.tz"
+              required
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <PasswordInput
+              id="password"
+              name="password"
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+
+          <div className="flex items-center justify-between gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <Checkbox
+                checked={remember}
+                onCheckedChange={(checked) => setRemember(checked === true)}
+              />
+              Remember me
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          {error && <FieldError>{error}</FieldError>}
+
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Signing in…" : "Sign in"}
+          </Button>
+        </FieldGroup>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        New to Nyumba?{" "}
+        <Link
+          href="/register"
+          className="font-medium text-primary hover:underline"
+        >
+          Create an account
+        </Link>
+      </p>
+    </>
   )
 }

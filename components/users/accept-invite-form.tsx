@@ -3,15 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
+import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Field,
   FieldDescription,
@@ -21,10 +14,12 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
+/**
+ * Fields only — the page above it renders the AuthHeader, so this slots into
+ * the (auth) shell like every other auth form.
+ */
 export function AcceptInviteForm({
   token,
-  organizationName,
-  roleName,
   presetName,
   presetEmail,
   presetPhone,
@@ -73,60 +68,47 @@ export function AcceptInviteForm({
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Join {organizationName}</CardTitle>
-        <CardDescription>
-          You&apos;ve been invited as {roleName}. Choose a password to finish
-          setting up your account.
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="accept-name">Your name</FieldLabel>
-              <Input
-                id="accept-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-              />
-            </Field>
+    <form onSubmit={handleSubmit}>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="accept-name">Your name</FieldLabel>
+          <Input
+            id="accept-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+        </Field>
 
-            {contact && (
-              <Field>
-                <FieldLabel htmlFor="accept-contact">Signing in as</FieldLabel>
-                <Input id="accept-contact" value={contact} readOnly disabled />
-                <FieldDescription>
-                  Set by whoever invited you — use this to sign in later.
-                </FieldDescription>
-              </Field>
-            )}
+        {contact && (
+          <Field>
+            <FieldLabel htmlFor="accept-contact">Signing in as</FieldLabel>
+            <Input id="accept-contact" value={contact} readOnly disabled />
+            <FieldDescription>
+              Set by whoever invited you — use this to sign in later.
+            </FieldDescription>
+          </Field>
+        )}
 
-            <Field>
-              <FieldLabel htmlFor="accept-password">Password</FieldLabel>
-              <Input
-                id="accept-password"
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                minLength={8}
-              />
-              <FieldDescription>At least 8 characters.</FieldDescription>
-            </Field>
+        <Field>
+          <FieldLabel htmlFor="accept-password">Password</FieldLabel>
+          <PasswordInput
+            id="accept-password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            minLength={8}
+          />
+          <FieldDescription>At least 8 characters.</FieldDescription>
+        </Field>
 
-            {error && <FieldError>{error}</FieldError>}
-          </FieldGroup>
-        </CardContent>
-        <CardFooter>
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Setting up…" : "Accept invitation"}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+        {error && <FieldError>{error}</FieldError>}
+
+        <Button type="submit" className="w-full" disabled={pending}>
+          {pending ? "Setting up…" : "Accept invitation"}
+        </Button>
+      </FieldGroup>
+    </form>
   );
 }
