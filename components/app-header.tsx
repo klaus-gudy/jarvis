@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 
+import { GlobalSearch } from "@/components/global-search"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -21,7 +22,8 @@ export function AppHeader() {
       <h1 className="truncate text-sm font-medium">
         {activeItem?.title ?? "Jarvis"}
       </h1>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <GlobalSearch />
         <ThemeToggle />
       </div>
     </header>

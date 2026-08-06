@@ -261,8 +261,23 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] Registration needs no separate guard, and this was **tested rather than assumed**: re-registering with an existing owner's email returns 409 on the unique constraint and the transaction rolls back, leaving no orphaned organization. Confirmed in the DB — still exactly 2 orgs
 - [x] Non-owners are unaffected: a Tenant-only member can still create an organization (verified against Jackson Mayunga's membership)
 
+## Phase 26 — Global search in the header
+
+- [x] `lib/search.ts` — `searchOrganization()`, four parallel queries (property, unit, tenant, lease), `take: 5` **per type** so one crowded type can't crowd out the others; every branch org-scoped, leases through both the membership *and* the unit's property
+- [x] Searchable fields: property name/address/category · unit label/type · tenant name/email/phone · lease by tenant, unit, property — **and by the reference a user can actually see**: `L-FB46Y` strips the prefix and matches the cuid suffix, only when the query could plausibly be one, so a short word doesn't scan every lease id
+- [x] `GET /api/search?q=` behind `requireActiveOrg`; `MIN_QUERY_LENGTH = 2`
+- [x] `components/global-search.tsx` — header trigger (⌘K hint, hidden on touch) → dialog with grouped results, a **type tag on every row** (Property / Unit / Tenant / Lease), arrow-key navigation, Enter to open, ⌘K/Ctrl+K from anywhere
+- [x] **Did not use shadcn's `command`**: its registry file imports `@/app/(create)/components/icon-placeholder`, a path that only exists inside shadcn's own repo, and it pulls `cmdk` whose client-side filtering fights server-side search. Built from `Dialog` + `Input` instead — no new dependency
+- [x] **`lib/search-types.ts` exists to keep Prisma out of the browser.** The client component needs `MIN_QUERY_LENGTH` and `SEARCH_TYPE_LABEL` at runtime; importing them from `lib/search.ts` dragged Prisma → `pg` → `require('dns')` into the client bundle and the build failed with "Module not found: Can't resolve 'dns'". Same split, same reason, as `lib/auth/constants.ts`
+- [x] Loading and result-freshness are **derived** from `answered.query === query`, not stored — satisfies `react-hooks/set-state-in-effect` and makes it impossible to render one query's results under another's text. `AbortController` cancels superseded requests
+- [x] Verified live: `jav` → Property + 3 Leases · `C2` → Unit + Lease · `julius` → Tenant + 3 Leases · `0623470540` → Tenant by phone · `L-265FD` → that exact lease · `zzzznope` → empty state
+- [x] **Org isolation confirmed**: signed into Melinda Gates, searching the other org's property name, unit label, and address each returned **0** results (control query returned 4)
+- [x] ⌘K opens and autofocuses; ArrowDown moves the highlight; Enter opened `/leases/…` matching the shown reference and closed the dialog; dark mode + 375px checked, no overflow
+
 ### Not done
 
+- [ ] Search covers the four requested types only — **non-tenant members (Owner, Manager) are not searchable**. Add a fifth branch over `Membership` if staff lookup is wanted.
+- [ ] Search is `contains`-based, so it's substring matching, not ranked full-text. Fine at this size; revisit with Postgres `tsvector` + a GIN index when rows grow.
 - [ ] **Roles can be created but not renamed or deleted** — no UI and no `PATCH`/`DELETE /api/roles/[id]`. Deleting needs care: `Role.memberships`/`invitations` have no `onDelete`, so Postgres restricts, and deleting Owner or Tenant would break the guards that match on those names.
 - [ ] Permissions are named but not modelled — no `Permission` table, no enforcement. Every signed-in member can still reach every page.
 - [x] ~~Stale `activeOrgId` after org deletion showed empty states~~ — fixed in Phase 24: `getCurrentUser()` validates the org claim per request and falls back for layout, pages, and APIs alike
