@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { BuildingIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -44,14 +45,16 @@ export function CreateOrganizationDialog({ userName }: { userName: string }) {
     });
 
     if (response.ok) {
+      toast.success(`${name} created`);
       router.refresh();
       return;
     }
 
     const data = await response.json().catch(() => null);
-    setError(
-      data?.issues?.name?.[0] ?? data?.error ?? "Could not create the organization"
-    );
+    const message =
+      data?.issues?.name?.[0] ?? data?.error ?? "Could not create the organization";
+    setError(message);
+    toast.error(message);
     setPending(false);
   }
 

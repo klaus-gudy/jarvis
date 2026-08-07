@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   buildUnitColumns,
@@ -80,6 +81,7 @@ export function UnitsTable({
     );
 
     if (response.ok) {
+      toast.success(`Unit ${deleting.label} deleted`);
       setDeleting(null);
       setDeletePending(false);
       router.refresh();
@@ -87,7 +89,9 @@ export function UnitsTable({
     }
 
     const data = await response.json().catch(() => null);
-    setDeleteError(data?.error ?? "Could not delete this unit");
+    const message = data?.error ?? "Could not delete this unit";
+    setDeleteError(message);
+    toast.error(message);
     setDeletePending(false);
   }
 

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 
 import {
   Accordion,
@@ -114,6 +115,7 @@ export function PropertyForm({
     if (response.ok) {
       const data = await response.json().catch(() => null);
       const id = data?.property?.id ?? propertyId;
+      toast.success(mode === "create" ? "Property created" : "Property updated");
       router.push(id ? `/properties/${id}` : "/properties");
       router.refresh();
       return;
@@ -121,7 +123,9 @@ export function PropertyForm({
 
     const data = await response.json().catch(() => null);
     setFieldErrors(data?.issues ?? {});
-    setFormError(data?.issues ? null : (data?.error ?? "Something went wrong"));
+    const message = data?.issues ? null : (data?.error ?? "Something went wrong");
+    setFormError(message);
+    if (message) toast.error(message);
     setPending(false);
   }
 

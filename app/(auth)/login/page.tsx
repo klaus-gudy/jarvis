@@ -3,29 +3,23 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 import { AuthHeader } from "@/components/auth/auth-header"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
 export default function LoginPage() {
   const router = useRouter()
   const [remember, setRemember] = React.useState(true)
   const [pending, setPending] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPending(true)
-    setError(null)
 
     const form = new FormData(event.currentTarget)
     const response = await fetch("/api/auth/login", {
@@ -45,7 +39,7 @@ export default function LoginPage() {
     }
 
     const data = await response.json().catch(() => null)
-    setError(data?.error ?? "Something went wrong")
+    toast.error(data?.error ?? "Something went wrong")
     setPending(false)
   }
 
@@ -96,8 +90,6 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
-
-          {error && <FieldError>{error}</FieldError>}
 
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Signing in…" : "Sign in"}

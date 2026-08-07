@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PencilIcon, Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,13 +42,16 @@ export function PropertyActions({
 
     if (response.ok) {
       setOpen(false);
+      toast.success(`${propertyName} deleted`);
       router.push("/properties");
       router.refresh();
       return;
     }
 
     const data = await response.json().catch(() => null);
-    setError(data?.error ?? "Could not delete this property");
+    const message = data?.error ?? "Could not delete this property";
+    setError(message);
+    toast.error(message);
     setPending(false);
   }
 

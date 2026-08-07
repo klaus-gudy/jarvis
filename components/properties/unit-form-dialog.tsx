@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import {
   Accordion,
@@ -129,6 +130,7 @@ export function UnitFormDialog({
 
     if (response.ok) {
       onOpenChange(false);
+      toast.success(mode === "create" ? "Unit added" : "Unit updated");
       router.refresh();
       setPending(false);
       return;
@@ -136,7 +138,9 @@ export function UnitFormDialog({
 
     const data = await response.json().catch(() => null);
     setFieldErrors(data?.issues ?? {});
-    setFormError(data?.issues ? null : (data?.error ?? "Something went wrong"));
+    const message = data?.issues ? null : (data?.error ?? "Something went wrong");
+    setFormError(message);
+    if (message) toast.error(message);
     setPending(false);
   }
 

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { buildLeaseColumns } from "@/components/leases/lease-columns";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
@@ -54,12 +55,15 @@ export function LeasesTable({
     if (response.ok) {
       setDeleting(null);
       setPending(false);
+      toast.success("Lease deleted");
       router.refresh();
       return;
     }
 
     const data = await response.json().catch(() => null);
-    setError(data?.error ?? "Could not delete this lease");
+    const message = data?.error ?? "Could not delete this lease";
+    setError(message);
+    toast.error(message);
     setPending(false);
   }
 

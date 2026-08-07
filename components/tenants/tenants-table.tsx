@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { buildTenantColumns } from "@/components/tenants/tenant-columns";
@@ -49,6 +50,7 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
     });
 
     if (response.ok) {
+      toast.success(`${deleting.name} removed`);
       setDeleting(null);
       setPending(false);
       router.refresh();
@@ -56,7 +58,9 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
     }
 
     const data = await response.json().catch(() => null);
-    setError(data?.error ?? "Could not remove this tenant");
+    const message = data?.error ?? "Could not remove this tenant";
+    setError(message);
+    toast.error(message);
     setPending(false);
   }
 

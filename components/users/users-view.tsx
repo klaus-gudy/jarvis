@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { PersonCell } from "@/components/person-cell";
@@ -220,6 +221,7 @@ export function UsersView({
     });
 
     if (response.ok) {
+      toast.success(`${removing.name} removed`);
       setRemoving(null);
       setPending(false);
       router.refresh();
@@ -227,7 +229,9 @@ export function UsersView({
     }
 
     const data = await response.json().catch(() => null);
-    setError(data?.error ?? "Could not remove this member");
+    const message = data?.error ?? "Could not remove this member";
+    setError(message);
+    toast.error(message);
     setPending(false);
   }
 
@@ -241,6 +245,7 @@ export function UsersView({
     });
 
     if (response.ok) {
+      toast.success("Invite revoked");
       setRevoking(null);
       setPending(false);
       router.refresh();
@@ -248,7 +253,9 @@ export function UsersView({
     }
 
     const data = await response.json().catch(() => null);
-    setError(data?.error ?? "Could not revoke this invitation");
+    const message = data?.error ?? "Could not revoke this invitation";
+    setError(message);
+    toast.error(message);
     setPending(false);
   }
 

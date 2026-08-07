@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -194,13 +195,16 @@ export function LeaseFormDialog({
     if (response.ok) {
       onOpenChange(false);
       setPending(false);
+      toast.success("Lease created");
       router.refresh();
       return;
     }
 
     const data = await response.json().catch(() => null);
     setFieldErrors(data?.issues ?? {});
-    setFormError(data?.issues ? null : (data?.error ?? "Something went wrong"));
+    const message = data?.issues ? null : (data?.error ?? "Something went wrong");
+    setFormError(message);
+    if (message) toast.error(message);
     setPending(false);
   }
 

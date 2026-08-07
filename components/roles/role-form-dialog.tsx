@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -46,14 +47,16 @@ export function RoleFormDialog({
     if (response.ok) {
       onOpenChange(false);
       setPending(false);
+      toast.success(`Role "${name}" created`);
       router.refresh();
       return;
     }
 
     const data = await response.json().catch(() => null);
-    setError(
-      data?.issues?.name?.[0] ?? data?.error ?? "Could not create this role"
-    );
+    const message =
+      data?.issues?.name?.[0] ?? data?.error ?? "Could not create this role";
+    setError(message);
+    toast.error(message);
     setPending(false);
   }
 

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon, CopyIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -87,12 +88,15 @@ export function InviteDialog({
       // The token is only ever returned here, so build the link immediately.
       setInviteLink(`${window.location.origin}/invite/${data.token}`);
       setPending(false);
+      toast.success("Invite created");
       router.refresh();
       return;
     }
 
     setFieldErrors(data?.issues ?? {});
-    setFormError(data?.issues ? null : (data?.error ?? "Something went wrong"));
+    const message = data?.issues ? null : (data?.error ?? "Something went wrong");
+    setFormError(message);
+    if (message) toast.error(message);
     setPending(false);
   }
 

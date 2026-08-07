@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeftIcon, CheckIcon, XIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { AuthHeader } from "@/components/auth/auth-header"
 import { PasswordInput } from "@/components/auth/password-input"
@@ -37,7 +38,6 @@ export default function RegisterPage() {
   const [password, setPassword] = React.useState("")
 
   const [pending, setPending] = React.useState(false)
-  const [formError, setFormError] = React.useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({})
   const phoneError = usePhoneError(phone)
 
@@ -104,7 +104,6 @@ export default function RegisterPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPending(true)
-    setFormError(null)
     setFieldErrors({})
 
     const response = await fetch("/api/auth/register", {
@@ -121,7 +120,7 @@ export default function RegisterPage() {
 
     const data = await response.json().catch(() => null)
     setFieldErrors(data?.issues ?? {})
-    setFormError(data?.issues ? null : (data?.error ?? "Something went wrong"))
+    if (!data?.issues) toast.error(data?.error ?? "Something went wrong")
     setPending(false)
 
     // The org name field only lives on step one — if the server rejected it
@@ -186,8 +185,6 @@ export default function RegisterPage() {
                 errors={fieldErrors.organizationName?.map((m) => ({ message: m }))}
               />
             </Field>
-
-            {formError && <FieldError>{formError}</FieldError>}
 
             <Button type="submit" className="w-full" disabled={!isAvailable}>
               Continue
@@ -278,8 +275,6 @@ export default function RegisterPage() {
                 errors={fieldErrors.password?.map((m) => ({ message: m }))}
               />
             </Field>
-
-            {formError && <FieldError>{formError}</FieldError>}
 
             <Button type="submit" className="w-full" disabled={pending}>
               {pending ? "Creating account…" : "Create account"}
