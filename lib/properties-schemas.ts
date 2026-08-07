@@ -10,11 +10,14 @@ export const createPropertySchema = z.object({
   category: z.enum(CATEGORY_OPTIONS),
   address: z.string().trim().min(1, "Location is required").max(200),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  // nullish, not optional: the transform emits null for a blank description, so
+  // accepting only string|undefined would leave the schema unable to re-parse
+  // its own output. See the decision log entry for 2026-08-08.
   description: z
     .string()
     .trim()
     .max(1000)
-    .optional()
+    .nullish()
     .transform((value) => (value ? value : null)),
   amenities: z.array(z.enum(AMENITY_OPTIONS)).default([]),
 });

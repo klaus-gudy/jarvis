@@ -37,11 +37,15 @@ export const tzPhoneSchema = z
     return normalized;
   });
 
-/** Optional variant: blank input normalizes to null instead of failing validation. */
+/**
+ * Optional variant: blank input normalizes to null instead of failing validation.
+ * nullish, not optional, so the schema can re-parse its own null output — see
+ * the decision log entry for 2026-08-08.
+ */
 export const optionalTzPhoneSchema = z
   .string()
   .trim()
-  .optional()
+  .nullish()
   .transform((value, ctx) => {
     if (!value) return null;
     const normalized = normalizeTzPhone(value);
