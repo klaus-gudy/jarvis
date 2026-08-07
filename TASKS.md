@@ -274,6 +274,15 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] **Org isolation confirmed**: signed into Melinda Gates, searching the other org's property name, unit label, and address each returned **0** results (control query returned 4)
 - [x] ⌘K opens and autofocuses; ArrowDown moves the highlight; Enter opened `/leases/…` matching the shown reference and closed the dialog; dark mode + 375px checked, no overflow
 
+## Phase 27 — Railway deploy readiness
+
+- [x] `package.json`: added `"postinstall": "prisma generate"` — `lib/generated/prisma` is gitignored, so a clean `npm install` on Railway had nothing to build `lib/prisma.ts`'s import against
+- [x] `package.json`: `"start"` changed to `"prisma migrate deploy && next start"` — nothing previously applied the 12 committed migrations to a fresh deploy target. `next start` already reads `process.env.PORT`, so Railway's injected port needs no extra flag
+- [x] **Verified against a genuinely fresh database**, not the already-migrated dev one: spun up a throwaway `postgres:16` container, ran `prisma migrate deploy` against it — all 12 migrations applied cleanly, `\dt` confirmed every table materialized. This is what actually proves Railway's blank Postgres plugin will work, since testing against the dev DB (already migrated) would have told me nothing
+- [x] **Verified the production server end-to-end**, on a separate port from dev: `npm run build` (same command Railway runs) succeeded across every route; `npm run start` under `PORT=3348` showed `migrate deploy` running before `next start` bound to that port; unauthenticated `/dashboard` → 307 to `/login` per `proxy.ts`; registered a real account through `POST /api/auth/register` → 201, session cookie carried `Secure; HttpOnly; SameSite=lax` (proving `NODE_ENV=production` correctly gates the flag in `lib/auth/session.ts`); logged in and loaded `/dashboard` → rendered as Owner of the new org. Test org/user deleted afterward
+- [x] Confirmed local dev is unaffected — `dev` still runs `next dev -p 3347` directly, untouched by the `start`/`postinstall` changes
+- [x] Deploy plan (Postgres plugin, GitHub auto-deploy, env vars, custom domain) written to `/Users/gmadadi/.claude/plans/snappy-zooming-rivest.md`; the Railway dashboard side is manual and outside this repo
+
 ### Not done
 
 - [ ] Search covers the four requested types only — **non-tenant members (Owner, Manager) are not searchable**. Add a fifth branch over `Membership` if staff lookup is wanted.
