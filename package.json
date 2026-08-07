@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "prisma migrate deploy && next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "studio:local": "dotenv -e .env -- prisma studio --port 5555",
+    "studio:prod": "npm run studio:prod:confirm",
+    "studio:prod:confirm": "dotenv -e .env.production -- prisma studio"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -34,6 +37,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "prisma": "^7.9.1",
