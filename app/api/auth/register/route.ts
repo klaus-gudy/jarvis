@@ -24,28 +24,54 @@ export async function POST(request: Request) {
   const passwordHash = await hashPassword(password);
 
   try {
-    const { user, organization, membership } = await prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.create({
-          data: { name, email, phone: phone ?? null, passwordHash },
-        });
-        const organization = await tx.organization.create({
-          data: { name: organizationName },
-        });
-        const ownerRole = await tx.role.create({
-          data: { name: "Owner", organizationId: organization.id },
-        });
-        const membership = await tx.membership.create({
-          data: {
-            userId: user.id,
-            organizationId: organization.id,
-            roleId: ownerRole.id,
+    const result = await prisma.$transaction(async (tx) => {
+      // The registration form checks this too (GET
+      // /api/organizations/check-name), but only as a courtesy — that check
+      // and this create aren't atomic with each other, so two people typing
+      // the same name in the same few seconds could both see "available".
+      // This is the check that actually prevents the duplicate; it has to
+      // run inside the transaction, or it has the identical race itself.
+      const nameTaken = await tx.organization.findFirst({
+        where: { name: { equals: organizationName, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (nameTaken) return { error: "duplicate-org-name" as const };
+
+      const user = await tx.user.create({
+        data: { name, email, phone: phone ?? null, passwordHash },
+      });
+      const organization = await tx.organization.create({
+        data: { name: organizationName },
+      });
+      const ownerRole = await tx.role.create({
+        data: { name: "Owner", organizationId: organization.id },
+      });
+      const membership = await tx.membership.create({
+        data: {
+          userId: user.id,
+          organizationId: organization.id,
+          roleId: ownerRole.id,
+        },
+        include: { role: true },
+      });
+      return { user, organization, membership };
+    });
+
+    if ("error" in result) {
+      // Surfaced under organizationName so the client can route the user back
+      // to the step that field actually lives on.
+      return Response.json(
+        {
+          error: "This organization name is already taken",
+          issues: {
+            organizationName: ["This organization name is already taken"],
           },
-          include: { role: true },
-        });
-        return { user, organization, membership };
-      }
-    );
+        },
+        { status: 409 }
+      );
+    }
+
+    const { user, organization, membership } = result;
 
     await createSession(user.id, organization.id);
 

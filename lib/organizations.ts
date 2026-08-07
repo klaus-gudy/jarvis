@@ -39,6 +39,22 @@ export const getOrganizationOwnerName = cache(async (organizationId: string) => 
 });
 
 /**
+ * Case-insensitive: "Acme" and "acme" collide, since two near-identical org
+ * names sitting side by side would read as a data-entry mistake. Backs the
+ * live availability check on the registration form — the client-side check is
+ * a courtesy, so `POST /api/auth/register` re-runs the same comparison inside
+ * its own transaction before creating anything, where it's the check that
+ * actually counts.
+ */
+export async function organizationNameExists(name: string) {
+  const existing = await prisma.organization.findFirst({
+    where: { name: { equals: name.trim(), mode: "insensitive" } },
+    select: { id: true },
+  });
+  return existing !== null;
+}
+
+/**
  * Creates an organization for an existing signed-in user and makes them its
  * Owner. Mirrors what registration does, minus creating the user — used when
  * someone ends up with no organization (never invited, or their last one was
