@@ -160,7 +160,7 @@ export default function RegisterPage() {
               {hasName && (
                 <p
                   className={cn(
-                    "flex items-center gap-1.5 text-sm",
+                    "flex items-center gap-1.5 text-xs",
                     checking && "text-muted-foreground",
                     isAvailable && "text-emerald-600 dark:text-emerald-400",
                     isTaken && "text-destructive"
