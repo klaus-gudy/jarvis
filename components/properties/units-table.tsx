@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -13,6 +13,7 @@ import {
   UnitFormDialog,
   type UnitFormValues,
 } from "@/components/properties/unit-form-dialog";
+import { UnitImportDialog } from "@/components/properties/unit-import-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import {
@@ -50,6 +51,7 @@ export function UnitsTable({
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<UnitRow | null>(null);
   const [deleting, setDeleting] = React.useState<UnitRow | null>(null);
   const [deletePending, setDeletePending] = React.useState(false);
@@ -97,7 +99,18 @@ export function UnitsTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {/* bg-card, not the variant's bg-background: this button sits directly on
+            the page rather than on a card, where `outline`'s fill is the exact
+            same colour as the page and only the border shows. */}
+        <Button
+          variant="outline"
+          className="bg-card"
+          onClick={() => setImportOpen(true)}
+        >
+          <UploadIcon />
+          Import units
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);
@@ -141,6 +154,14 @@ export function UnitsTable({
         propertyId={propertyId}
         unitId={editing?.id}
         initialValues={editing ? toFormValues(editing) : undefined}
+      />
+
+      {/* Remounted per open so a finished import doesn't reopen on its summary. */}
+      <UnitImportDialog
+        key={`import-${importOpen}`}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        propertyId={propertyId}
       />
 
       <Dialog
