@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/hash";
 import { registerSchema } from "@/lib/auth/schemas";
 import { createSession } from "@/lib/auth/session";
+import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/roles";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -44,7 +45,12 @@ export async function POST(request: Request) {
         data: { name: organizationName },
       });
       const ownerRole = await tx.role.create({
-        data: { name: "Owner", organizationId: organization.id },
+        data: { name: OWNER_ROLE_NAME, organizationId: organization.id },
+      });
+      // Created alongside Owner so a fresh org can add its first tenant
+      // without `ensureRole` having to lazily create it on the fly.
+      await tx.role.create({
+        data: { name: TENANT_ROLE_NAME, organizationId: organization.id },
       });
       const membership = await tx.membership.create({
         data: {
