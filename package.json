@@ -10,7 +10,7 @@
     "postinstall": "prisma generate",
     "studio:local": "dotenv -e .env -- prisma studio --port 5555",
     "studio:prod": "npm run studio:prod:confirm",
-    "studio:prod:confirm": "dotenv -e .env.production -- prisma studio"
+    "studio:prod:confirm": "dotenv -e .env.production -- prisma studio --port 5599"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
