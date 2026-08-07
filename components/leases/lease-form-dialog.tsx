@@ -214,8 +214,7 @@ export function LeaseFormDialog({
           <DialogHeader>
             <DialogTitle>Create lease</DialogTitle>
             <DialogDescription>
-              Pick a property, then one of its free units, then the tenant.
-              Leases run for a fixed term.
+              Assign a unit and tenant for a fixed term.
             </DialogDescription>
           </DialogHeader>
 
@@ -252,9 +251,6 @@ export function LeaseFormDialog({
                 }
                 disabled={noProperties || !propertyId}
               />
-              <FieldDescription>
-                Only units with no current or upcoming lease are listed.
-              </FieldDescription>
               <FieldError
                 errors={fieldErrors.unitId?.map((m) => ({ message: m }))}
               />
@@ -296,7 +292,7 @@ export function LeaseFormDialog({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="lease-duration">Duration</FieldLabel>
+                <FieldLabel htmlFor="lease-duration">Duration (In months)</FieldLabel>
                 {/* Free integer entry rather than a fixed list of terms — a
                     landlord may agree any number of months. `list` offers the
                     common terms as suggestions without restricting the field. */}
@@ -320,13 +316,13 @@ export function LeaseFormDialog({
                     )
                   )}
                 </datalist>
-                <FieldDescription>
-                  {tooShort
-                    ? `Minimum tenure for this unit is ${minTenure} months.`
-                    : minTenure > 0
-                      ? `In months. Minimum ${minTenure} for this unit.`
-                      : "In months."}
-                </FieldDescription>
+                {(tooShort || minTenure > 0) && (
+                  <FieldDescription>
+                    {tooShort
+                      ? `Minimum tenure for this unit is ${minTenure} months.`
+                      : `Minimum ${minTenure} for this unit.`}
+                  </FieldDescription>
+                )}
                 <FieldError
                   errors={fieldErrors.durationMonths?.map((m) => ({ message: m }))}
                 />

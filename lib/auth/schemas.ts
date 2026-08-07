@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-const phoneSchema = z
-  .string()
-  .trim()
-  .regex(/^\+?[0-9]{7,15}$/, "Enter a valid phone number (digits only, optional +)");
+import { tzPhoneSchema } from "@/lib/phone";
 
 export const registerSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -13,7 +10,7 @@ export const registerSchema = z.object({
     .toLowerCase()
     .pipe(z.email("Enter a valid email")),
   // Mandatory: every member must have a phone number on record.
-  phone: phoneSchema,
+  phone: tzPhoneSchema,
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/hash";
 import { loginSchema } from "@/lib/auth/schemas";
 import { createSession } from "@/lib/auth/session";
+import { normalizeTzPhone } from "@/lib/phone";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -21,18 +22,24 @@ export async function POST(request: Request) {
 
   const { identifier, password } = parsed.data;
   const isEmail = identifier.includes("@");
+  // Stored phones are always the normalized 10-digit local form, so a phone
+  // identifier has to be normalized the same way before it can match one. An
+  // unnormalizable phone just means no user will match — treated as unknown
+  // below rather than rejected here, so response timing stays uniform.
+  const normalizedPhone = isEmail ? null : normalizeTzPhone(identifier);
 
-  const user = await prisma.user.findUnique({
-    where: isEmail
-      ? { email: identifier.toLowerCase() }
-      : { phone: identifier },
-    include: {
-      memberships: {
-        orderBy: { createdAt: "asc" },
-        include: { organization: true, role: true },
-      },
-    },
-  });
+  const user =
+    isEmail || normalizedPhone
+      ? await prisma.user.findUnique({
+          where: isEmail ? { email: identifier.toLowerCase() } : { phone: normalizedPhone! },
+          include: {
+            memberships: {
+              orderBy: { createdAt: "asc" },
+              include: { organization: true, role: true },
+            },
+          },
+        })
+      : null;
 
   // Hash even when the user is unknown, or has no password set, so response
   // timing doesn't reveal which identifiers exist. A null passwordHash means an

@@ -7,7 +7,7 @@ import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { formatCurrencyFull } from "@/lib/format";
 
 export type UnitRow = {
   id: string;
@@ -109,15 +109,10 @@ export function buildUnitColumns({
       accessorKey: "tenantName",
       header: "Tenant",
       cell: ({ row }) => {
-        const { tenantName, leaseStart } = row.original;
+        const { tenantName } = row.original;
         return (
           <div className="leading-tight">
             <div className="text-muted-foreground">{tenantName ?? "—"}</div>
-            {leaseStart && (
-              <div className="text-xs text-muted-foreground">
-                from {formatDate(new Date(leaseStart))}
-              </div>
-            )}
           </div>
         );
       },

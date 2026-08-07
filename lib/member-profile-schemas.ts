@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { optionalTzPhoneSchema } from "@/lib/phone";
+
 /**
  * Every field here is optional by design — this record only ever adds context
  * to a member. Blank inputs are normalised to null so clearing a field stores
@@ -13,22 +15,12 @@ const optionalText = (max: number) =>
     .optional()
     .transform((value) => (value ? value : null));
 
-const optionalPhone = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value ? value : null))
-  .refine(
-    (value) => value === null || /^\+?[0-9]{7,15}$/.test(value),
-    "Enter a valid phone number (digits only, optional +)"
-  );
-
 export const updateMemberProfileSchema = z.object({
   occupation: optionalText(80),
   nidaNumber: optionalText(40),
   employer: optionalText(120),
   emergencyContactName: optionalText(100),
-  emergencyContactPhone: optionalPhone,
+  emergencyContactPhone: optionalTzPhoneSchema,
   emergencyContactRelation: optionalText(40),
 });
 

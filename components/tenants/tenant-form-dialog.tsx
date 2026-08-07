@@ -12,13 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { usePhoneError } from "@/hooks/use-phone-error";
 
 type Values = { name: string; phone: string; email: string };
 type FieldErrors = Partial<Record<keyof Values, string[]>>;
@@ -39,6 +35,7 @@ export function TenantFormDialog({
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
+  const phoneError = usePhoneError(values.phone);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -76,8 +73,7 @@ export function TenantFormDialog({
           <DialogHeader>
             <DialogTitle>Add tenant</DialogTitle>
             <DialogDescription>
-              Assisted onboarding — no password is set here, so this tenant
-              can&apos;t sign in yet. Invite them from Users if they need access.
+              Assisted onboarding — tenant can&apos;t sign in until invited.
             </DialogDescription>
           </DialogHeader>
 
@@ -104,7 +100,11 @@ export function TenantFormDialog({
                 placeholder="+255712345678"
                 required
               />
-              <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
+              <FieldError
+                errors={(fieldErrors.phone ?? (phoneError ? [phoneError] : [])).map(
+                  (m) => ({ message: m })
+                )}
+              />
             </Field>
 
             <Field>
@@ -116,9 +116,6 @@ export function TenantFormDialog({
                 onChange={(event) => set("email", event.target.value)}
                 placeholder="neema@example.com"
               />
-              <FieldDescription>
-                Leave blank if the tenant doesn&apos;t have one.
-              </FieldDescription>
               <FieldError errors={fieldErrors.email?.map((m) => ({ message: m }))} />
             </Field>
 

@@ -1,15 +1,14 @@
 import { z } from "zod";
 
+import { tzPhoneSchema } from "@/lib/phone";
+
 /**
  * Editing a member updates the underlying User. Phone stays mandatory, matching
  * every other place a member is created — an edit must not be a way to strip it.
  */
 export const updateMemberSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+?[0-9]{7,15}$/, "Enter a valid phone number (digits only, optional +)"),
+  phone: tzPhoneSchema,
   email: z
     .literal("")
     .transform(() => undefined)

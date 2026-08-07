@@ -110,7 +110,7 @@ export async function getProperty(organizationId: string, propertyId: string) {
       where: { id: propertyId, organizationId },
       include: {
         units: {
-          orderBy: { label: "asc" },
+          orderBy: { updatedAt: "desc" },
           include: {
             leases: {
               where: activeLeaseFilter(now, organizationId),

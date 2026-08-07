@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CURRENCY } from "@/lib/format";
+import { CURRENCY, formatMoneyFull } from "@/lib/format";
 import { UNIT_AMENITY_OPTIONS, UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
 
 export type UnitFormValues = {
@@ -187,19 +187,22 @@ export function UnitFormDialog({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="unit-rent">Monthly rate</FieldLabel>
+                <FieldLabel htmlFor="unit-rent">Monthly rate ({CURRENCY})</FieldLabel>
                 <Input
                   id="unit-rent"
-                  type="number"
-                  min={0}
-                  step={1000}
+                  type="text"
                   inputMode="numeric"
-                  value={values.rentAmount}
-                  onChange={(event) => set("rentAmount", event.target.value)}
-                  placeholder="500000"
+                  value={
+                    values.rentAmount
+                      ? formatMoneyFull(Number(values.rentAmount))
+                      : ""
+                  }
+                  onChange={(event) =>
+                    set("rentAmount", event.target.value.replace(/[^0-9]/g, ""))
+                  }
+                  placeholder="500,000"
                   required
                 />
-                <FieldDescription>In {CURRENCY} per month.</FieldDescription>
                 <FieldError
                   errors={fieldErrors.rentAmount?.map((m) => ({ message: m }))}
                 />
@@ -220,7 +223,7 @@ export function UnitFormDialog({
                   </span>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-4 pb-2">
+                  <div className="space-y-4 px-1 pt-1 pb-2">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
                         <FieldLabel htmlFor="unit-type">Type</FieldLabel>

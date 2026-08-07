@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePhoneError } from "@/hooks/use-phone-error";
 
 type Values = { name: string; email: string; phone: string; roleId: string };
 type FieldErrors = Partial<Record<keyof Values, string[]>>;
@@ -62,6 +63,7 @@ export function InviteDialog({
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
   const [inviteLink, setInviteLink] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const phoneError = usePhoneError(values.phone);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -161,7 +163,11 @@ export function InviteDialog({
                 placeholder="+255712345678"
                 required
               />
-              <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
+              <FieldError
+                errors={(fieldErrors.phone ?? (phoneError ? [phoneError] : [])).map(
+                  (m) => ({ message: m })
+                )}
+              />
             </Field>
 
             <Field>

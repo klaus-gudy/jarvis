@@ -16,6 +16,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { usePhoneError } from "@/hooks/use-phone-error"
 import { cn } from "@/lib/utils"
 
 type FieldErrors = Partial<
@@ -38,6 +39,7 @@ export default function RegisterPage() {
   const [pending, setPending] = React.useState(false)
   const [formError, setFormError] = React.useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({})
+  const phoneError = usePhoneError(phone)
 
   /**
    * Availability is stored with the name it answers, not as a bare boolean —
@@ -249,10 +251,14 @@ export default function RegisterPage() {
                 onChange={(event) => setPhone(event.target.value)}
                 required
               />
-              <FieldDescription>
+              {/* <FieldDescription>
                 You can sign in with this instead of your email.
-              </FieldDescription>
-              <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
+              </FieldDescription> */}
+              <FieldError
+                errors={(fieldErrors.phone ?? (phoneError ? [phoneError] : [])).map(
+                  (m) => ({ message: m })
+                )}
+              />
             </Field>
 
             <Field>

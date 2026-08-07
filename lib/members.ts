@@ -19,7 +19,7 @@ export type MemberRow = {
 export async function getMembers(organizationId: string): Promise<MemberRow[]> {
   const memberships = await prisma.membership.findMany({
     where: { organizationId },
-    orderBy: { createdAt: "asc" },
+    orderBy: { updatedAt: "desc" },
     include: {
       user: {
         select: {

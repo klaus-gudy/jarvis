@@ -19,6 +19,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { usePhoneError } from "@/hooks/use-phone-error";
 
 export type EditableMember = {
   membershipId: string;
@@ -49,6 +50,7 @@ export function MemberEditDialog({
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
+  const phoneError = usePhoneError(values.phone);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -114,7 +116,11 @@ export function MemberEditDialog({
                 placeholder="+255712345678"
                 required
               />
-              <FieldError errors={fieldErrors.phone?.map((m) => ({ message: m }))} />
+              <FieldError
+                errors={(fieldErrors.phone ?? (phoneError ? [phoneError] : [])).map(
+                  (m) => ({ message: m })
+                )}
+              />
             </Field>
 
             <Field>

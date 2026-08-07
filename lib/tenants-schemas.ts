@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-const phoneSchema = z
-  .string()
-  .trim()
-  .regex(/^\+?[0-9]{7,15}$/, "Enter a valid phone number (digits only, optional +)");
+import { tzPhoneSchema } from "@/lib/phone";
 
 /**
  * Assisted onboarding: staff record a tenant on their behalf, so phone is the
@@ -12,7 +9,7 @@ const phoneSchema = z
  */
 export const createTenantSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
-  phone: phoneSchema,
+  phone: tzPhoneSchema,
   email: z
     .literal("")
     .transform(() => undefined)

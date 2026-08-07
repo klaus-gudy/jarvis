@@ -3,15 +3,13 @@ import { z } from "zod";
 
 import { requireActiveOrg } from "@/lib/api-auth";
 import { createInvitation, getInvitations } from "@/lib/invitations";
+import { tzPhoneSchema } from "@/lib/phone";
 
 // Phone is mandatory for every member — it is the identifier the business
 // actually reaches people on, so no member may be recorded without one.
 const createInvitationSchema = z.object({
   name: z.string().trim().max(100).optional(),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+?[0-9]{7,15}$/, "Enter a valid phone number"),
+  phone: tzPhoneSchema,
   email: z
     .literal("")
     .transform(() => undefined)

@@ -36,7 +36,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
       membership: { organizationId },
       unit: { property: { organizationId } },
     },
-    orderBy: { startDate: "desc" },
+    orderBy: { updatedAt: "desc" },
     include: {
       unit: { include: { property: { select: { name: true } } } },
       membership: {

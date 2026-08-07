@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { usePhoneError } from "@/hooks/use-phone-error";
 import type { MemberProfileFields } from "@/lib/tenants";
 
 type Values = Record<keyof MemberProfileFields, string>;
@@ -63,6 +64,7 @@ export function ProfileEditDialog({
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
+  const phoneError = usePhoneError(values.emergencyContactPhone);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,7 +129,12 @@ export function ProfileEditDialog({
                     placeholder={field.placeholder}
                   />
                   <FieldError
-                    errors={fieldErrors[field.key]?.map((m) => ({ message: m }))}
+                    errors={(
+                      fieldErrors[field.key] ??
+                      (field.key === "emergencyContactPhone" && phoneError
+                        ? [phoneError]
+                        : [])
+                    ).map((m) => ({ message: m }))}
                   />
                 </Field>
               ))}

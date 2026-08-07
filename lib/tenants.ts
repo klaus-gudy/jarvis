@@ -55,7 +55,7 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
       organizationId,
       role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { updatedAt: "desc" },
     include: {
       user: {
         select: {

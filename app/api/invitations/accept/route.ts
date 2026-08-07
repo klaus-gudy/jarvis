@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { acceptInvitation } from "@/lib/invitations";
 import { createSession } from "@/lib/auth/session";
+import { optionalTzPhoneSchema } from "@/lib/phone";
 
 /**
  * Public by design — the token is the credential. It is never logged, and every
@@ -20,16 +21,7 @@ const acceptSchema = z.object({
     .transform(() => undefined)
     .or(z.string().trim().toLowerCase().pipe(z.email("Enter a valid email")))
     .optional(),
-  phone: z
-    .literal("")
-    .transform(() => undefined)
-    .or(
-      z
-        .string()
-        .trim()
-        .regex(/^\+?[0-9]{7,15}$/, "Enter a valid phone number")
-    )
-    .optional(),
+  phone: optionalTzPhoneSchema,
 });
 
 export async function POST(request: Request) {
@@ -48,8 +40,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { token, ...input } = parsed.data;
-  const result = await acceptInvitation(token, input);
+  const { token, phone, ...input } = parsed.data;
+  const result = await acceptInvitation(token, { ...input, phone: phone ?? undefined });
 
   if (result.error === "invalid" || result.error === "expired") {
     return Response.json(
