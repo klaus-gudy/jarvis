@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   MIN_QUERY_LENGTH,
+  SEARCH_TYPE_BADGE,
   SEARCH_TYPE_LABEL,
   type SearchResult,
   type SearchResultType,
@@ -22,7 +23,17 @@ import {
 import { cn } from "@/lib/utils";
 
 /** Fixed order so results don't reshuffle between keystrokes. */
-const TYPE_ORDER: SearchResultType[] = ["property", "unit", "tenant", "lease"];
+/**
+ * Both the section order and the filter: a type missing here never renders,
+ * however many rows the API returned for it.
+ */
+const TYPE_ORDER: SearchResultType[] = [
+  "property",
+  "unit",
+  "tenant",
+  "user",
+  "lease",
+];
 
 /** Long enough to swallow a typing burst, short enough to feel immediate. */
 const DEBOUNCE_MS = 200;
@@ -248,7 +259,10 @@ export function GlobalSearch() {
                       )}
                       <Badge
                         variant="outline"
-                        className="shrink-0 rounded-full font-normal"
+                        className={cn(
+                          "shrink-0 rounded-full font-normal",
+                          SEARCH_TYPE_BADGE[result.type]
+                        )}
                       >
                         {SEARCH_TYPE_LABEL[result.type]}
                       </Badge>

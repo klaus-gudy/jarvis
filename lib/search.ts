@@ -39,7 +39,7 @@ export async function searchOrganization(
   const suffix = leaseIdSuffix(q);
   const now = new Date();
 
-  const [properties, units, tenants, leases] = await Promise.all([
+  const [properties, units, tenants, users, leases] = await Promise.all([
     prisma.property.findMany({
       where: {
         organizationId,
@@ -78,6 +78,31 @@ export async function searchOrganization(
       take: PER_TYPE_LIMIT,
       select: {
         id: true,
+        user: { select: { name: true, email: true, phone: true } },
+      },
+    }),
+
+    // Everyone who isn't a tenant — Owner, Manager, Caretaker. Exactly the
+    // complement of the branch above, so a member surfaces once, under the
+    // heading that describes what they actually are.
+    prisma.membership.findMany({
+      where: {
+        organizationId,
+        // NOT at this level, not `name: { not: ... }` — Prisma rejects `mode`
+        // inside a nested `not`, and Role is a required relation so this is
+        // an exact complement of the tenant branch.
+        NOT: {
+          role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+        },
+        user: {
+          OR: [{ name: contains }, { email: contains }, { phone: contains }],
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: PER_TYPE_LIMIT,
+      select: {
+        id: true,
+        role: { select: { name: true } },
         user: { select: { name: true, email: true, phone: true } },
       },
     }),
@@ -140,6 +165,18 @@ export async function searchOrganization(
       type: "tenant" as const,
       title: displayName(membership.user),
       subtitle: membership.user.phone ?? membership.user.email ?? "No contact",
+      meta: null,
+      href: `/members/${membership.id}`,
+    })),
+
+    ...users.map((membership) => ({
+      key: `user-${membership.id}`,
+      type: "user" as const,
+      title: displayName(membership.user),
+      // Role first: when looking someone up, what they can do is the point.
+      subtitle: `${membership.role.name} · ${
+        membership.user.phone ?? membership.user.email ?? "No contact"
+      }`,
       meta: null,
       href: `/members/${membership.id}`,
     })),

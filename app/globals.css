@@ -74,6 +74,11 @@
   --color-stat: var(--stat);
   --color-stat-foreground: var(--stat-foreground);
   --color-stat-accent: var(--stat-accent);
+  --color-kind-property: var(--kind-property);
+  --color-kind-unit: var(--kind-unit);
+  --color-kind-tenant: var(--kind-tenant);
+  --color-kind-lease: var(--kind-lease);
+  --color-kind-user: var(--kind-user);
 }
 
 :root {
@@ -140,9 +145,31 @@
   --stat: oklch(0.2972 0.0398 246.6002);
   --stat-foreground: oklch(1.0000 0 0);
   --stat-accent: oklch(0.6325 0.0904 80.9413);
+  /*
+   * One hue per record kind, so a mixed list (global search today, anywhere
+   * else later) is scannable by colour. Anchored to the existing palette
+   * rather than a new one: property is the brand gold, unit and lease are the
+   * chart blues already in use, tenant is the chart terracotta. Only user is
+   * new, and it is desaturated to match the rest.
+   *
+   * Each token is the *ink*. Badges tint their own background from it with an
+   * alpha, which composites correctly over either theme's surface — so one
+   * token per kind covers both modes, and only the lightness is retuned below.
+   */
+  --kind-property: oklch(0.4550 0.0904 80.9413);
+  --kind-unit: oklch(0.4700 0.0900 254.1573);
+  --kind-tenant: oklch(0.4800 0.1100 35.9616);
+  --kind-lease: oklch(0.4650 0.0850 155.0000);
+  --kind-user: oklch(0.4700 0.0900 300.0000);
 }
 
 .dark {
+  /* Lifted well above the dark surface; same hues, so a kind reads the same. */
+  --kind-property: oklch(0.8000 0.0998 82.0579);
+  --kind-unit: oklch(0.7800 0.0800 248.6845);
+  --kind-tenant: oklch(0.7900 0.0900 34.1875);
+  --kind-lease: oklch(0.7900 0.0850 155.0000);
+  --kind-user: oklch(0.7900 0.0850 300.0000);
   /* Deeper than --background so the slab still separates from the page. */
   --stat: oklch(0.2210 0.0253 246.6492);
   --stat-foreground: oklch(0.9219 0 0);

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +24,16 @@ export type UnitRow = {
   leaseStart: string | null;
 };
 
-/** Secondary lines keep six extra attributes readable without six extra columns. */
+/**
+ * Floor, block, size, minimum tenure and amenities don't get columns — they
+ * only ever show up in the View dialog, opened from the row actions.
+ */
 export function buildUnitColumns({
+  onView,
   onEdit,
   onDelete,
 }: {
+  onView: (unit: UnitRow) => void;
   onEdit: (unit: UnitRow) => void;
   onDelete: (unit: UnitRow) => void;
 }): ColumnDef<UnitRow>[] {
@@ -63,18 +68,9 @@ export function buildUnitColumns({
           className="-ml-2"
         />
       ),
-      cell: ({ row }) => {
-        const { label, block, floor } = row.original;
-        const place = [block ? `Block ${block}` : null, floor ? `Floor ${floor}` : null]
-          .filter(Boolean)
-          .join(" · ");
-        return (
-          <div className="leading-tight">
-            <div className="font-medium">{label}</div>
-            {place && <div className="text-xs text-muted-foreground">{place}</div>}
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <div className="font-medium">{row.original.label}</div>
+      ),
     },
     {
       accessorKey: "unitType",
@@ -140,6 +136,14 @@ export function buildUnitColumns({
       header: "",
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onView(row.original)}
+            aria-label={`View unit ${row.original.label}`}
+          >
+            <EyeIcon />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

@@ -316,9 +316,21 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] `required: true` on a column only ever meant "this header must exist". First name needed it to mean "this cell must have a value" too — a surname alone would otherwise satisfy the joined name. Enforced in the tenant mapper, which also names `name` so the schema doesn't restate the fault
 - [x] Verified end-to-end in the browser: 9-row tenant file → 4 created, 5 correctly rejected (missing first name ×2, bad phone, duplicate phone, bad email), "4 tenants imported" toast, names joined correctly including a surname-less "Asha" and a leading-zero-recovered "Bakari Salum". Units dialog re-checked through the shared component. All test data removed
 
-### Not done
+## Phase 30 — Global search: users, and colour-coded kind badges
 
-- [ ] Search covers the four requested types only — **non-tenant members (Owner, Manager) are not searchable**. Add a fifth branch over `Membership` if staff lookup is wanted.
+- [x] **Global search now returns non-tenant members** as a fifth type, `user`. The branch is the exact complement of the tenant one (`NOT: { role: { name: Tenant } }`), so every member surfaces exactly once under the heading that describes what they are — no double-listing. Subtitle leads with the role (`Owner · 0712…`), since that's the point of looking someone up
+- [x] `TYPE_ORDER` in `global-search.tsx` is both the section order **and the filter** — a type missing from it never renders however many rows the API returns. Adding `user` there was required, not cosmetic
+- [x] **One colour per record kind**, as `--kind-{property,unit,tenant,lease,user}` tokens registered in the `@theme` block. Anchored to the existing palette rather than a new one: property is the brand gold, unit/lease the chart blues and greens, tenant the chart terracotta; only user (violet) is new, and it is desaturated to match. Hues sit at 36/81/155/254/300 — minimum 45° apart
+- [x] Each token is the **ink**; the badge tints its own background from it at 10% alpha, which composites correctly over either theme's surface. So one token per kind covers both modes and only the lightness is retuned in `.dark` — no second set of `dark:` classes to keep in sync
+- [x] **Measured the contrast rather than eyeballing it.** First pass came out 3.91–4.90 in light: passing AA-large but failing AA normal text, which is the right bar for a 12px badge. Darkened the light-mode tokens to land at **4.88–5.32 light / 6.39–6.75 dark**, all five passing AA text in both themes. (The first measurement attempt was itself wrong — `getComputedStyle` returns `lab()`/`oklab()` here, so the numbers had to be resolved through a canvas to get true sRGB.)
+
+## Phase 31 — Units table: bare label column, View dialog
+
+- [x] **Unit column shows only the label** — dropped the block/floor secondary line that used to run under it
+- [x] **New "View" row action** (`EyeIcon`, matching the convention already used on the leases table) opens a read-only `UnitViewDialog` built on `DetailRow`/`Card`, the same pattern the property/lease/member detail pages use. Shows every field the table doesn't: size, minimum tenure, block, floor, amenities as badges — plus name/rate/type/status/tenant for context, in the same order the add/edit form presents them
+- [x] Verified against a unit with every optional field set (size, tenure, block, floor, a custom amenity) — all render correctly in the dialog. Test data reverted afterward
+
+### Not done
 - [ ] Search is `contains`-based, so it's substring matching, not ranked full-text. Fine at this size; revisit with Postgres `tsvector` + a GIN index when rows grow.
 - [ ] **Roles can be created but not renamed or deleted** — no UI and no `PATCH`/`DELETE /api/roles/[id]`. Deleting needs care: `Role.memberships`/`invitations` have no `onDelete`, so Postgres restricts, and deleting Owner or Tenant would break the guards that match on those names.
 - [ ] Permissions are named but not modelled — no `Permission` table, no enforcement. Every signed-in member can still reach every page.

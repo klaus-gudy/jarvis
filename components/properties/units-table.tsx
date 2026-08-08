@@ -13,6 +13,7 @@ import {
   UnitFormDialog,
   type UnitFormValues,
 } from "@/components/properties/unit-form-dialog";
+import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
 import { ImportDialog } from "@/components/import-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
@@ -54,6 +55,7 @@ export function UnitsTable({
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
+  const [viewing, setViewing] = React.useState<UnitRow | null>(null);
   const [editing, setEditing] = React.useState<UnitRow | null>(null);
   const [deleting, setDeleting] = React.useState<UnitRow | null>(null);
   const [deletePending, setDeletePending] = React.useState(false);
@@ -62,6 +64,7 @@ export function UnitsTable({
   const columns = React.useMemo(
     () =>
       buildUnitColumns({
+        onView: (unit) => setViewing(unit),
         onEdit: (unit) => {
           setEditing(unit);
           setFormOpen(true);
@@ -146,6 +149,8 @@ export function UnitsTable({
         ]}
         emptyMessage="No units yet. Use “Add unit” to create the first one."
       />
+
+      <UnitViewDialog unit={viewing} onOpenChange={(open) => !open && setViewing(null)} />
 
       {/* Remount on each open so the form re-seeds from initialValues, rather
           than resetting state inside an effect. */}
