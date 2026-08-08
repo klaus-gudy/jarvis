@@ -143,7 +143,7 @@ export default function RegisterPage() {
         <form onSubmit={handleContinue}>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="organizationName">Organization name</FieldLabel>
+              <FieldLabel htmlFor="organizationName" required>Organization name</FieldLabel>
               <Input
                 id="organizationName"
                 name="organizationName"
@@ -204,7 +204,7 @@ export default function RegisterPage() {
             </button>
 
             <Field>
-              <FieldLabel htmlFor="name">Your name</FieldLabel>
+              <FieldLabel htmlFor="name" required>Your name</FieldLabel>
               <Input
                 id="name"
                 name="name"
@@ -220,7 +220,7 @@ export default function RegisterPage() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="email">Email address</FieldLabel>
+              <FieldLabel htmlFor="email" required>Email address</FieldLabel>
               <Input
                 id="email"
                 name="email"
@@ -236,7 +236,7 @@ export default function RegisterPage() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="phone">Phone</FieldLabel>
+              <FieldLabel htmlFor="phone" required>Phone</FieldLabel>
               <Input
                 id="phone"
                 name="phone"
@@ -259,7 +259,7 @@ export default function RegisterPage() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <FieldLabel htmlFor="password" required>Password</FieldLabel>
               <PasswordInput
                 id="password"
                 name="password"

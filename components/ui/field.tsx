@@ -100,8 +100,13 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
 
 function FieldLabel({
   className,
+  required,
+  children,
   ...props
-}: React.ComponentProps<typeof Label>) {
+}: React.ComponentProps<typeof Label> & {
+  /** Renders the * that marks a field the form won't submit without. */
+  required?: boolean
+}) {
   return (
     <Label
       data-slot="field-label"
@@ -111,7 +116,16 @@ function FieldLabel({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {required && (
+        // Decorative: the control's own `required` is what assistive tech reads.
+        // -ml-1.5 pulls it back against the text, past this label's gap-2.
+        <span aria-hidden="true" className="-ml-1.5 text-destructive">
+          *
+        </span>
+      )}
+    </Label>
   )
 }
 

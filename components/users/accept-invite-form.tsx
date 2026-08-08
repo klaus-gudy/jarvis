@@ -71,7 +71,7 @@ export function AcceptInviteForm({
     <form onSubmit={handleSubmit}>
       <FieldGroup>
         <Field>
-          <FieldLabel htmlFor="accept-name">Your name</FieldLabel>
+          <FieldLabel htmlFor="accept-name" required>Your name</FieldLabel>
           <Input
             id="accept-name"
             className="bg-card"
@@ -92,7 +92,7 @@ export function AcceptInviteForm({
         )}
 
         <Field>
-          <FieldLabel htmlFor="accept-password">Password</FieldLabel>
+          <FieldLabel htmlFor="accept-password" required>Password</FieldLabel>
           <PasswordInput
             id="accept-password"
             autoComplete="new-password"

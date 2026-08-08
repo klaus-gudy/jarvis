@@ -83,7 +83,7 @@ export function CreateOrganizationDialog({ userName }: { userName: string }) {
 
           <div className="py-4">
             <Field>
-              <FieldLabel htmlFor="org-name">Organization name</FieldLabel>
+              <FieldLabel htmlFor="org-name" required>Organization name</FieldLabel>
               <Input
                 id="org-name"
                 value={name}

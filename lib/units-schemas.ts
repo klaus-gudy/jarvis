@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { UNIT_AMENITY_OPTIONS, UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
+import { UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
 
 /**
  * Empty strings arrive from untouched form inputs and mean "not provided".
@@ -37,7 +37,25 @@ export const createUnitSchema = z.object({
     .positive("Size must be greater than 0")
     .max(100_000, "Size is too large")
     .nullish(),
-  amenities: z.array(z.enum(UNIT_AMENITY_OPTIONS)).default([]),
+  /**
+   * Free text, not `z.enum(UNIT_AMENITY_OPTIONS)`: that list is a starting set
+   * of checkboxes, not the limit of what a unit can have, and Prisma stores a
+   * plain String[]. Trimmed, de-duplicated case-insensitively and capped so a
+   * client can't push unbounded data into the row.
+   */
+  amenities: z
+    .array(z.string().trim().min(1).max(40))
+    .max(40, "That's too many amenities")
+    .default([])
+    .transform((list) => {
+      const seen = new Set<string>();
+      return list.filter((item) => {
+        const key = item.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }),
 });
 
 export const updateUnitSchema = createUnitSchema.partial();

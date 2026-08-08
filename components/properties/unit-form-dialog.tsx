@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -84,6 +85,7 @@ export function UnitFormDialog({
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
+  const [amenityDraft, setAmenityDraft] = React.useState("");
 
   function set<K extends keyof UnitFormValues>(key: K, value: UnitFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -96,6 +98,31 @@ export function UnitFormDialog({
         ? [...current.amenities, amenity]
         : current.amenities.filter((item) => item !== amenity),
     }));
+  }
+
+  /** Anything on this unit that isn't one of the standard checkboxes. */
+  const customAmenities = values.amenities.filter(
+    (amenity) =>
+      !UNIT_AMENITY_OPTIONS.some(
+        (option) => option.toLowerCase() === amenity.toLowerCase()
+      )
+  );
+
+  function addAmenity() {
+    const value = amenityDraft.trim();
+    if (!value) return;
+
+    // Typing the name of a standard amenity should tick its box rather than
+    // add a second, near-identical chip beside it.
+    const standard = UNIT_AMENITY_OPTIONS.find(
+      (option) => option.toLowerCase() === value.toLowerCase()
+    );
+    const already = values.amenities.some(
+      (item) => item.toLowerCase() === value.toLowerCase()
+    );
+
+    if (!already) toggleAmenity(standard ?? value, true);
+    setAmenityDraft("");
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -150,7 +177,9 @@ export function UnitFormDialog({
     values.floor ? `Floor ${values.floor}` : null,
     values.sizeSqm ? `${values.sizeSqm} m²` : null,
     values.minTenureMonths ? `min ${values.minTenureMonths} mo` : null,
-    values.amenities.length > 0 ? `${values.amenities.length} amenities` : null,
+    values.amenities.length > 0
+      ? `${values.amenities.length} ${values.amenities.length === 1 ? "amenity" : "amenities"}`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -179,7 +208,7 @@ export function UnitFormDialog({
           <div className="space-y-4 py-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="unit-label">Unit name</FieldLabel>
+                <FieldLabel htmlFor="unit-label" required>Unit name</FieldLabel>
                 <Input
                   id="unit-label"
                   value={values.label}
@@ -191,7 +220,7 @@ export function UnitFormDialog({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="unit-rent">Monthly rate ({CURRENCY})</FieldLabel>
+                <FieldLabel htmlFor="unit-rent" required>Monthly rate ({CURRENCY})</FieldLabel>
                 <Input
                   id="unit-rent"
                   type="text"
@@ -213,6 +242,35 @@ export function UnitFormDialog({
               </Field>
             </div>
 
+            {/* Type sits with the essentials rather than under "Other details" —
+                it's the field people reach for straight after name and rate. */}
+            <Field>
+              <FieldLabel htmlFor="unit-type">Type</FieldLabel>
+              <Select
+                value={values.unitType}
+                onValueChange={(next) => next && set("unitType", next)}
+              >
+                <SelectTrigger id="unit-type" className="w-full">
+                  <SelectValue>
+                    {(selected: string) =>
+                      selected === NONE ? "Not set" : selected
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Not set</SelectItem>
+                  {UNIT_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError
+                errors={fieldErrors.unitType?.map((m) => ({ message: m }))}
+              />
+            </Field>
+
             <Accordion
               className="rounded-lg border px-4"
               defaultValue={extrasHaveError ? ["extras"] : []}
@@ -229,33 +287,6 @@ export function UnitFormDialog({
                 <AccordionContent>
                   <div className="space-y-4 px-1 pt-1 pb-2">
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="unit-type">Type</FieldLabel>
-                        <Select
-                          value={values.unitType}
-                          onValueChange={(next) => next && set("unitType", next)}
-                        >
-                          <SelectTrigger id="unit-type" className="w-full">
-                            <SelectValue>
-                              {(selected: string) =>
-                                selected === NONE ? "Not set" : selected
-                              }
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={NONE}>Not set</SelectItem>
-                            {UNIT_TYPE_OPTIONS.map((option) => (
-                              <SelectItem key={option} value={option}>
-                                {option}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FieldError
-                          errors={fieldErrors.unitType?.map((m) => ({ message: m }))}
-                        />
-                      </Field>
-
                       <Field>
                         <FieldLabel htmlFor="unit-size">Size (m²)</FieldLabel>
                         <Input
@@ -335,7 +366,10 @@ export function UnitFormDialog({
                             className="flex cursor-pointer items-center gap-2 text-sm"
                           >
                             <Checkbox
-                              checked={values.amenities.includes(amenity)}
+                              checked={values.amenities.some(
+                                (item) =>
+                                  item.toLowerCase() === amenity.toLowerCase()
+                              )}
                               onCheckedChange={(checked) =>
                                 toggleAmenity(amenity, checked)
                               }
@@ -344,6 +378,54 @@ export function UnitFormDialog({
                           </label>
                         ))}
                       </div>
+
+                      {customAmenities.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {customAmenities.map((amenity) => (
+                            <span
+                              key={amenity}
+                              className="inline-flex items-center gap-1 rounded-full border bg-muted/60 py-0.5 pr-1 pl-2.5 text-xs"
+                            >
+                              {amenity}
+                              <button
+                                type="button"
+                                onClick={() => toggleAmenity(amenity, false)}
+                                aria-label={`Remove ${amenity}`}
+                                className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                              >
+                                <XIcon className="size-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <Input
+                          value={amenityDraft}
+                          onChange={(event) => setAmenityDraft(event.target.value)}
+                          // Enter inside a form submits it — here it should only
+                          // ever commit the chip being typed.
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              addAmenity();
+                            }
+                          }}
+                          placeholder="Add another amenity"
+                          maxLength={40}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={addAmenity}
+                          disabled={!amenityDraft.trim()}
+                        >
+                          <PlusIcon />
+                          Add
+                        </Button>
+                      </div>
+
                       <FieldError
                         errors={fieldErrors.amenities?.map((m) => ({ message: m }))}
                       />

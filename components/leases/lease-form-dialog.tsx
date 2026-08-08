@@ -282,7 +282,7 @@ export function LeaseFormDialog({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="lease-start">Start date</FieldLabel>
+                <FieldLabel htmlFor="lease-start" required>Start date</FieldLabel>
                 <Input
                   id="lease-start"
                   type="date"

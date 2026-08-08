@@ -53,7 +53,7 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit}>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="identifier">Email or phone</FieldLabel>
+            <FieldLabel htmlFor="identifier" required>Email or phone</FieldLabel>
             <Input
               id="identifier"
               name="identifier"
@@ -65,7 +65,7 @@ export default function LoginPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <FieldLabel htmlFor="password" required>Password</FieldLabel>
             <PasswordInput
               id="password"
               name="password"

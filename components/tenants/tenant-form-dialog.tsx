@@ -83,7 +83,7 @@ export function TenantFormDialog({
 
           <div className="space-y-4 py-4">
             <Field>
-              <FieldLabel htmlFor="tenant-name">Name</FieldLabel>
+              <FieldLabel htmlFor="tenant-name" required>Name</FieldLabel>
               <Input
                 id="tenant-name"
                 value={values.name}
@@ -95,7 +95,7 @@ export function TenantFormDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="tenant-phone">Phone</FieldLabel>
+              <FieldLabel htmlFor="tenant-phone" required>Phone</FieldLabel>
               <Input
                 id="tenant-phone"
                 type="tel"
@@ -112,7 +112,7 @@ export function TenantFormDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="tenant-email">Email (optional)</FieldLabel>
+              <FieldLabel htmlFor="tenant-email">Email</FieldLabel>
               <Input
                 id="tenant-email"
                 type="email"

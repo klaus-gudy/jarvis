@@ -162,7 +162,7 @@ export function PropertyForm({
             {/* <FieldLegend variant="label">Basics</FieldLegend> */}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="name">Name</FieldLabel>
+                <FieldLabel htmlFor="name" required>Name</FieldLabel>
                 <Input
                   id="name"
                   value={values.name}
@@ -174,7 +174,7 @@ export function PropertyForm({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="address">Location</FieldLabel>
+                <FieldLabel htmlFor="address" required>Location</FieldLabel>
                 <Input
                   id="address"
                   value={values.address}

@@ -59,7 +59,7 @@ export function ResetPasswordForm({
     <form onSubmit={handleSubmit}>
       <FieldGroup>
         <Field>
-          <FieldLabel htmlFor="new-password">New password</FieldLabel>
+          <FieldLabel htmlFor="new-password" required>New password</FieldLabel>
           <PasswordInput
             id="new-password"
             autoComplete="new-password"
@@ -73,7 +73,7 @@ export function ResetPasswordForm({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="confirm-password">Confirm password</FieldLabel>
+          <FieldLabel htmlFor="confirm-password" required>Confirm password</FieldLabel>
           <PasswordInput
             id="confirm-password"
             autoComplete="new-password"

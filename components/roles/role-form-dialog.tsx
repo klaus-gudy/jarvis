@@ -74,7 +74,7 @@ export function RoleFormDialog({
 
           <div className="py-4">
             <Field>
-              <FieldLabel htmlFor="role-name">Role name</FieldLabel>
+              <FieldLabel htmlFor="role-name" required>Role name</FieldLabel>
               <Input
                 id="role-name"
                 value={name}

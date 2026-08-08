@@ -100,7 +100,7 @@ export function MemberEditDialog({
 
           <div className="space-y-4 py-4">
             <Field>
-              <FieldLabel htmlFor="member-name">Name</FieldLabel>
+              <FieldLabel htmlFor="member-name" required>Name</FieldLabel>
               <Input
                 id="member-name"
                 value={values.name}
@@ -111,7 +111,7 @@ export function MemberEditDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="member-phone">Phone</FieldLabel>
+              <FieldLabel htmlFor="member-phone" required>Phone</FieldLabel>
               <Input
                 id="member-phone"
                 type="tel"
@@ -128,7 +128,7 @@ export function MemberEditDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="member-email">Email (optional)</FieldLabel>
+              <FieldLabel htmlFor="member-email">Email</FieldLabel>
               <Input
                 id="member-email"
                 type="email"

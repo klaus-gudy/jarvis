@@ -148,7 +148,7 @@ export function InviteDialog({
 
           <div className="space-y-4 py-4">
             <Field>
-              <FieldLabel htmlFor="invite-name">Name (optional)</FieldLabel>
+              <FieldLabel htmlFor="invite-name">Name</FieldLabel>
               <Input
                 id="invite-name"
                 value={values.name}
@@ -158,7 +158,7 @@ export function InviteDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="invite-phone">Phone</FieldLabel>
+              <FieldLabel htmlFor="invite-phone" required>Phone</FieldLabel>
               <Input
                 id="invite-phone"
                 type="tel"
@@ -175,7 +175,7 @@ export function InviteDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="invite-email">Email (optional)</FieldLabel>
+              <FieldLabel htmlFor="invite-email">Email</FieldLabel>
               <Input
                 id="invite-email"
                 type="email"

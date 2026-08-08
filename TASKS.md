@@ -303,6 +303,19 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] The row list already capped at `max-h-[45vh]` with `overflow-y-auto` (verified at 40 rows: 1719px of content in a 445px box, dialog still 640px inside a 994px viewport). Added what was actually missing — **the list now scrolls the active row into view during import** (`block: "nearest"`, so it only moves once the row has left view). Without it a long file ticks through invisibly below the fold, which is most of the point of the list
 - [x] Re-verified with a 40-row file: 35 created, 5 invalid skipped, list followed progress to the last row, "35 units imported" toast. Test units deleted, leaving only the pre-existing ones
 
+## Phase 29 — Form legibility, custom amenities, tenant import
+
+- [x] **Placeholders are italic and 60% muted** on `Input`, `Textarea` and `Select` (`data-placeholder`), so placeholder text can't be misread as entered content. `Combobox` and every `InputGroup` control inherit it — both route through `Input`
+- [x] **`FieldLabel` takes `required`**, rendering a destructive-coloured `*` (`aria-hidden` — the control's own `required` is what assistive tech announces; `-ml-1.5` pulls it past the label's `gap-2`). Applied to all 24 required controls across 13 files, mapped by matching each `required` input's `id` to its label's `htmlFor` rather than by hand
+- [x] Dropped the now-redundant `(optional)` suffixes from labels — with a universal required marker, absence of `*` is the signal
+- [x] **Unit Type promoted** out of "Other unit details" to sit with name and rate
+- [x] **Unit amenities are no longer a closed list.** `amenities` was `z.array(z.enum(UNIT_AMENITY_OPTIONS))`; Prisma has always stored `String[]`, so the schema now takes trimmed free text, de-duplicated case-insensitively and capped (40 items, 40 chars each). The form keeps the standard checkboxes and adds an "Add another amenity" field; custom values render as removable chips. Typing an existing option's name ticks its box instead of creating a near-duplicate, and Enter commits the chip rather than submitting the form
+- [x] **Tenant bulk import**, mirroring units: columns First name, Last name, Phone, Email — the two name parts are joined into the single stored `name`, and the split is never persisted
+- [x] Rather than a second copy, extracted **`lib/xlsx-import.ts`**: template generation, cell flattening, loose header matching, blank-row skipping, in-file duplicate detection, row caps and error de-duplication now have one implementation. `unit-import.ts` was rewritten onto it (verified byte-for-byte equivalent behaviour on the same 9-row fixture) and `components/import-dialog.tsx` is now generic over the payload type
+- [x] Phone column is written as Excel **text format** (`@`) — a number typed as `0712345678` into a General cell is stored as `712345678` and silently loses its leading zero. The parser also restores it: a bare 9-digit value gets the `0` back, since every TZ mobile number is that zero plus nine digits
+- [x] `required: true` on a column only ever meant "this header must exist". First name needed it to mean "this cell must have a value" too — a surname alone would otherwise satisfy the joined name. Enforced in the tenant mapper, which also names `name` so the schema doesn't restate the fault
+- [x] Verified end-to-end in the browser: 9-row tenant file → 4 created, 5 correctly rejected (missing first name ×2, bad phone, duplicate phone, bad email), "4 tenants imported" toast, names joined correctly including a surname-less "Asha" and a leading-zero-recovered "Bakari Salum". Units dialog re-checked through the shared component. All test data removed
+
 ### Not done
 
 - [ ] Search covers the four requested types only — **non-tenant members (Owner, Manager) are not searchable**. Add a fifth branch over `Membership` if staff lookup is wanted.

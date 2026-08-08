@@ -13,7 +13,7 @@ import {
   UnitFormDialog,
   type UnitFormValues,
 } from "@/components/properties/unit-form-dialog";
-import { UnitImportDialog } from "@/components/properties/unit-import-dialog";
+import { ImportDialog } from "@/components/import-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import {
@@ -24,7 +24,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatMoneyFull } from "@/lib/format";
 import { UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
+import type { CreateUnitInput } from "@/lib/units-schemas";
 
 const NONE = "__none__";
 
@@ -157,11 +159,23 @@ export function UnitsTable({
       />
 
       {/* Remounted per open so a finished import doesn't reopen on its summary. */}
-      <UnitImportDialog
+      <ImportDialog<CreateUnitInput>
         key={`import-${importOpen}`}
         open={importOpen}
         onOpenChange={setImportOpen}
-        propertyId={propertyId}
+        title="Import units"
+        description="Fill the template with one row per unit, then upload it back here."
+        noun="unit"
+        templateUrl={`/api/properties/${propertyId}/units/template`}
+        parseUrl={`/api/properties/${propertyId}/units/import`}
+        createUrl={`/api/properties/${propertyId}/units`}
+        templateHint="Download the .xlsx — unit name and monthly rate are required, the rest is optional."
+        renderSummary={(unit) => (
+          <>
+            {formatMoneyFull(unit.rentAmount)}
+            {unit.unitType ? ` · ${unit.unitType}` : ""}
+          </>
+        )}
       />
 
       <Dialog

@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       <form onSubmit={handleSubmit}>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="identifier">Email or phone</FieldLabel>
+            <FieldLabel htmlFor="identifier" required>Email or phone</FieldLabel>
             <Input
               id="identifier"
               autoComplete="username"

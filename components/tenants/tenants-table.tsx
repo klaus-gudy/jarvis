@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { ImportDialog } from "@/components/import-dialog";
 import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { buildTenantColumns } from "@/components/tenants/tenant-columns";
 import { TenantFormDialog } from "@/components/tenants/tenant-form-dialog";
@@ -19,10 +20,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { TenantRow } from "@/lib/tenants";
+import type { CreateTenantInput } from "@/lib/tenants-schemas";
 
 export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<TenantRow | null>(null);
   const [editing, setEditing] = React.useState<TenantRow | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -66,7 +69,16 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {/* bg-card, not the variant's bg-background, which is the page colour. */}
+        <Button
+          variant="outline"
+          className="bg-card"
+          onClick={() => setImportOpen(true)}
+        >
+          <UploadIcon />
+          Import tenants
+        </Button>
         <Button onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Add tenant
@@ -104,6 +116,26 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
         key={String(formOpen)}
         open={formOpen}
         onOpenChange={setFormOpen}
+      />
+
+      {/* Remounted per open so a finished import doesn't reopen on its summary. */}
+      <ImportDialog<CreateTenantInput>
+        key={`import-${importOpen}`}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import tenants"
+        description="Fill the template with one row per tenant, then upload it back here."
+        noun="tenant"
+        templateUrl="/api/tenants/template"
+        parseUrl="/api/tenants/import"
+        createUrl="/api/tenants"
+        templateHint="Download the .xlsx — first name and phone are required, the rest is optional."
+        renderSummary={(tenant) => (
+          <>
+            {tenant.phone}
+            {tenant.email ? ` · ${tenant.email}` : ""}
+          </>
+        )}
       />
 
       <Dialog

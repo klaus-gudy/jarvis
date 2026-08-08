@@ -23,8 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatMoneyFull } from "@/lib/format";
-import type { ParsedUnitRow } from "@/lib/unit-import";
+import type { ParsedRow } from "@/lib/xlsx-import";
 import { cn } from "@/lib/utils";
 
 type RowStatus =
@@ -35,7 +34,7 @@ type RowStatus =
   | "success"
   | "failed";
 
-type ImportRow = ParsedUnitRow & {
+type ImportRow<T> = ParsedRow<T> & {
   status: RowStatus;
   /** Why it failed, once it has. */
   message: string | null;
@@ -51,21 +50,46 @@ const STATUS_ICON: Record<RowStatus, React.ReactNode> = {
   failed: <CircleXIcon className="size-4 text-destructive" />,
 };
 
-export function UnitImportDialog({
+/**
+ * The whole bulk-import flow for one entity: download a template, upload it
+ * filled, review the parsed rows, then create them one at a time with live
+ * per-row status. Everything entity-specific arrives as props, so units and
+ * tenants share one implementation.
+ */
+export function ImportDialog<T>({
   open,
   onOpenChange,
-  propertyId,
+  title,
+  description,
+  noun,
+  templateUrl,
+  parseUrl,
+  createUrl,
+  templateHint,
+  renderSummary,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  propertyId: string;
+  title: string;
+  description: string;
+  /** Singular, for counts: "unit" -> "3 units imported". */
+  noun: string;
+  /** GET, streams the .xlsx template. */
+  templateUrl: string;
+  /** POST multipart, validates and returns rows without writing. */
+  parseUrl: string;
+  /** POST JSON, creates one record — the same endpoint the single form uses. */
+  createUrl: string;
+  templateHint: string;
+  /** Right-hand detail on a valid row, e.g. rent and type. */
+  renderSummary: (data: T) => React.ReactNode;
 }) {
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
 
   const [phase, setPhase] = React.useState<Phase>("choose");
-  const [rows, setRows] = React.useState<ImportRow[]>([]);
+  const [rows, setRows] = React.useState<ImportRow<T>[]>([]);
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [warning, setWarning] = React.useState<string | null>(null);
@@ -84,9 +108,7 @@ export function UnitImportDialog({
     setDownloading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/properties/${propertyId}/units/template`
-      );
+      const response = await fetch(templateUrl);
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         throw new Error(data?.error ?? "Could not build the template");
@@ -98,7 +120,7 @@ export function UnitImportDialog({
       anchor.download =
         response.headers
           .get("content-disposition")
-          ?.match(/filename="(.+)"/)?.[1] ?? "units-template.xlsx";
+          ?.match(/filename="(.+)"/)?.[1] ?? `${noun}s-template.xlsx`;
       anchor.click();
       URL.revokeObjectURL(url);
       toast.success("Template downloaded");
@@ -121,10 +143,7 @@ export function UnitImportDialog({
     const body = new FormData();
     body.append("file", file);
 
-    const response = await fetch(`/api/properties/${propertyId}/units/import`, {
-      method: "POST",
-      body,
-    });
+    const response = await fetch(parseUrl, { method: "POST", body });
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
@@ -136,7 +155,7 @@ export function UnitImportDialog({
       return;
     }
 
-    const parsed: ParsedUnitRow[] = data.rows ?? [];
+    const parsed: ParsedRow<T>[] = data.rows ?? [];
     setRows(
       parsed.map((row) => ({
         ...row,
@@ -171,7 +190,7 @@ export function UnitImportDialog({
         ?.querySelector(`[data-row="${row.rowNumber}"]`)
         ?.scrollIntoView({ block: "nearest" });
 
-      const response = await fetch(`/api/properties/${propertyId}/units`, {
+      const response = await fetch(createUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(row.data),
@@ -199,7 +218,7 @@ export function UnitImportDialog({
             ? {
                 ...item,
                 status: "failed",
-                message: issue ?? data?.error ?? "Could not create this unit",
+                message: issue ?? data?.error ?? `Could not create this ${noun}`,
               }
             : item
         )
@@ -215,10 +234,10 @@ export function UnitImportDialog({
     if (phase !== "done") return;
     if (failed === 0) {
       toast.success(
-        `${succeeded} unit${succeeded === 1 ? "" : "s"} imported`
+        `${succeeded} ${noun}${succeeded === 1 ? "" : "s"} imported`
       );
     } else if (succeeded === 0) {
-      toast.error(`Import failed — no units were created`);
+      toast.error(`Import failed — no ${noun}s were created`);
     } else {
       toast.warning(`${succeeded} imported, ${failed} failed`);
     }
@@ -251,10 +270,8 @@ export function UnitImportDialog({
     >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Import units</DialogTitle>
-          <DialogDescription>
-            Fill the template with one row per unit, then upload it back here.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -264,8 +281,7 @@ export function UnitImportDialog({
                 <div className="min-w-0">
                   <p className="font-medium">Don&apos;t have a template?</p>
                   <p className="text-xs text-muted-foreground">
-                    Download the .xlsx — unit name and monthly rate are
-                    required, the rest is optional.
+                    {templateHint}
                   </p>
                 </div>
                 <Button
@@ -383,8 +399,7 @@ export function UnitImportDialog({
                         </span>
                         {row.data && (
                           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                            {formatMoneyFull(row.data.rentAmount)}
-                            {row.data.unitType ? ` · ${row.data.unitType}` : ""}
+                            {renderSummary(row.data)}
                           </span>
                         )}
                       </div>
@@ -416,7 +431,7 @@ export function UnitImportDialog({
                 Choose another file
               </Button>
               <Button onClick={runImport} disabled={importable.length === 0}>
-                Import {importable.length} unit
+                Import {importable.length} {noun}
                 {importable.length === 1 ? "" : "s"}
               </Button>
             </>

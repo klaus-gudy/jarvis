@@ -1,6 +1,5 @@
 import { requireActiveOrg } from "@/lib/api-auth";
-import { prisma } from "@/lib/prisma";
-import { parseUnitWorkbook } from "@/lib/unit-import";
+import { parseTenantWorkbook } from "@/lib/tenant-import";
 import { MAX_IMPORT_BYTES } from "@/lib/xlsx-import";
 
 const XLSX_TYPE =
@@ -9,24 +8,12 @@ const XLSX_TYPE =
 /**
  * Reads an uploaded template and reports what it contains. Deliberately writes
  * nothing: the client shows the parsed rows for review, then creates them one
- * at a time against POST /api/properties/[id]/units so each row gets the same
- * validation, ownership and duplicate-label checks as a hand-typed unit.
+ * at a time against POST /api/tenants so each row gets the same validation and
+ * duplicate checks as a hand-typed tenant.
  */
-export async function POST(
-  request: Request,
-  ctx: RouteContext<"/api/properties/[id]/units/import">
-) {
+export async function POST(request: Request) {
   const auth = await requireActiveOrg();
   if (!auth.ok) return auth.response;
-
-  const { id } = await ctx.params;
-  const property = await prisma.property.findFirst({
-    where: { id, organizationId: auth.context.organizationId },
-    select: { id: true },
-  });
-  if (!property) {
-    return Response.json({ error: "Property not found" }, { status: 404 });
-  }
 
   // Cheap rejection before the body is buffered into memory.
   const declaredSize = Number(request.headers.get("content-length") ?? 0);
@@ -63,7 +50,7 @@ export async function POST(
     );
   }
 
-  const result = await parseUnitWorkbook(await file.arrayBuffer());
+  const result = await parseTenantWorkbook(await file.arrayBuffer());
 
   if (result.fatal && result.rows.length === 0) {
     return Response.json({ error: result.fatal }, { status: 400 });
