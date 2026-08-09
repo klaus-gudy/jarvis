@@ -19,6 +19,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/session"
 import { getDashboardStats, getDashboardPanels } from "@/lib/dashboard"
 import { formatCurrency, formatCurrencyFull } from "@/lib/format"
+import { runAutoRenewals } from "@/lib/lease-renewal"
 import { getProperties } from "@/lib/properties"
 
 /** "Good morning" until noon, "Good afternoon" until 17:00, then "Good evening". */
@@ -33,6 +34,10 @@ export default async function DashboardPage() {
   if (!user) redirect("/login")
 
   const orgId = user.activeOrgId ?? null
+  // Second regularly-loaded page that checks for leases due to auto-renew —
+  // see the leases page for why this runs lazily rather than on a schedule.
+  if (orgId) await runAutoRenewals(orgId)
+
   const [stats, panels, properties] = await Promise.all([
     getDashboardStats(orgId),
     getDashboardPanels(orgId),

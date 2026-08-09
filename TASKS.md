@@ -330,7 +330,21 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] **New "View" row action** (`EyeIcon`, matching the convention already used on the leases table) opens a read-only `UnitViewDialog` built on `DetailRow`/`Card`, the same pattern the property/lease/member detail pages use. Shows every field the table doesn't: size, minimum tenure, block, floor, amenities as badges — plus name/rate/type/status/tenant for context, in the same order the add/edit form presents them
 - [x] Verified against a unit with every optional field set (size, tenure, block, floor, a custom amenity) — all render correctly in the dialog. Test data reverted afterward
 
+## Phase 32 — Virtual billing: invoices, payments, lease auto-renewal
+
+- [x] Migration `billing_and_auto_renew`: `Unit.autoRenew Boolean @default(false)`, `Invoice` (1:1 with `Lease`, `amount`/`dueDate`), `Payment` (belongs to `Invoice`), `Lease.renewedFromId`/`renewedFrom`/`renewedTo` self-relation
+- [x] `lib/leases.ts`: overlap check + create extracted into `insertLease()`, now also creates the `Invoice` (amount = `leaseAmount`, due = `startDate`) in the same `$transaction`; `createLease` and the renewal job both call it, so overlap-safety has one source. `getLease`/`getLeases` include an `InvoiceSummary` (amount/paid/status)
+- [x] `lib/invoices.ts`: `deriveInvoiceStatus` (Unpaid/Partial/Paid, derived not stored — same rule as `LeaseStatus`/`TenantStatus`), `getInvoiceForLease`, `recordPayment` (rejects `amount <= 0` and overpayment past the balance), `deletePayment` — all org-scoped through the lease's membership + unit.property, matching every other lease query
+- [x] `lib/lease-renewal.ts`: `runAutoRenewals(organizationId)` — ended leases on `autoRenew` units with no successor get a new lease at `unit.minTenureMonths`/`unit.rentAmount`, starting the day after the old `endDate`; skips (doesn't crash) a unit with `autoRenew` on but no `minTenureMonths`. Called lazily from `app/(app)/leases/page.tsx` and `app/(app)/dashboard/page.tsx` — no cron endpoint yet, see plan.md decision log
+- [x] `POST /api/invoices/[id]/payments`, `DELETE /api/invoices/[id]/payments/[paymentId]`
+- [x] Unit form/view: `autoRenew` checkbox next to Minimum tenure (`unit-form-dialog.tsx`), shown in `unit-view-dialog.tsx`, threaded through `lib/properties.ts` → `UnitRow`
+- [x] Lease detail page gained a **Billing** tab: invoice summary card (amount/due/paid/balance + status badge), payments table, Record payment dialog. Leases table gained an **Invoice** status column
+- [x] `lib/dashboard.ts`: "Rent collected" now sums real `Payment` rows in the year instead of deriving from lease value — closes the 2026-08-05 decision-log item that flagged this exact swap
+- [x] Verified live: creating a lease produces an invoice for the full amount; two payments (100k then 200k) flip status Unpaid → Partial → Paid; a 250k payment against a 200k balance is rejected inline with the exact remaining balance; auto-renewal creates a correctly-linked successor lease + invoice on page load and does not duplicate on reload; a unit with `autoRenew` on but no `minTenureMonths` is skipped without error; dashboard "Rent collected" reflects the real payment. All test data reverted afterward
+
 ### Not done
+- [ ] Auto-renewal has no scheduler — it only fires when `/leases` or `/dashboard` is loaded after a lease's end date passes. A cron-hit endpoint would close this; `runAutoRenewals` is already written to support it without changes.
+- [ ] No dedicated Invoices list page across the org — invoices are only reachable per-lease (Billing tab) or via the Leases table's status column.
 - [ ] Search is `contains`-based, so it's substring matching, not ranked full-text. Fine at this size; revisit with Postgres `tsvector` + a GIN index when rows grow.
 - [ ] **Roles can be created but not renamed or deleted** — no UI and no `PATCH`/`DELETE /api/roles/[id]`. Deleting needs care: `Role.memberships`/`invitations` have no `onDelete`, so Postgres restricts, and deleting Owner or Tenant would break the guards that match on those names.
 - [ ] Permissions are named but not modelled — no `Permission` table, no enforcement. Every signed-in member can still reach every page.

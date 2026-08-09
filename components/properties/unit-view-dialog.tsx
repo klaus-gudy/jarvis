@@ -59,6 +59,10 @@ export function UnitViewDialog({
                 />
                 <DetailRow label="Block" value={orDash(unit.block)} />
                 <DetailRow label="Floor" value={orDash(unit.floor)} />
+                <DetailRow
+                  label="Auto-renew"
+                  value={unit.autoRenew ? "On" : "Off"}
+                />
                 <DetailRow label="Status" value={unit.status} />
                 <DetailRow label="Tenant" value={orDash(unit.tenantName)} />
               </dl>

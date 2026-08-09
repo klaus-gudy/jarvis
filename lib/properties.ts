@@ -133,6 +133,7 @@ export async function getProperty(organizationId: string, propertyId: string) {
       label: unit.label,
       rentAmount: unit.rentAmount,
       minTenureMonths: unit.minTenureMonths,
+      autoRenew: unit.autoRenew,
       unitType: unit.unitType,
       floor: unit.floor,
       block: unit.block,

@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
+import { BillingTab } from "@/components/leases/billing-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { getInvoiceForLease } from "@/lib/invoices";
 import { getLease, type LeaseStatus } from "@/lib/leases";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +35,10 @@ export default async function LeaseDetailPage({
   if (!user.activeOrgId) redirect("/leases");
 
   const { id } = await params;
-  const lease = await getLease(user.activeOrgId, id);
+  const [lease, invoice] = await Promise.all([
+    getLease(user.activeOrgId, id),
+    getInvoiceForLease(user.activeOrgId, id),
+  ]);
   if (!lease) notFound();
 
   const { tenant, unit, property } = lease;
@@ -84,6 +89,9 @@ export default async function LeaseDetailPage({
         <TabsList variant="line" className="w-full justify-start border-b">
           <TabsTrigger value="overview" className="flex-none px-3">
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="billing" className="flex-none px-3">
+            Billing
           </TabsTrigger>
           <TabsTrigger value="contract" className="flex-none px-3">
             Contract
@@ -185,6 +193,30 @@ export default async function LeaseDetailPage({
               </dl>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="billing" className="pt-5">
+          <BillingTab
+            invoice={
+              invoice
+                ? {
+                    id: invoice.id,
+                    amount: invoice.amount,
+                    dueDate: invoice.dueDate.toISOString(),
+                    paid: invoice.paid,
+                    balance: invoice.balance,
+                    status: invoice.status,
+                    payments: invoice.payments.map((payment) => ({
+                      id: payment.id,
+                      amount: payment.amount,
+                      paidAt: payment.paidAt.toISOString(),
+                      method: payment.method,
+                      notes: payment.notes,
+                    })),
+                  }
+                : null
+            }
+          />
         </TabsContent>
 
         <TabsContent value="contract" className="pt-5">

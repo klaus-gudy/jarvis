@@ -4,6 +4,7 @@ import { FileTextIcon } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { LeasesTable } from "@/components/leases/leases-table";
 import { getCurrentUser } from "@/lib/auth/session";
+import { runAutoRenewals } from "@/lib/lease-renewal";
 import { getLeaseOptions, getLeases } from "@/lib/leases";
 
 export default async function LeasesPage() {
@@ -19,6 +20,10 @@ export default async function LeasesPage() {
       />
     );
   }
+
+  // No scheduler exists yet, so this is where an ended, auto-renewing lease
+  // actually gets its successor — the first page a manager is likely to load.
+  await runAutoRenewals(user.activeOrgId);
 
   const [leases, options] = await Promise.all([
     getLeases(user.activeOrgId),

@@ -1,8 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { addMonths, type CreateLeaseInput } from "@/lib/leases-schemas";
+import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoices";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
 
 export type LeaseStatus = "Active" | "Upcoming" | "Ended";
+
+export type InvoiceSummary = {
+  id: string;
+  amount: number;
+  paid: number;
+  status: InvoiceStatus;
+};
+
+function invoiceSummary(invoice: {
+  id: string;
+  amount: number;
+  payments: { amount: number }[];
+}): InvoiceSummary {
+  const paid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  return { id: invoice.id, amount: invoice.amount, paid, status: deriveInvoiceStatus(invoice.amount, paid) };
+}
 
 export type LeaseRow = {
   id: string;
@@ -15,6 +32,7 @@ export type LeaseRow = {
   durationMonths: number;
   leaseAmount: number;
   status: LeaseStatus;
+  invoice: InvoiceSummary | null;
 };
 
 function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
@@ -42,6 +60,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
       membership: {
         include: { user: { select: { name: true, email: true, phone: true } } },
       },
+      invoice: { include: { payments: { select: { amount: true } } } },
     },
   });
 
@@ -60,6 +79,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     durationMonths: lease.durationMonths,
     leaseAmount: lease.leaseAmount,
     status: leaseStatus(now, lease.startDate, lease.endDate),
+    invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
   }));
 }
 
@@ -100,6 +120,7 @@ export type LeaseDetail = {
   endDate: Date;
   durationMonths: number;
   leaseAmount: number;
+  invoice: InvoiceSummary | null;
 };
 
 /** Scoped through both relations, matching getLeases, so one org can't read another's lease. */
@@ -118,6 +139,7 @@ export async function getLease(
       membership: {
         include: { user: { select: { name: true, email: true, phone: true } } },
       },
+      invoice: { include: { payments: { select: { amount: true } } } },
     },
   });
   if (!lease) return null;
@@ -155,6 +177,7 @@ export async function getLease(
     endDate: lease.endDate,
     durationMonths: lease.durationMonths,
     leaseAmount: lease.leaseAmount,
+    invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
   };
 }
 
@@ -228,11 +251,67 @@ export async function getLeaseOptions(organizationId: string): Promise<LeaseOpti
 }
 
 /**
+ * The overlap check plus the atomic Lease+Invoice write, shared by the public
+ * `createLease` (manual, from the UI) and the auto-renewal job in
+ * `lib/lease-renewal.ts` — one place owns the overlap-safety guarantee so a
+ * renewal can never double-book a unit a person has already re-let by hand.
+ */
+export async function insertLease(params: {
+  unitId: string;
+  membershipId: string;
+  startDate: Date;
+  durationMonths: number;
+  rentAmount: number;
+  renewedFromId?: string;
+}) {
+  const endDate = addMonths(params.startDate, params.durationMonths);
+
+  // Half-open interval, so a lease starting the day another ends is allowed.
+  const overlapping = await prisma.lease.findFirst({
+    where: {
+      unitId: params.unitId,
+      startDate: { lt: endDate },
+      endDate: { gt: params.startDate },
+    },
+    select: { id: true },
+  });
+  if (overlapping) return { error: "unit-occupied" as const };
+
+  const lease = await prisma.$transaction(async (tx) => {
+    const created = await tx.lease.create({
+      data: {
+        unitId: params.unitId,
+        membershipId: params.membershipId,
+        startDate: params.startDate,
+        endDate,
+        durationMonths: params.durationMonths,
+        // Locked in at the rent that applied when the lease was signed, so a
+        // later change to the unit's rentAmount doesn't rewrite this lease's history.
+        leaseAmount: params.rentAmount * params.durationMonths,
+        renewedFromId: params.renewedFromId,
+      },
+      select: { id: true, leaseAmount: true, startDate: true },
+    });
+    await tx.invoice.create({
+      data: {
+        leaseId: created.id,
+        amount: created.leaseAmount,
+        dueDate: created.startDate,
+      },
+    });
+    return created;
+  });
+
+  return { lease };
+}
+
+/**
  * Everything the client sent is re-checked here rather than trusted from the
  * options payload it fetched earlier: the unit must belong to the named
  * property *and* to this org, the membership must be a Tenant in this org, the
  * term must clear the unit's minimum tenure, and the resulting period must not
- * overlap an existing lease on that unit.
+ * overlap an existing lease on that unit. Creating the lease also generates
+ * its invoice, for the full lease value, in the same transaction.
  */
 export async function createLease(organizationId: string, input: CreateLeaseInput) {
   const unit = await prisma.unit.findFirst({
@@ -262,34 +341,13 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
     };
   }
 
-  const endDate = addMonths(input.startDate, input.durationMonths);
-
-  // Half-open interval, so a lease starting the day another ends is allowed.
-  const overlapping = await prisma.lease.findFirst({
-    where: {
-      unitId: unit.id,
-      startDate: { lt: endDate },
-      endDate: { gt: input.startDate },
-    },
-    select: { id: true },
+  return insertLease({
+    unitId: unit.id,
+    membershipId: membership.id,
+    startDate: input.startDate,
+    durationMonths: input.durationMonths,
+    rentAmount: unit.rentAmount,
   });
-  if (overlapping) return { error: "unit-occupied" as const };
-
-  const lease = await prisma.lease.create({
-    data: {
-      unitId: unit.id,
-      membershipId: membership.id,
-      startDate: input.startDate,
-      endDate,
-      durationMonths: input.durationMonths,
-      // Locked in at the rent that applied when the lease was signed, so a
-      // later change to the unit's rentAmount doesn't rewrite this lease's history.
-      leaseAmount: unit.rentAmount * input.durationMonths,
-    },
-    select: { id: true },
-  });
-
-  return { lease };
 }
 
 export async function deleteLease(organizationId: string, leaseId: string) {

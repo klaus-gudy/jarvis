@@ -14,6 +14,7 @@ export type UnitRow = {
   label: string;
   rentAmount: number;
   minTenureMonths: number | null;
+  autoRenew: boolean;
   unitType: string | null;
   floor: string | null;
   block: string | null;

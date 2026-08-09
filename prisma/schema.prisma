@@ -151,6 +151,9 @@ model Unit {
   label String
   rentAmount Int
   minTenureMonths Int?
+  /** When true, a lease on this unit gets a successor created automatically
+   * at term end, for minTenureMonths at the unit's current rentAmount. */
+  autoRenew Boolean @default(false)
   unitType String?
   floor   String?
   block   String?
@@ -182,4 +185,39 @@ model Lease {
 
   membershipId String
   membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  invoice Invoice?
+
+  /** Renewal lineage: the auto-renewal job links a new lease back to the one
+   * it succeeded, so it can be skipped on the next pass. */
+  renewedFromId String? @unique
+  renewedFrom   Lease?  @relation("LeaseRenewal", fields: [renewedFromId], references: [id])
+  renewedTo     Lease?  @relation("LeaseRenewal")
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+  amount    Int
+  dueDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leaseId String @unique
+  lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  payments Payment[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  amount    Int
+  paidAt    DateTime @default(now())
+  method    String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }

@@ -37,6 +37,7 @@ function toFormValues(unit: UnitRow): UnitFormValues {
     rentAmount: String(unit.rentAmount),
     minTenureMonths:
       unit.minTenureMonths == null ? "" : String(unit.minTenureMonths),
+    autoRenew: unit.autoRenew,
     unitType: unit.unitType ?? NONE,
     floor: unit.floor ?? "",
     block: unit.block ?? "",

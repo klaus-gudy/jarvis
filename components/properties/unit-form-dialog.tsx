@@ -42,6 +42,7 @@ export type UnitFormValues = {
   label: string;
   rentAmount: string;
   minTenureMonths: string;
+  autoRenew: boolean;
   unitType: string;
   floor: string;
   block: string;
@@ -55,6 +56,7 @@ const EMPTY: UnitFormValues = {
   label: "",
   rentAmount: "",
   minTenureMonths: "",
+  autoRenew: false,
   unitType: NONE,
   floor: "",
   block: "",
@@ -137,6 +139,7 @@ export function UnitFormDialog({
       minTenureMonths: values.minTenureMonths.trim()
         ? Number(values.minTenureMonths)
         : null,
+      autoRenew: values.autoRenew,
       unitType: values.unitType === NONE ? null : values.unitType,
       floor: values.floor || undefined,
       block: values.block || undefined,
@@ -177,6 +180,7 @@ export function UnitFormDialog({
     values.floor ? `Floor ${values.floor}` : null,
     values.sizeSqm ? `${values.sizeSqm} m²` : null,
     values.minTenureMonths ? `min ${values.minTenureMonths} mo` : null,
+    values.autoRenew ? "Auto-renews" : null,
     values.amenities.length > 0
       ? `${values.amenities.length} ${values.amenities.length === 1 ? "amenity" : "amenities"}`
       : null,
@@ -324,6 +328,24 @@ export function UnitFormDialog({
                             message: m,
                           }))}
                         />
+                      </Field>
+
+                      <Field className="sm:col-span-2">
+                        <label className="flex cursor-pointer items-start gap-2 text-sm">
+                          <Checkbox
+                            checked={values.autoRenew}
+                            onCheckedChange={(checked) =>
+                              set("autoRenew", checked)
+                            }
+                          />
+                          <span>
+                            Auto-renew leases on this unit
+                            <FieldDescription className="mt-0.5">
+                              When a lease on this unit ends, a new one is
+                              created automatically for the minimum tenure.
+                            </FieldDescription>
+                          </span>
+                        </label>
                       </Field>
 
                       <Field>

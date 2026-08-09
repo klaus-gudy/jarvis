@@ -13,34 +13,9 @@ function activeLeaseFilter(now: Date, organizationId: string) {
   };
 }
 
-/**
- * Whole months a lease's term shares with the given calendar year.
- *
- * Counted in months rather than days because that is the unit the money is
- * expressed in: `leaseAmount` is `rentAmount * durationMonths`, so a month is
- * indivisible here and a lease that starts mid-month still bills that month in
- * full.
- */
-function leaseMonthsInYear(
-  startDate: Date,
-  durationMonths: number,
-  year: number
-): number {
-  const leaseStart = startDate.getFullYear() * 12 + startDate.getMonth();
-  const leaseEnd = leaseStart + durationMonths; // exclusive
-  const yearStart = year * 12;
-  const yearEnd = yearStart + 12; // exclusive
-
-  return Math.max(0, Math.min(leaseEnd, yearEnd) - Math.max(leaseStart, yearStart));
-}
-
 export type DashboardStats = {
   rent: {
-    /**
-     * What the signed leases are worth across this calendar year. A lease
-     * counts in full the moment it exists — signing is the collection event,
-     * there being no payment record to go on.
-     */
+    /** Actual payments recorded against any invoice whose lease is in this org, within this calendar year. */
     collected: number;
     /** Every unit's asking rent added up — one month of a fully let portfolio. */
     expectedMonthly: number;
@@ -134,7 +109,7 @@ export async function getDashboardStats(
     leasesTotal,
     leasesActive,
     leasesExpiringSoon,
-    yearLeases,
+    paymentsThisYear,
   ] = await Promise.all([
     prisma.property.count({ where: { organizationId } }),
     // Asking rents plus whether anyone is in the unit: that one row carries the
@@ -170,29 +145,18 @@ export async function getDashboardStats(
         endDate: { gte: now, lte: expiryCutoff },
       },
     }),
-    // Only leases whose term touches this calendar year can contribute rent to
-    // it, so the loop below never sees an irrelevant row.
-    prisma.lease.findMany({
+    // Money actually paid, not lease value — scoped through the invoice's
+    // lease with the same org filter every other lease-derived figure here uses.
+    prisma.payment.aggregate({
       where: {
-        ...orgLease,
-        startDate: { lt: yearEnd },
-        endDate: { gt: yearStart },
+        paidAt: { gte: yearStart, lt: yearEnd },
+        invoice: { lease: orgLease },
       },
-      select: { startDate: true, durationMonths: true, leaseAmount: true },
+      _sum: { amount: true },
     }),
   ]);
 
-  // A lease's whole value counts as collected, but only the part of its term
-  // that lands in this year — otherwise a 24-month lease would book two years
-  // of rent against one year's expectation and push the bar past 100%.
-  let collected = 0;
-  for (const lease of yearLeases) {
-    if (lease.durationMonths <= 0) continue;
-    const monthlyRent = lease.leaseAmount / lease.durationMonths;
-    collected +=
-      monthlyRent * leaseMonthsInYear(lease.startDate, lease.durationMonths, year);
-  }
-  collected = Math.round(collected);
+  const collected = paymentsThisYear._sum.amount ?? 0;
 
   const totalUnits = units.length;
   const occupiedUnits = units.filter((unit) => unit.leases.length > 0).length;

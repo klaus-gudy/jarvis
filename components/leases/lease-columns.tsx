@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import type { InvoiceStatus } from "@/lib/invoices";
 import type { LeaseRow } from "@/lib/leases";
 
 const STATUS_VARIANT: Record<
@@ -19,6 +20,15 @@ const STATUS_VARIANT: Record<
   Active: "secondary",
   Upcoming: "outline",
   Ended: "outline",
+};
+
+const INVOICE_STATUS_VARIANT: Record<
+  InvoiceStatus,
+  "secondary" | "outline" | "destructive"
+> = {
+  Paid: "secondary",
+  Partial: "outline",
+  Unpaid: "destructive",
 };
 
 export function buildLeaseColumns({
@@ -115,6 +125,23 @@ export function buildLeaseColumns({
           {row.original.status}
         </Badge>
       ),
+      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+    },
+    {
+      id: "invoiceStatus",
+      accessorFn: (row) => row.invoice?.status ?? "Unpaid",
+      header: "Invoice",
+      cell: ({ row }) => {
+        const status = row.original.invoice?.status ?? "Unpaid";
+        return (
+          <Badge
+            variant={INVOICE_STATUS_VARIANT[status]}
+            className="rounded-full font-normal"
+          >
+            {status}
+          </Badge>
+        );
+      },
       filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
     },
     {
