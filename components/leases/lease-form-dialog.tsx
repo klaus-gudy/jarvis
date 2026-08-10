@@ -104,15 +104,22 @@ export function LeaseFormDialog({
   open,
   onOpenChange,
   options,
+  lockedTenantId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   options: LeaseOptions;
+  /**
+   * Opened from a tenant's own page: that tenant is the subject, so the field
+   * is pre-filled and read-only rather than inviting a choice that would make
+   * the lease belong to someone else's page.
+   */
+  lockedTenantId?: string;
 }) {
   const router = useRouter();
   const [propertyId, setPropertyId] = React.useState("");
   const [unitId, setUnitId] = React.useState("");
-  const [membershipId, setMembershipId] = React.useState("");
+  const [membershipId, setMembershipId] = React.useState(lockedTenantId ?? "");
   const [startDate, setStartDate] = React.useState(todayIso());
   const [duration, setDuration] = React.useState("");
   const [pending, setPending] = React.useState(false);
@@ -273,6 +280,7 @@ export function LeaseFormDialog({
                   value={membershipId}
                   onChange={setMembershipId}
                   placeholder="Search tenants…"
+                  disabled={lockedTenantId !== undefined}
                 />
               )}
               <FieldError

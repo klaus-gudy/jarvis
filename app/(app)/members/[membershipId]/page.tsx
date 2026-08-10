@@ -3,13 +3,15 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
+import { MemberLeasesTab } from "@/components/members/member-leases-tab";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
-import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { getLeaseOptions } from "@/lib/leases";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { getTenantDetail, type TenantStatus } from "@/lib/tenants";
 import { initials } from "@/lib/user-display";
@@ -55,6 +57,9 @@ export default async function MemberDetailPage({
     member.roleName.toLowerCase() === TENANT_ROLE_NAME.toLowerCase();
   const backHref = isTenant ? "/tenants" : "/users";
   const backLabel = isTenant ? "All tenants" : "All users";
+
+  // Only tenants can hold a lease, so only they need the create form's data.
+  const leaseOptions = isTenant ? await getLeaseOptions(user.activeOrgId) : null;
 
   return (
     <div className="space-y-6">
@@ -192,48 +197,24 @@ export default async function MemberDetailPage({
         </TabsContent>
 
         <TabsContent value="leases" className="pt-5">
-          <Card>
-            <CardHeader className="border-b">
-              <CardTitle className="text-base">Leases</CardTitle>
-            </CardHeader>
-            <CardContent className={member.leases.length === 0 ? undefined : "p-0"}>
-              {member.leases.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {isTenant
-                    ? "This tenant has no leases yet."
-                    : `${member.roleName} members do not normally hold leases.`}
-                </p>
-              ) : (
-                <ul>
-                  {member.leases.map((lease) => (
-                    <li
-                      key={lease.id}
-                      className="border-b last:border-b-0 hover:bg-muted/40"
-                    >
-                      <Link
-                        href={`/leases/${lease.id}`}
-                        className="flex items-center justify-between gap-4 px-6 py-3.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">
-                            {lease.propertyName} · {lease.unitLabel}
-                          </span>
-                          <span className="block text-xs text-muted-foreground">
-                            {formatDate(lease.startDate)} –{" "}
-                            {formatDate(lease.endDate)} · {lease.durationMonths}{" "}
-                            months · {lease.status}
-                          </span>
-                        </span>
-                        <span className="shrink-0 font-mono tabular-nums">
-                          {formatCurrencyFull(lease.leaseAmount)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <MemberLeasesTab
+            leases={member.leases.map((lease) => ({
+              id: lease.id,
+              reference: lease.reference,
+              propertyName: lease.propertyName,
+              unitLabel: lease.unitLabel,
+              // Dates must be serialisable to cross the server/client boundary.
+              startDate: lease.startDate.toISOString(),
+              endDate: lease.endDate.toISOString(),
+              durationMonths: lease.durationMonths,
+              leaseAmount: lease.leaseAmount,
+              status: lease.status,
+            }))}
+            membershipId={member.membershipId}
+            isTenant={isTenant}
+            roleName={member.roleName}
+            options={leaseOptions}
+          />
         </TabsContent>
       </Tabs>
     </div>
