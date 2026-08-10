@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { CURRENCY, formatMoneyFull } from "@/lib/format";
 import { UNIT_AMENITY_OPTIONS, UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
 
@@ -92,6 +93,21 @@ export function UnitFormDialog({
   function set<K extends keyof UnitFormValues>(key: K, value: UnitFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
   }
+
+  /**
+   * Clearing the tenure has to clear auto-renew with it: the renewal job takes
+   * its term from `minTenureMonths`, so a unit saved with auto-renew on and no
+   * tenure would silently never renew.
+   */
+  function setMinTenure(value: string) {
+    setValues((current) => ({
+      ...current,
+      minTenureMonths: value,
+      autoRenew: value.trim() ? current.autoRenew : false,
+    }));
+  }
+
+  const hasMinTenure = values.minTenureMonths.trim() !== "";
 
   function toggleAmenity(amenity: string, checked: boolean) {
     setValues((current) => ({
@@ -309,7 +325,12 @@ export function UnitFormDialog({
                       </Field>
 
                       <Field>
-                        <FieldLabel htmlFor="unit-tenure">Minimum tenure</FieldLabel>
+                        <FieldLabel htmlFor="unit-tenure">
+                          Minimum tenure
+                          <span className="font-normal text-muted-foreground">
+                            In months.
+                          </span>
+                        </FieldLabel>
                         <Input
                           id="unit-tenure"
                           type="number"
@@ -318,11 +339,10 @@ export function UnitFormDialog({
                           inputMode="numeric"
                           value={values.minTenureMonths}
                           onChange={(event) =>
-                            set("minTenureMonths", event.target.value)
+                            setMinTenure(event.target.value)
                           }
                           placeholder="6"
                         />
-                        <FieldDescription>In months.</FieldDescription>
                         <FieldError
                           errors={fieldErrors.minTenureMonths?.map((m) => ({
                             message: m,
@@ -330,22 +350,21 @@ export function UnitFormDialog({
                         />
                       </Field>
 
-                      <Field className="sm:col-span-2">
-                        <label className="flex cursor-pointer items-start gap-2 text-sm">
-                          <Checkbox
-                            checked={values.autoRenew}
-                            onCheckedChange={(checked) =>
-                              set("autoRenew", checked)
-                            }
-                          />
-                          <span>
-                            Auto-renew leases on this unit
-                            <FieldDescription className="mt-0.5">
-                              When a lease on this unit ends, a new one is
-                              created automatically for the minimum tenure.
-                            </FieldDescription>
-                          </span>
-                        </label>
+                      {/* Renewal length comes from the minimum tenure, so there
+                          is nothing to renew for without one. */}
+                      <Field orientation="horizontal" className="sm:col-span-2">
+                        <Switch
+                          id="unit-auto-renew"
+                          checked={values.autoRenew}
+                          onCheckedChange={(checked) => set("autoRenew", checked)}
+                          disabled={!hasMinTenure}
+                        />
+                        <FieldLabel
+                          htmlFor="unit-auto-renew"
+                          className="font-normal"
+                        >
+                          Auto-renew leases on this unit
+                        </FieldLabel>
                       </Field>
 
                       <Field>

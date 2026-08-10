@@ -18,6 +18,8 @@ export async function DELETE(
   }
 
   revalidatePath("/leases");
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
 
   return Response.json({ ok: true });
 }

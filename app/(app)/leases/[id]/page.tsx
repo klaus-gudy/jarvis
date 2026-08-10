@@ -4,11 +4,13 @@ import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { BillingTab } from "@/components/leases/billing-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types";
 import { getInvoiceForLease } from "@/lib/invoices";
 import { getLease, type LeaseStatus } from "@/lib/leases";
 import { cn } from "@/lib/utils";
@@ -193,6 +195,69 @@ export default async function LeaseDetailPage({
               </dl>
             </CardContent>
           </Card>
+
+          {/* Same shape as Lease terms — the invoice is part of what this lease
+              *is*, so it reads here; the Billing tab is only the ledger. */}
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">Invoice</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {invoice ? (
+                <dl className="md:grid md:grid-cols-2 md:[&>*:nth-last-child(-n+2)]:after:hidden">
+                  <DetailRow
+                    label="Reference"
+                    value={
+                      <span className="font-mono text-xs">{invoice.reference}</span>
+                    }
+                  />
+                  <DetailRow
+                    label="Status"
+                    value={
+                      <Badge
+                        variant={INVOICE_STATUS_VARIANT[invoice.status]}
+                        className="rounded-full font-normal"
+                      >
+                        {invoice.status}
+                      </Badge>
+                    }
+                  />
+                  <DetailRow
+                    label="Total amount"
+                    value={
+                      <span className="font-mono tabular-nums">
+                        {formatCurrencyFull(invoice.amount)}
+                      </span>
+                    }
+                  />
+                  <DetailRow
+                    label="Due date"
+                    value={formatDate(invoice.dueDate)}
+                  />
+                  <DetailRow
+                    label="Paid so far"
+                    value={
+                      <span className="font-mono tabular-nums">
+                        {formatCurrencyFull(invoice.paid)}
+                      </span>
+                    }
+                  />
+                  <DetailRow
+                    label="Balance remaining"
+                    value={
+                      <span className="font-mono tabular-nums">
+                        {formatCurrencyFull(invoice.balance)}
+                      </span>
+                    }
+                  />
+                </dl>
+              ) : (
+                <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+                  No invoice exists for this lease yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="billing" className="pt-5">
@@ -201,6 +266,7 @@ export default async function LeaseDetailPage({
               invoice
                 ? {
                     id: invoice.id,
+                    reference: invoice.reference,
                     amount: invoice.amount,
                     dueDate: invoice.dueDate.toISOString(),
                     paid: invoice.paid,

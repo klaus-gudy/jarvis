@@ -32,6 +32,20 @@ export type DashboardStats = {
     /** The share of `expectedMonthly` that empty units account for. */
     lossPercent: number;
   };
+  billing: {
+    /** What every invoice in the org is worth, whenever it was raised. */
+    invoiced: number;
+    /** Sum of every payment ever recorded against those invoices. */
+    paid: number;
+    /** `invoiced - paid` — money owed to the organization right now. */
+    outstanding: number;
+    /** `paid` as a percentage of `invoiced`. */
+    paidPercent: number;
+    invoices: number;
+    /** Invoices with a balance left, i.e. Unpaid or Partial. */
+    unsettledInvoices: number;
+    payments: number;
+  };
   properties: {
     total: number;
     totalUnits: number;
@@ -59,6 +73,15 @@ const EMPTY_STATS: DashboardStats = {
     collectedPercent: 0,
   },
   vacancy: { lossMonthly: 0, lossYear: 0, lossPercent: 0 },
+  billing: {
+    invoiced: 0,
+    paid: 0,
+    outstanding: 0,
+    paidPercent: 0,
+    invoices: 0,
+    unsettledInvoices: 0,
+    payments: 0,
+  },
   properties: {
     total: 0,
     totalUnits: 0,
@@ -110,6 +133,7 @@ export async function getDashboardStats(
     leasesActive,
     leasesExpiringSoon,
     paymentsThisYear,
+    invoices,
   ] = await Promise.all([
     prisma.property.count({ where: { organizationId } }),
     // Asking rents plus whether anyone is in the unit: that one row carries the
@@ -154,9 +178,29 @@ export async function getDashboardStats(
       },
       _sum: { amount: true },
     }),
+    // Every invoice with its payments: one row each carries the amount owed,
+    // the amount settled and whether anything is left — so the whole billing
+    // block comes from this rather than four aggregate queries. A balance is
+    // derived, not a column, so it can't be summed in SQL.
+    prisma.invoice.findMany({
+      where: { lease: orgLease },
+      select: { amount: true, payments: { select: { amount: true } } },
+    }),
   ]);
 
   const collected = paymentsThisYear._sum.amount ?? 0;
+
+  let invoiced = 0;
+  let paid = 0;
+  let unsettledInvoices = 0;
+  let paymentCount = 0;
+  for (const invoice of invoices) {
+    const settled = invoice.payments.reduce((sum, item) => sum + item.amount, 0);
+    invoiced += invoice.amount;
+    paid += settled;
+    paymentCount += invoice.payments.length;
+    if (settled < invoice.amount) unsettledInvoices += 1;
+  }
 
   const totalUnits = units.length;
   const occupiedUnits = units.filter((unit) => unit.leases.length > 0).length;
@@ -183,6 +227,15 @@ export async function getDashboardStats(
         expectedMonthly === 0
           ? 0
           : Math.round((lossMonthly / expectedMonthly) * 100),
+    },
+    billing: {
+      invoiced,
+      paid,
+      outstanding: invoiced - paid,
+      paidPercent: invoiced === 0 ? 0 : Math.round((paid / invoiced) * 100),
+      invoices: invoices.length,
+      unsettledInvoices,
+      payments: paymentCount,
     },
     properties: {
       total: properties,

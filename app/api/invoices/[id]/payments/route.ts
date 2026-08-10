@@ -47,6 +47,9 @@ export async function POST(
   }
 
   revalidatePath("/leases");
+  revalidatePath("/payments");
+  // "Rent collected" is a sum of payment rows now, so it moves with this.
+  revalidatePath("/dashboard");
 
   return Response.json({ payment: result.payment }, { status: 201 });
 }

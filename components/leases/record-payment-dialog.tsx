@@ -15,7 +15,15 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatMoneyFull } from "@/lib/format";
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment-options";
 
 type FieldErrors = Partial<Record<"amount" | "paidAt" | "method" | "notes", string[]>>;
 
@@ -37,7 +45,7 @@ export function RecordPaymentDialog({
   const router = useRouter();
   const [amount, setAmount] = React.useState("");
   const [paidAt, setPaidAt] = React.useState(todayInputValue());
-  const [method, setMethod] = React.useState("");
+  const [method, setMethod] = React.useState<string>(PAYMENT_METHOD_OPTIONS[0]);
   const [notes, setNotes] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -121,14 +129,27 @@ export function RecordPaymentDialog({
               </Field>
             </div>
 
+            {/* Same closed list the payments page uses — free text here would
+                produce methods its facet filter could never match. */}
             <Field>
-              <FieldLabel htmlFor="payment-method">Method</FieldLabel>
-              <Input
-                id="payment-method"
+              <FieldLabel htmlFor="payment-method" required>
+                Method of payment
+              </FieldLabel>
+              <Select
                 value={method}
-                onChange={(event) => setMethod(event.target.value)}
-                placeholder="Bank transfer, cash, M-Pesa…"
-              />
+                onValueChange={(next) => next && setMethod(next)}
+              >
+                <SelectTrigger id="payment-method" className="w-full">
+                  <SelectValue>{(selected: string) => selected}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHOD_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FieldError errors={fieldErrors.method?.map((m) => ({ message: m }))} />
             </Field>
 

@@ -5,6 +5,7 @@ import {
   ShieldCheckIcon,
   UsersIcon,
   UserCogIcon,
+  WalletIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,12 @@ export const navItems: NavItem[] = [
     url: "/leases",
     icon: FileTextIcon,
     description: "Agreements linking tenants to units",
+  },
+  {
+    title: "Payments",
+    url: "/payments",
+    icon: WalletIcon,
+    description: "Rent payments recorded against invoices",
   },
   {
     title: "Users",

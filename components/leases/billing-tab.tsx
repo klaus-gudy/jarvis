@@ -2,14 +2,16 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
-import { DetailRow } from "@/components/detail-row";
+import {
+  buildBillingPaymentColumns,
+  type BillingPaymentRow,
+} from "@/components/leases/billing-payment-columns";
 import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -18,22 +20,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
-import type { InvoiceStatus } from "@/lib/invoices";
-
-const STATUS_VARIANT: Record<InvoiceStatus, "secondary" | "outline" | "destructive"> = {
-  Paid: "secondary",
-  Partial: "outline",
-  Unpaid: "destructive",
-};
+import type { InvoiceStatus } from "@/lib/invoice-types";
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment-options";
 
 export type BillingPayment = {
   id: string;
@@ -45,6 +34,7 @@ export type BillingPayment = {
 
 export type BillingInvoice = {
   id: string;
+  reference: string;
   amount: number;
   dueDate: string;
   paid: number;
@@ -53,11 +43,30 @@ export type BillingInvoice = {
   payments: BillingPayment[];
 };
 
+/**
+ * The payment ledger for one lease. The invoice's own figures live on the
+ * Overview tab beside the lease terms — this tab is only what has been paid
+ * against it.
+ */
 export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
   const router = useRouter();
   const [recording, setRecording] = React.useState(false);
-  const [deleting, setDeleting] = React.useState<BillingPayment | null>(null);
+  const [deleting, setDeleting] = React.useState<BillingPaymentRow | null>(null);
   const [pending, setPending] = React.useState(false);
+
+  const columns = React.useMemo(
+    () => buildBillingPaymentColumns({ onDelete: setDeleting }),
+    []
+  );
+
+  const rows: BillingPaymentRow[] = React.useMemo(
+    () =>
+      (invoice?.payments ?? []).map((payment) => ({
+        ...payment,
+        invoiceReference: invoice?.reference ?? "",
+      })),
+    [invoice]
+  );
 
   async function handleDeletePayment() {
     if (!invoice || !deleting) return;
@@ -91,100 +100,32 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
   }
 
   return (
-    <div className="space-y-5">
-      <Card>
-        <CardHeader className="flex-row items-center justify-between border-b">
-          <CardTitle className="text-base">Invoice</CardTitle>
-          <Badge variant={STATUS_VARIANT[invoice.status]} className="rounded-full font-normal">
-            {invoice.status}
-          </Badge>
-        </CardHeader>
-        <CardContent className="p-0">
-          <dl>
-            <DetailRow
-              label="Total amount"
-              value={
-                <span className="font-mono tabular-nums">
-                  {formatCurrencyFull(invoice.amount)}
-                </span>
-              }
-            />
-            <DetailRow label="Due date" value={formatDate(new Date(invoice.dueDate))} />
-            <DetailRow
-              label="Paid so far"
-              value={
-                <span className="font-mono tabular-nums">
-                  {formatCurrencyFull(invoice.paid)}
-                </span>
-              }
-            />
-            <DetailRow
-              label="Balance remaining"
-              value={
-                <span className="font-mono tabular-nums">
-                  {formatCurrencyFull(invoice.balance)}
-                </span>
-              }
-            />
-          </dl>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      {/* Outside the table's card, matching the payments page and the leases
+          page — the action belongs to the page, not to a card. */}
+      <div className="flex justify-end">
+        <Button onClick={() => setRecording(true)} disabled={invoice.balance <= 0}>
+          Record payment
+        </Button>
+      </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between border-b">
-          <CardTitle className="text-base">Payments</CardTitle>
-          <Button
-            size="sm"
-            onClick={() => setRecording(true)}
-            disabled={invoice.balance <= 0}
-          >
-            Record payment
-          </Button>
-        </CardHeader>
-        <CardContent className="p-0">
-          {invoice.payments.length === 0 ? (
-            <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-              No payments recorded yet.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="w-9" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoice.payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>{formatDate(new Date(payment.paidAt))}</TableCell>
-                    <TableCell>{payment.method ?? "—"}</TableCell>
-                    <TableCell className="max-w-48 truncate">
-                      {payment.notes ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatCurrencyFull(payment.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setDeleting(payment)}
-                        aria-label="Remove payment"
-                      >
-                        <Trash2Icon />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={rows}
+        searchColumnId="method"
+        searchPlaceholder="Search payments…"
+        facetFilters={[
+          {
+            columnId: "method",
+            placeholder: "All methods",
+            options: PAYMENT_METHOD_OPTIONS.map((option) => ({
+              label: option,
+              value: option,
+            })),
+          },
+        ]}
+        emptyMessage="No payments recorded yet."
+      />
 
       <RecordPaymentDialog
         key={String(recording)}

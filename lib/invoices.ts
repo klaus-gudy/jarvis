@@ -1,18 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import type { RecordPaymentInput } from "@/lib/invoices-schemas";
+import {
+  deriveInvoiceStatus,
+  invoiceReference,
+  type InvoiceStatus,
+} from "@/lib/invoice-types";
 
-export type InvoiceStatus = "Unpaid" | "Partial" | "Paid";
-
-/**
- * Status is derived, never stored — same rule this codebase already applies
- * to LeaseStatus and TenantStatus, so it can never drift from what's actually
- * been paid.
- */
-export function deriveInvoiceStatus(amount: number, paid: number): InvoiceStatus {
-  if (paid <= 0) return "Unpaid";
-  if (paid >= amount) return "Paid";
-  return "Partial";
-}
+// Re-exported so server callers can keep importing both from one place; the
+// definitions live in the Prisma-free module so client components can use them.
+export { deriveInvoiceStatus, type InvoiceStatus };
 
 export type PaymentRow = {
   id: string;
@@ -24,6 +20,7 @@ export type PaymentRow = {
 
 export type InvoiceDetail = {
   id: string;
+  reference: string;
   amount: number;
   dueDate: Date;
   paid: number;
@@ -65,6 +62,7 @@ export async function getInvoiceForLease(
 
   return {
     id: invoice.id,
+    reference: invoiceReference(invoice.id),
     amount: invoice.amount,
     dueDate: invoice.dueDate,
     paid,

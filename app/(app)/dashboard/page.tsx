@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import {
   BuildingIcon,
   FileTextIcon,
+  ReceiptTextIcon,
   TrendingDownIcon,
   UsersIcon,
   WalletIcon,
@@ -77,7 +78,9 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {/* Six cards: two clean rows of three. Six across would squeeze
+          "TZS 4,200,000" onto a second line at this text size. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           variant="filled"
           href="/leases"
@@ -137,6 +140,29 @@ export default async function DashboardPage() {
               value: stats.leases.expiringSoon,
               tone: "accent",
             },
+          ]}
+        />
+
+        {/* Leads with what is owed, not what came in: an outstanding balance
+            is the figure that needs acting on. */}
+        <MetricCard
+          href="/payments"
+          icon={ReceiptTextIcon}
+          value={formatCurrencyFull(stats.billing.outstanding)}
+          label={`Outstanding · ${stats.billing.paidPercent}% of ${formatCurrency(
+            stats.billing.invoiced
+          )} settled`}
+          progress={stats.billing.paidPercent}
+          footer={`${stats.billing.payments} ${
+            stats.billing.payments === 1 ? "payment" : "payments"
+          } recorded`}
+          stats={[
+            {
+              label: "Unsettled invoices",
+              value: stats.billing.unsettledInvoices,
+              tone: "accent",
+            },
+            { label: "Invoices", value: stats.billing.invoices },
           ]}
         />
 
