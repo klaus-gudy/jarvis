@@ -2,10 +2,11 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
+import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
-import type { LeaseStatus } from "@/lib/leases";
+import type { LeaseExpiry, LeaseStatus } from "@/lib/leases";
 
 const STATUS_VARIANT: Record<LeaseStatus, "secondary" | "outline" | "destructive"> = {
   Active: "secondary",
@@ -23,6 +24,7 @@ export type MemberLeaseRow = {
   durationMonths: number;
   leaseAmount: number;
   status: LeaseStatus;
+  expiry: LeaseExpiry | null;
 };
 
 /**
@@ -74,7 +76,12 @@ export function buildMemberLeaseColumns(): ColumnDef<MemberLeaseRow>[] {
     {
       accessorKey: "endDate",
       header: "End date",
-      cell: ({ row }) => formatDate(new Date(row.original.endDate)),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {formatDate(new Date(row.original.endDate))}
+          <ExpiryTag expiry={row.original.expiry} />
+        </div>
+      ),
     },
     {
       accessorKey: "durationMonths",

@@ -1,4 +1,9 @@
-import { leaseReference, type LeaseStatus } from "@/lib/leases";
+import {
+  leaseExpiry,
+  leaseReference,
+  type LeaseExpiry,
+  type LeaseStatus,
+} from "@/lib/leases";
 import type { UpdateMemberProfileInput } from "@/lib/member-profile-schemas";
 import { prisma } from "@/lib/prisma";
 import { ensureRole, TENANT_ROLE_NAME } from "@/lib/roles";
@@ -143,6 +148,7 @@ export type TenantDetail = {
     durationMonths: number;
     leaseAmount: number;
     status: LeaseStatus;
+    expiry: LeaseExpiry | null;
   }[];
 };
 
@@ -211,6 +217,7 @@ export async function getTenantDetail(
           : lease.endDate < now
             ? "Ended"
             : "Active",
+      expiry: leaseExpiry(now, lease.startDate, lease.endDate),
     })),
   };
 }

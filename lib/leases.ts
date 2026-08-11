@@ -38,6 +38,8 @@ export type LeaseRow = {
   monthlyRent: number;
   leaseAmount: number;
   status: LeaseStatus;
+  /** Set only while the lease is running and inside the 60-day window. */
+  expiry: LeaseExpiry | null;
   invoice: InvoiceSummary | null;
   /**
    * The lease's own unit, carried so the edit form can prefill it. It has to
@@ -55,6 +57,45 @@ function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
   if (startDate > now) return "Upcoming";
   if (endDate < now) return "Ended";
   return "Active";
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A lease this close to its end date is worth flagging in a list. */
+const EXPIRY_SOON_DAYS = 60;
+/** …and this close is worth flagging harder. */
+const EXPIRY_URGENT_DAYS = 30;
+
+export type LeaseExpiry = {
+  /** `urgent` inside 30 days, `soon` inside 60 — escalating as the date nears,
+   * matching the renewals panel, which already golds anything under 30. */
+  tier: "urgent" | "soon";
+  daysLeft: number;
+};
+
+/**
+ * Worked out here rather than in the table so the clock can't disagree with
+ * itself: a client component computing `Date.now()` during render produces one
+ * answer on the server and another on hydration, and a lease sitting on a
+ * threshold would flicker between tiers.
+ *
+ * Only a lease that has actually started can be "ending soon" — an upcoming
+ * short lease is near its end date without that meaning anything yet.
+ */
+export function leaseExpiry(
+  now: Date,
+  startDate: Date,
+  endDate: Date
+): LeaseExpiry | null {
+  if (startDate > now || endDate < now) return null;
+
+  const daysLeft = Math.floor((endDate.getTime() - now.getTime()) / DAY_MS);
+  if (daysLeft > EXPIRY_SOON_DAYS) return null;
+
+  return {
+    tier: daysLeft <= EXPIRY_URGENT_DAYS ? "urgent" : "soon",
+    daysLeft,
+  };
 }
 
 /**
@@ -96,6 +137,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
     status: leaseStatus(now, lease.startDate, lease.endDate),
+    expiry: leaseExpiry(now, lease.startDate, lease.endDate),
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
     propertyId: lease.unit.property.id,
     unitId: lease.unitId,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
+import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -103,7 +104,12 @@ export function buildLeaseColumns({
     {
       accessorKey: "endDate",
       header: "End date",
-      cell: ({ row }) => formatDate(new Date(row.original.endDate)),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {formatDate(new Date(row.original.endDate))}
+          <ExpiryTag expiry={row.original.expiry} />
+        </div>
+      ),
     },
     {
       accessorKey: "durationMonths",

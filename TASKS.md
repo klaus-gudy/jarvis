@@ -412,6 +412,15 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] Verified by driving `createLease`/`updateLease` directly (browser session was lost to a server restart and signing in isn't something I can do): default falls back to the unit's rent, a negotiated rate wins, editing the rate re-derives total *and* invoice, and clearing the override falls back again — 4/4 pass, test leases removed. `tsc` + lint clean
 - [ ] **Not yet eyeballed**: the new field and the corrected "Monthly rent" row have not been seen in a browser. Worth a look next time you're signed in
 
+## Phase 39 — Expiry tags on the End date column
+
+- [x] **`components/leases/expiry-tag.tsx`** — a running lease inside 60 days of its end date gets a clock tag beside its end date, escalating as the date nears: **outline clock inside 60 days, destructive alert-clock inside 30**, each carrying the day count ("30d") because "soon" isn't actionable on its own. A `title` spells it out in full for hover and screen readers
+- [x] **Escalation runs toward expiry** — nearer means louder. The request's wording was ambiguous about which tier should be sharper; this matches the renewals panel, which already golds anything under 30 days (`daysLeft <= 30 ? "accent" : "default"`), so the two surfaces now agree. One line to flip if the other reading was meant
+- [x] **The tier is computed server-side** in `leaseExpiry()` alongside `leaseStatus`. A client component calling `Date.now()` during render answers differently on the server than on hydration, so a lease sitting on a threshold would flicker between tiers — and the tables are `"use client"`, so they render in both places
+- [x] Only a lease that has **actually started** can be "ending soon": an upcoming short lease is near its end date without that meaning anything yet, and an ended one is past caring. Both return null
+- [x] Shown on **both** lease tables — the org-wide one and the tenant's Lease tab — from one component and one server-side helper, so the two can't drift
+- [x] Verified live against real data: Baraka Mushi (11 Sept, **30d**) renders the destructive tag, Amani and Neema (10 Oct, **59d**) the outline one, and Hassan Said's ended lease no tag at all. Boundary confirmed inclusive at exactly 30. Titles read "This lease ends in 30 days". Light + dark, 375px with no page overflow, tenant tab matches. `tsc` + lint clean
+
 ### Not done
 - [ ] **Leases created before the billing migration have no invoice**, so they can't be paid at all — the Billing tab reads "No invoice exists for this lease yet" and there is no UI to create one. Needs either a backfill script or an "Issue invoice" action on that empty state.
 - [ ] Auto-renewal has no scheduler — it only fires when `/leases` or `/dashboard` is loaded after a lease's end date passes. A cron-hit endpoint would close this; `runAutoRenewals` is already written to support it without changes.

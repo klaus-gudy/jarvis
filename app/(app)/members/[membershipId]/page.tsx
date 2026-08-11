@@ -209,6 +209,7 @@ export default async function MemberDetailPage({
               durationMonths: lease.durationMonths,
               leaseAmount: lease.leaseAmount,
               status: lease.status,
+              expiry: lease.expiry,
             }))}
             membershipId={member.membershipId}
             isTenant={isTenant}
