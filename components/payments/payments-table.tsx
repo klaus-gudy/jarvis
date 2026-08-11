@@ -82,6 +82,7 @@ export function PaymentsTable({
       </div>
 
       <DataTable
+        stateKey="payments"
         columns={columns}
         data={payments}
         searchColumnId="tenantName"

@@ -3,9 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/hash";
 import { registerSchema } from "@/lib/auth/schemas";
 import { createSession } from "@/lib/auth/session";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/roles";
 
+/**
+ * Registration isn't guessable, but it is the cheapest way to make the server
+ * do bcrypt work and create rows, so it gets a slower budget over a longer
+ * window than login.
+ */
+const PER_IP = { limit: 5, windowMs: 10 * 60_000 };
+
 export async function POST(request: Request) {
+  const limited = rateLimit(`register:ip:${clientIp(request)}`, PER_IP);
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds);
+
   let body: unknown;
   try {
     body = await request.json();

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { acceptInvitation } from "@/lib/invitations";
 import { createSession } from "@/lib/auth/session";
 import { optionalTzPhoneSchema } from "@/lib/phone";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * Public by design — the token is the credential. It is never logged, and every
@@ -24,7 +25,17 @@ const acceptSchema = z.object({
   phone: optionalTzPhoneSchema,
 });
 
+/**
+ * The invite token is a 32-byte random value, so guessing it is hopeless — but
+ * this endpoint is public and creates accounts, so it gets a budget for the
+ * same reason registration does.
+ */
+const PER_IP = { limit: 10, windowMs: 10 * 60_000 };
+
 export async function POST(request: Request) {
+  const limited = rateLimit(`invite-accept:ip:${clientIp(request)}`, PER_IP);
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds);
+
   let body: unknown;
   try {
     body = await request.json();

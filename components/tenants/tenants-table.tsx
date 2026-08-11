@@ -86,6 +86,7 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
       </div>
 
       <DataTable
+        stateKey="tenants"
         columns={columns}
         data={tenants}
         searchColumnId="name"

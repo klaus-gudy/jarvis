@@ -11,6 +11,7 @@ import {
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
+  type OnChangeFn,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
@@ -46,6 +47,25 @@ export type FacetFilter = {
   options: { label: string; value: string }[];
 };
 
+type StickyTableState = {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+};
+
+/**
+ * What each table was filtered and sorted by, kept for the life of the tab.
+ *
+ * Deliberately a module-level map rather than storage: it is empty on the
+ * server *and* on a fresh page load, so the first render matches on both sides
+ * and there is no hydration mismatch to paper over — and it only ever holds a
+ * value after a client-side navigation, which is exactly the case being fixed
+ * ("I set a filter, went to another page, came back, and it was gone").
+ *
+ * A hard reload starts clean, which is the right default for a filter: it
+ * should never be a hidden reason a list looks empty.
+ */
+const stickyTableState = new Map<string, StickyTableState>();
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -55,6 +75,7 @@ export function DataTable<TData, TValue>({
   pageSize = 10,
   emptyMessage = "No results.",
   getRowHref,
+  stateKey,
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -70,12 +91,45 @@ export function DataTable<TData, TValue>({
    * column remains the keyboard-reachable path.
    */
   getRowHref?: (row: TData) => string | undefined;
+  /**
+   * Opt in to remembering this table's search, filters and sort while the tab
+   * lives. Must be unique per table; include an id for a table that appears
+   * once per entity, so one property's filters can't show up on another's.
+   */
+  stateKey?: string;
 }) {
   const router = useRouter();
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const remembered = stateKey ? stickyTableState.get(stateKey) : undefined;
+  const [sorting, setSorting] = React.useState<SortingState>(
+    remembered?.sorting ?? []
+  );
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    remembered?.columnFilters ?? []
+  );
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+
+  /**
+   * Written from the change handlers rather than during render or an effect —
+   * the value is known at the moment the user acts, and the codebase's
+   * set-state-in-effect rule rules out the usual "sync it afterwards" shape.
+   */
+  function remember(next: Partial<StickyTableState>) {
+    if (!stateKey) return;
+    stickyTableState.set(stateKey, { sorting, columnFilters, ...next });
+  }
+
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = typeof updater === "function" ? updater(sorting) : updater;
+    setSorting(next);
+    remember({ sorting: next });
+  };
+
+  const handleColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (updater) => {
+    const next = typeof updater === "function" ? updater(columnFilters) : updater;
+    setColumnFilters(next);
+    remember({ columnFilters: next });
+  };
 
   const table = useReactTable({
     data,
@@ -84,8 +138,8 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
+    onSortingChange: handleSortingChange,
+    onColumnFiltersChange: handleColumnFiltersChange,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     initialState: { pagination: { pageSize } },

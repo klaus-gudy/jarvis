@@ -88,6 +88,7 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
       </div>
 
       <DataTable
+        stateKey="roles"
         columns={columns}
         data={roles}
         searchColumnId="name"

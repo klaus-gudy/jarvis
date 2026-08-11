@@ -79,6 +79,7 @@ export function LeasesTable({
       </div>
 
       <DataTable
+        stateKey="leases"
         columns={columns}
         data={leases}
         searchColumnId="tenantName"
