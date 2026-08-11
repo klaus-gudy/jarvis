@@ -42,3 +42,12 @@ export const createLeaseSchema = z.object({
 });
 
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;
+
+/**
+ * Editing takes the same four decisions as creating — which unit, whose lease,
+ * from when, for how long — so it validates identically. It is a separate
+ * export only so the two can diverge without a silent surprise.
+ */
+export const updateLeaseSchema = createLeaseSchema;
+
+export type UpdateLeaseInput = z.infer<typeof updateLeaseSchema>;

@@ -28,6 +28,7 @@ export function LeasesTable({
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<LeaseRow | null>(null);
   const [deleting, setDeleting] = React.useState<LeaseRow | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -35,6 +36,7 @@ export function LeasesTable({
   const columns = React.useMemo(
     () =>
       buildLeaseColumns({
+        onEdit: setEditing,
         onDelete: (lease) => {
           setError(null);
           setDeleting(lease);
@@ -102,6 +104,30 @@ export function LeasesTable({
         onOpenChange={setFormOpen}
         options={options}
       />
+
+      {/* Keyed on the lease so opening a different row re-seeds the form,
+          matching how the unit dialog remounts rather than syncing in an
+          effect. */}
+      {editing && (
+        <LeaseFormDialog
+          key={editing.id}
+          open
+          onOpenChange={(open) => !open && setEditing(null)}
+          options={options}
+          lease={{
+            id: editing.id,
+            propertyId: editing.propertyId,
+            propertyName: editing.propertyName,
+            unitId: editing.unitId,
+            unitLabel: editing.unitLabel,
+            unitRentAmount: editing.unitRentAmount,
+            unitMinTenureMonths: editing.unitMinTenureMonths,
+            membershipId: editing.membershipId,
+            startDate: editing.startDate,
+            durationMonths: editing.durationMonths,
+          }}
+        />
+      )}
 
       <Dialog
         open={deleting !== null}

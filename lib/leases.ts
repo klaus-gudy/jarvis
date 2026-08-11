@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { addMonths, type CreateLeaseInput } from "@/lib/leases-schemas";
+import {
+  addMonths,
+  type CreateLeaseInput,
+  type UpdateLeaseInput,
+} from "@/lib/leases-schemas";
 import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoices";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
 
@@ -33,6 +37,16 @@ export type LeaseRow = {
   leaseAmount: number;
   status: LeaseStatus;
   invoice: InvoiceSummary | null;
+  /**
+   * The lease's own unit, carried so the edit form can prefill it. It has to
+   * come from the row rather than from `getLeaseOptions`, which lists only
+   * *free* units — a let unit is by definition absent from that list, so
+   * without this the form would open with an empty Unit field.
+   */
+  propertyId: string;
+  unitId: string;
+  unitRentAmount: number;
+  unitMinTenureMonths: number | null;
 };
 
 function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
@@ -56,7 +70,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     },
     orderBy: { updatedAt: "desc" },
     include: {
-      unit: { include: { property: { select: { name: true } } } },
+      unit: { include: { property: { select: { id: true, name: true } } } },
       membership: {
         include: { user: { select: { name: true, email: true, phone: true } } },
       },
@@ -80,6 +94,10 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     leaseAmount: lease.leaseAmount,
     status: leaseStatus(now, lease.startDate, lease.endDate),
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
+    propertyId: lease.unit.property.id,
+    unitId: lease.unitId,
+    unitRentAmount: lease.unit.rentAmount,
+    unitMinTenureMonths: lease.unit.minTenureMonths,
   }));
 }
 
@@ -348,6 +366,118 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
     durationMonths: input.durationMonths,
     rentAmount: unit.rentAmount,
   });
+}
+
+/**
+ * Corrects an existing lease — the wrong unit, the wrong term, the wrong start.
+ *
+ * The lease is *re-derived* rather than patched: the end date and value are
+ * recomputed from the unit's rent as it stands now, and the invoice is brought
+ * back in step in the same transaction. That deliberately departs from the
+ * "locked in at signing" rule `insertLease` follows, because an edit is a
+ * correction of the record, not the passage of time — the form shows the new
+ * total before it is saved so the change can't be a surprise.
+ *
+ * Payments already recorded are the one thing an edit can't invalidate: if the
+ * corrected value is below what the tenant has paid, the edit is refused
+ * rather than leaving an invoice that is somehow overpaid.
+ */
+export async function updateLease(
+  organizationId: string,
+  leaseId: string,
+  input: UpdateLeaseInput
+) {
+  const existing = await prisma.lease.findFirst({
+    where: {
+      id: leaseId,
+      membership: { organizationId },
+      unit: { property: { organizationId } },
+    },
+    select: {
+      id: true,
+      invoice: {
+        select: { id: true, payments: { select: { amount: true } } },
+      },
+    },
+  });
+  if (!existing) return { error: "not-found" as const };
+
+  const unit = await prisma.unit.findFirst({
+    where: {
+      id: input.unitId,
+      propertyId: input.propertyId,
+      property: { organizationId },
+    },
+    select: { id: true, minTenureMonths: true, rentAmount: true },
+  });
+  if (!unit) return { error: "unit-not-found" as const };
+
+  const membership = await prisma.membership.findFirst({
+    where: {
+      id: input.membershipId,
+      organizationId,
+      role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+    },
+    select: { id: true },
+  });
+  if (!membership) return { error: "tenant-not-found" as const };
+
+  if (unit.minTenureMonths != null && input.durationMonths < unit.minTenureMonths) {
+    return {
+      error: "duration-too-short" as const,
+      minTenureMonths: unit.minTenureMonths,
+    };
+  }
+
+  const endDate = addMonths(input.startDate, input.durationMonths);
+
+  // Same half-open overlap test as `insertLease`, minus this lease — a lease
+  // always overlaps itself, so without the exclusion no edit could ever save.
+  const overlapping = await prisma.lease.findFirst({
+    where: {
+      id: { not: existing.id },
+      unitId: unit.id,
+      startDate: { lt: endDate },
+      endDate: { gt: input.startDate },
+    },
+    select: { id: true },
+  });
+  if (overlapping) return { error: "unit-occupied" as const };
+
+  const leaseAmount = unit.rentAmount * input.durationMonths;
+  const paid =
+    existing.invoice?.payments.reduce((sum, payment) => sum + payment.amount, 0) ?? 0;
+  if (paid > leaseAmount) {
+    return { error: "amount-below-paid" as const, paid, leaseAmount };
+  }
+
+  const lease = await prisma.$transaction(async (tx) => {
+    const updated = await tx.lease.update({
+      where: { id: existing.id },
+      data: {
+        unitId: unit.id,
+        membershipId: membership.id,
+        startDate: input.startDate,
+        endDate,
+        durationMonths: input.durationMonths,
+        leaseAmount,
+      },
+      select: { id: true },
+    });
+
+    // Leases predating the billing migration have no invoice; there is simply
+    // nothing to keep in step for those.
+    if (existing.invoice) {
+      await tx.invoice.update({
+        where: { id: existing.invoice.id },
+        data: { amount: leaseAmount, dueDate: input.startDate },
+      });
+    }
+
+    return updated;
+  });
+
+  return { lease };
 }
 
 export async function deleteLease(organizationId: string, leaseId: string) {

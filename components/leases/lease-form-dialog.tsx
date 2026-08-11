@@ -100,11 +100,26 @@ function SearchSelect({
   );
 }
 
+/** The lease being corrected, and everything the form needs to prefill it. */
+export type EditableLease = {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  unitId: string;
+  unitLabel: string;
+  unitRentAmount: number;
+  unitMinTenureMonths: number | null;
+  membershipId: string;
+  startDate: string;
+  durationMonths: number;
+};
+
 export function LeaseFormDialog({
   open,
   onOpenChange,
   options,
   lockedTenantId,
+  lease,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -115,22 +130,62 @@ export function LeaseFormDialog({
    * the lease belong to someone else's page.
    */
   lockedTenantId?: string;
+  /** Supplied to correct an existing lease instead of signing a new one. */
+  lease?: EditableLease;
 }) {
   const router = useRouter();
-  const [propertyId, setPropertyId] = React.useState("");
-  const [unitId, setUnitId] = React.useState("");
-  const [membershipId, setMembershipId] = React.useState(lockedTenantId ?? "");
-  const [startDate, setStartDate] = React.useState(todayIso());
-  const [duration, setDuration] = React.useState("");
+  const editing = lease !== undefined;
+  const [propertyId, setPropertyId] = React.useState(lease?.propertyId ?? "");
+  const [unitId, setUnitId] = React.useState(lease?.unitId ?? "");
+  const [membershipId, setMembershipId] = React.useState(
+    lease?.membershipId ?? lockedTenantId ?? ""
+  );
+  const [startDate, setStartDate] = React.useState(
+    lease ? lease.startDate.slice(0, 10) : todayIso()
+  );
+  const [duration, setDuration] = React.useState(
+    lease ? String(lease.durationMonths) : ""
+  );
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
 
-  const property = options.properties.find((item) => item.id === propertyId) ?? null;
+  /**
+   * `options` lists only units with nothing on them, so a lease being edited
+   * can't find its own unit — or its property, if that unit was the only free
+   * one there. Both are folded back in so the form opens on what the lease
+   * actually says.
+   */
+  const properties = React.useMemo(() => {
+    if (!lease) return options.properties;
+
+    const own = {
+      id: lease.unitId,
+      label: lease.unitLabel,
+      rentAmount: lease.unitRentAmount,
+      minTenureMonths: lease.unitMinTenureMonths,
+    };
+
+    const existing = options.properties.find((item) => item.id === lease.propertyId);
+    if (!existing) {
+      return [
+        ...options.properties,
+        { id: lease.propertyId, name: lease.propertyName, units: [own] },
+      ];
+    }
+
+    return options.properties.map((item) =>
+      item.id === lease.propertyId
+        ? { ...item, units: [own, ...item.units.filter((u) => u.id !== own.id)] }
+        : item
+    );
+  }, [lease, options.properties]);
+
+  const property = properties.find((item) => item.id === propertyId) ?? null;
   const unit = property?.units.find((item) => item.id === unitId) ?? null;
   const minTenure = unit?.minTenureMonths ?? 0;
 
-  const propertyItems: Option[] = options.properties.map((item) => ({
+  const propertyItems: Option[] = properties.map((item) => ({
     value: item.id,
     label: item.name,
   }));
@@ -187,22 +242,25 @@ export function LeaseFormDialog({
     setFormError(null);
     setFieldErrors({});
 
-    const response = await fetch("/api/leases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        propertyId,
-        unitId,
-        membershipId,
-        startDate,
-        durationMonths,
-      }),
-    });
+    const response = await fetch(
+      editing ? `/api/leases/${lease.id}` : "/api/leases",
+      {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId,
+          unitId,
+          membershipId,
+          startDate,
+          durationMonths,
+        }),
+      }
+    );
 
     if (response.ok) {
       onOpenChange(false);
       setPending(false);
-      toast.success("Lease created");
+      toast.success(editing ? "Lease updated" : "Lease created");
       router.refresh();
       return;
     }
@@ -223,9 +281,11 @@ export function LeaseFormDialog({
       <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create lease</DialogTitle>
+            <DialogTitle>{editing ? "Edit lease" : "Create lease"}</DialogTitle>
             <DialogDescription>
-              Assign a unit and tenant for a fixed term.
+              {editing
+                ? "The term and value are re-derived from the unit's current rent."
+                : "Assign a unit and tenant for a fixed term."}
             </DialogDescription>
           </DialogHeader>
 
@@ -342,10 +402,22 @@ export function LeaseFormDialog({
             </div>
 
             {endDate && (
-              <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Ends on </span>
-                <span className="font-medium">{formatDate(endDate)}</span>
-              </p>
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                <p>
+                  <span className="text-muted-foreground">Ends on </span>
+                  <span className="font-medium">{formatDate(endDate)}</span>
+                </p>
+                {/* Editing re-derives the value, so it is shown before saving
+                    rather than letting the total change out of sight. */}
+                {unit && (
+                  <p>
+                    <span className="text-muted-foreground">Total </span>
+                    <span className="font-mono font-medium tabular-nums">
+                      {formatCurrencyFull(unit.rentAmount * durationMonths)}
+                    </span>
+                  </p>
+                )}
+              </div>
             )}
 
             {formError && <FieldError>{formError}</FieldError>}
@@ -361,7 +433,13 @@ export function LeaseFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={pending || !canSubmit}>
-              {pending ? "Creating…" : "Create lease"}
+              {pending
+                ? editing
+                  ? "Saving…"
+                  : "Creating…"
+                : editing
+                  ? "Save changes"
+                  : "Create lease"}
             </Button>
           </DialogFooter>
         </form>

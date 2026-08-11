@@ -134,6 +134,7 @@ export async function getDashboardStats(
     leasesExpiringSoon,
     paymentsThisYear,
     invoices,
+    paymentTotals,
   ] = await Promise.all([
     prisma.property.count({ where: { organizationId } }),
     // Asking rents plus whether anyone is in the unit: that one row carries the
@@ -178,29 +179,41 @@ export async function getDashboardStats(
       },
       _sum: { amount: true },
     }),
-    // Every invoice with its payments: one row each carries the amount owed,
-    // the amount settled and whether anything is left — so the whole billing
-    // block comes from this rather than four aggregate queries. A balance is
-    // derived, not a column, so it can't be summed in SQL.
+    // Two narrow reads rather than every invoice with every payment nested:
+    // two columns per invoice, and one grouped row per invoice that has been
+    // paid against. Everything in the billing block derives from those, and
+    // whether an invoice is settled needs the per-invoice comparison — a
+    // balance isn't a column, so it can't be filtered in SQL.
     prisma.invoice.findMany({
       where: { lease: orgLease },
-      select: { amount: true, payments: { select: { amount: true } } },
+      select: { id: true, amount: true },
+    }),
+    prisma.payment.groupBy({
+      by: ["invoiceId"],
+      where: { invoice: { lease: orgLease } },
+      _sum: { amount: true },
+      _count: { _all: true },
     }),
   ]);
 
   const collected = paymentsThisYear._sum.amount ?? 0;
 
-  let invoiced = 0;
-  let paid = 0;
-  let unsettledInvoices = 0;
-  let paymentCount = 0;
-  for (const invoice of invoices) {
-    const settled = invoice.payments.reduce((sum, item) => sum + item.amount, 0);
-    invoiced += invoice.amount;
-    paid += settled;
-    paymentCount += invoice.payments.length;
-    if (settled < invoice.amount) unsettledInvoices += 1;
-  }
+  const paidByInvoice = new Map(
+    paymentTotals.map((total) => [total.invoiceId, total._sum.amount ?? 0])
+  );
+
+  const invoiced = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
+  const paid = paymentTotals.reduce(
+    (sum, total) => sum + (total._sum.amount ?? 0),
+    0
+  );
+  const paymentCount = paymentTotals.reduce(
+    (sum, total) => sum + total._count._all,
+    0
+  );
+  const unsettledInvoices = invoices.filter(
+    (invoice) => (paidByInvoice.get(invoice.id) ?? 0) < invoice.amount
+  ).length;
 
   const totalUnits = units.length;
   const occupiedUnits = units.filter((unit) => unit.leases.length > 0).length;

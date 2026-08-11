@@ -22,6 +22,33 @@ function orgPaymentFilter(organizationId: string) {
   };
 }
 
+function orgInvoiceFilter(organizationId: string) {
+  return {
+    lease: {
+      membership: { organizationId },
+      unit: { property: { organizationId } },
+    },
+  };
+}
+
+/**
+ * How much has been paid against each invoice, as one grouped aggregate.
+ *
+ * A balance is derived rather than stored, so it can't be filtered or summed
+ * in a plain `where`. This is the cheap way to get it: one row per invoice
+ * from the database instead of hydrating every payment row and adding them up
+ * in JS — which the callers below used to do, once per result row.
+ */
+async function paidByInvoice(organizationId: string) {
+  const totals = await prisma.payment.groupBy({
+    by: ["invoiceId"],
+    where: orgPaymentFilter(organizationId),
+    _sum: { amount: true },
+  });
+
+  return new Map(totals.map((total) => [total.invoiceId, total._sum.amount ?? 0]));
+}
+
 export type PaymentRow = {
   id: string;
   amount: number;
@@ -39,32 +66,36 @@ export type PaymentRow = {
 
 /** Every payment recorded in the organization, newest first. */
 export async function getPayments(organizationId: string): Promise<PaymentRow[]> {
-  const payments = await prisma.payment.findMany({
-    where: orgPaymentFilter(organizationId),
-    orderBy: { paidAt: "desc" },
-    include: {
-      invoice: {
-        include: {
-          // Every payment on the invoice, not just this one — the row reports
-          // where the invoice stands overall, which needs the full total.
-          payments: { select: { amount: true } },
-          lease: {
-            include: {
-              membership: {
-                include: {
-                  user: { select: { name: true, email: true, phone: true } },
+  // The per-invoice totals come from one grouped aggregate rather than a
+  // nested `payments` include: that include pulled every payment of an invoice
+  // once per payment of that invoice, so an invoice with n payments was
+  // hydrated n² times.
+  const [payments, paid] = await Promise.all([
+    prisma.payment.findMany({
+      where: orgPaymentFilter(organizationId),
+      orderBy: { paidAt: "desc" },
+      include: {
+        invoice: {
+          include: {
+            lease: {
+              include: {
+                membership: {
+                  include: {
+                    user: { select: { name: true, email: true, phone: true } },
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-  });
+    }),
+    paidByInvoice(organizationId),
+  ]);
 
   return payments.map((payment) => {
     const { invoice } = payment;
-    const paid = invoice.payments.reduce((sum, item) => sum + item.amount, 0);
+    const invoicePaid = paid.get(invoice.id) ?? 0;
 
     return {
       id: payment.id,
@@ -75,7 +106,7 @@ export async function getPayments(organizationId: string): Promise<PaymentRow[]>
       invoiceId: invoice.id,
       invoiceReference: invoiceReference(invoice.id),
       invoiceAmount: invoice.amount,
-      invoiceStatus: deriveInvoiceStatus(invoice.amount, paid),
+      invoiceStatus: deriveInvoiceStatus(invoice.amount, invoicePaid),
       leaseId: invoice.leaseId,
       tenantName: displayName(invoice.lease.membership.user),
     };
@@ -102,16 +133,27 @@ export type PayableInvoice = {
 export async function getPayableInvoices(
   organizationId: string
 ): Promise<PayableInvoice[]> {
+  // Which invoices still owe something is decided from two narrow reads — two
+  // columns per invoice and one grouped total per invoice — so the tenant and
+  // unit joins below are paid for only by the rows that survive the filter.
+  const [amounts, paid] = await Promise.all([
+    prisma.invoice.findMany({
+      where: orgInvoiceFilter(organizationId),
+      select: { id: true, amount: true },
+    }),
+    paidByInvoice(organizationId),
+  ]);
+
+  const payableIds = amounts
+    .filter((invoice) => invoice.amount - (paid.get(invoice.id) ?? 0) > 0)
+    .map((invoice) => invoice.id);
+
+  if (payableIds.length === 0) return [];
+
   const invoices = await prisma.invoice.findMany({
-    where: {
-      lease: {
-        membership: { organizationId },
-        unit: { property: { organizationId } },
-      },
-    },
+    where: { id: { in: payableIds } },
     orderBy: { dueDate: "asc" },
     include: {
-      payments: { select: { amount: true } },
       lease: {
         include: {
           unit: { include: { property: { select: { name: true } } } },
@@ -123,21 +165,18 @@ export async function getPayableInvoices(
     },
   });
 
-  return invoices
-    .map((invoice) => {
-      const paid = invoice.payments.reduce((sum, item) => sum + item.amount, 0);
-      return {
-        id: invoice.id,
-        reference: invoiceReference(invoice.id),
-        amount: invoice.amount,
-        paid,
-        balance: invoice.amount - paid,
-        status: deriveInvoiceStatus(invoice.amount, paid),
-        tenantName: displayName(invoice.lease.membership.user),
-        unitLabel: invoice.lease.unit.label,
-        propertyName: invoice.lease.unit.property.name,
-      };
-    })
-    // Balance is derived from the payments, so the filter can't be a `where`.
-    .filter((invoice) => invoice.balance > 0);
+  return invoices.map((invoice) => {
+    const settled = paid.get(invoice.id) ?? 0;
+    return {
+      id: invoice.id,
+      reference: invoiceReference(invoice.id),
+      amount: invoice.amount,
+      paid: settled,
+      balance: invoice.amount - settled,
+      status: deriveInvoiceStatus(invoice.amount, settled),
+      tenantName: displayName(invoice.lease.membership.user),
+      unitLabel: invoice.lease.unit.label,
+      propertyName: invoice.lease.unit.property.name,
+    };
+  });
 }

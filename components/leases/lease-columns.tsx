@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { EyeIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +32,10 @@ const INVOICE_STATUS_VARIANT: Record<
 };
 
 export function buildLeaseColumns({
+  onEdit,
   onDelete,
 }: {
+  onEdit: (lease: LeaseRow) => void;
   onDelete: (lease: LeaseRow) => void;
 }): ColumnDef<LeaseRow>[] {
   return [
@@ -173,6 +175,14 @@ export function buildLeaseColumns({
             aria-label={`View lease for ${row.original.tenantName}`}
           >
             <EyeIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit(row.original)}
+            aria-label={`Edit lease for ${row.original.tenantName}`}
+          >
+            <PencilIcon />
           </Button>
           <Button
             variant="ghost"
