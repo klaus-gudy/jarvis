@@ -176,11 +176,14 @@ export default async function LeaseDetailPage({
                   value={`${lease.durationMonths} months`}
                 />
                 <DetailRow label="Payment frequency" value="Monthly" />
+                {/* The rate this lease was agreed at — not `unit.rentAmount`,
+                    which is the asking price and shown on the Unit info card.
+                    They differ whenever the rent was negotiated. */}
                 <DetailRow
                   label="Monthly rent"
                   value={
                     <span className="font-mono tabular-nums">
-                      {formatCurrencyFull(unit.rentAmount)}
+                      {formatCurrencyFull(lease.monthlyRent)}
                     </span>
                   }
                 />

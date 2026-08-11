@@ -125,6 +125,7 @@ export function LeasesTable({
             membershipId: editing.membershipId,
             startDate: editing.startDate,
             durationMonths: editing.durationMonths,
+            monthlyRent: editing.monthlyRent,
           }}
         />
       )}

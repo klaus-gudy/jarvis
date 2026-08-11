@@ -29,7 +29,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { CURRENCY, formatCurrencyFull, formatDate } from "@/lib/format";
 import { addMonths, DURATION_OPTIONS } from "@/lib/leases-schemas";
 import type { LeaseOptions } from "@/lib/leases";
 
@@ -37,7 +37,12 @@ type Option = { value: string; label: string };
 
 type FieldErrors = Partial<
   Record<
-    "propertyId" | "unitId" | "membershipId" | "startDate" | "durationMonths",
+    | "propertyId"
+    | "unitId"
+    | "membershipId"
+    | "startDate"
+    | "durationMonths"
+    | "monthlyRent",
     string[]
   >
 >;
@@ -112,6 +117,7 @@ export type EditableLease = {
   membershipId: string;
   startDate: string;
   durationMonths: number;
+  monthlyRent: number;
 };
 
 export function LeaseFormDialog({
@@ -145,6 +151,16 @@ export function LeaseFormDialog({
   );
   const [duration, setDuration] = React.useState(
     lease ? String(lease.durationMonths) : ""
+  );
+  /**
+   * Empty means "whatever the unit asks", which is what the placeholder shows
+   * — so the common case needs no typing, and a negotiated rate is a
+   * deliberate act rather than a prefilled number someone edits by accident.
+   */
+  const [rent, setRent] = React.useState(
+    lease && lease.monthlyRent !== lease.unitRentAmount
+      ? String(lease.monthlyRent)
+      : ""
   );
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -200,6 +216,16 @@ export function LeaseFormDialog({
     label: item.name,
   }));
 
+  // Blank falls back to the unit's asking rent, mirroring the server's
+  // `input.monthlyRent ?? unit.rentAmount`.
+  const rentOverride = rent.trim() === "" ? null : Number(rent);
+  const rentValid =
+    rentOverride === null ||
+    (Number.isInteger(rentOverride) && rentOverride >= 0);
+  const effectiveRent = rentValid && rentOverride !== null
+    ? rentOverride
+    : (unit?.rentAmount ?? 0);
+
   // Duration is typed freely, so it has to be range-checked here rather than
   // being guaranteed by the list of choices. The server re-checks both bounds.
   const durationMonths = Number(duration);
@@ -234,6 +260,7 @@ export function LeaseFormDialog({
     membershipId !== "" &&
     startDate !== "" &&
     durationValid &&
+    rentValid &&
     !tooShort;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -253,6 +280,7 @@ export function LeaseFormDialog({
           membershipId,
           startDate,
           durationMonths,
+          monthlyRent: rentOverride,
         }),
       }
     );
@@ -399,6 +427,31 @@ export function LeaseFormDialog({
                   errors={fieldErrors.durationMonths?.map((m) => ({ message: m }))}
                 />
               </Field>
+
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="lease-rent">
+                  Monthly rent ({CURRENCY})
+                </FieldLabel>
+                <Input
+                  id="lease-rent"
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  value={rent}
+                  onChange={(event) => setRent(event.target.value)}
+                  placeholder={unit ? String(unit.rentAmount) : "Pick a unit first"}
+                  disabled={!unitId}
+                />
+                <FieldDescription>
+                  {unit
+                    ? `Leave blank to charge the unit's asking rent of ${formatCurrencyFull(unit.rentAmount)}.`
+                    : "Defaults to the unit's asking rent."}
+                </FieldDescription>
+                <FieldError
+                  errors={fieldErrors.monthlyRent?.map((m) => ({ message: m }))}
+                />
+              </Field>
             </div>
 
             {endDate && (
@@ -411,9 +464,11 @@ export function LeaseFormDialog({
                     rather than letting the total change out of sight. */}
                 {unit && (
                   <p>
-                    <span className="text-muted-foreground">Total </span>
+                    <span className="text-muted-foreground">
+                      {formatCurrencyFull(effectiveRent)} × {durationMonths} ={" "}
+                    </span>
                     <span className="font-mono font-medium tabular-nums">
-                      {formatCurrencyFull(unit.rentAmount * durationMonths)}
+                      {formatCurrencyFull(effectiveRent * durationMonths)}
                     </span>
                   </p>
                 )}

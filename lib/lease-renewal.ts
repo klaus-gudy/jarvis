@@ -49,7 +49,10 @@ export async function runAutoRenewals(organizationId: string): Promise<AutoRenew
       membershipId: lease.membershipId,
       startDate,
       durationMonths: lease.unit.minTenureMonths,
-      rentAmount: lease.unit.rentAmount,
+      // Carries the agreed rate forward rather than repricing to the unit's
+      // asking rent: a renewal continues the arrangement, and silently
+      // re-rating a negotiated lease is not something a job should decide.
+      monthlyRent: lease.monthlyRent,
       renewedFromId: lease.id,
     });
 

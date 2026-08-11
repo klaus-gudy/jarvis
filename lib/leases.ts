@@ -34,6 +34,8 @@ export type LeaseRow = {
   startDate: string;
   endDate: string;
   durationMonths: number;
+  /** The rate agreed for this lease, which may differ from the unit's asking rent. */
+  monthlyRent: number;
   leaseAmount: number;
   status: LeaseStatus;
   invoice: InvoiceSummary | null;
@@ -91,6 +93,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     startDate: lease.startDate.toISOString(),
     endDate: lease.endDate.toISOString(),
     durationMonths: lease.durationMonths,
+    monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
     status: leaseStatus(now, lease.startDate, lease.endDate),
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
@@ -137,6 +140,8 @@ export type LeaseDetail = {
   startDate: Date;
   endDate: Date;
   durationMonths: number;
+  /** The rate agreed for this lease, which may differ from the unit's asking rent. */
+  monthlyRent: number;
   leaseAmount: number;
   invoice: InvoiceSummary | null;
 };
@@ -194,6 +199,7 @@ export async function getLease(
     startDate: lease.startDate,
     endDate: lease.endDate,
     durationMonths: lease.durationMonths,
+    monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
   };
@@ -279,7 +285,8 @@ export async function insertLease(params: {
   membershipId: string;
   startDate: Date;
   durationMonths: number;
-  rentAmount: number;
+  /** The agreed rate — the unit's asking rent unless it was negotiated. */
+  monthlyRent: number;
   renewedFromId?: string;
 }) {
   const endDate = addMonths(params.startDate, params.durationMonths);
@@ -303,9 +310,10 @@ export async function insertLease(params: {
         startDate: params.startDate,
         endDate,
         durationMonths: params.durationMonths,
-        // Locked in at the rent that applied when the lease was signed, so a
+        // Both locked in at the rate agreed when the lease was signed, so a
         // later change to the unit's rentAmount doesn't rewrite this lease's history.
-        leaseAmount: params.rentAmount * params.durationMonths,
+        monthlyRent: params.monthlyRent,
+        leaseAmount: params.monthlyRent * params.durationMonths,
         renewedFromId: params.renewedFromId,
       },
       select: { id: true, leaseAmount: true, startDate: true },
@@ -364,7 +372,8 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
     membershipId: membership.id,
     startDate: input.startDate,
     durationMonths: input.durationMonths,
-    rentAmount: unit.rentAmount,
+    // A negotiated rate wins; absent one, the unit's asking rent stands.
+    monthlyRent: input.monthlyRent ?? unit.rentAmount,
   });
 }
 
@@ -444,7 +453,8 @@ export async function updateLease(
   });
   if (overlapping) return { error: "unit-occupied" as const };
 
-  const leaseAmount = unit.rentAmount * input.durationMonths;
+  const monthlyRent = input.monthlyRent ?? unit.rentAmount;
+  const leaseAmount = monthlyRent * input.durationMonths;
   const paid =
     existing.invoice?.payments.reduce((sum, payment) => sum + payment.amount, 0) ?? 0;
   if (paid > leaseAmount) {
@@ -460,6 +470,7 @@ export async function updateLease(
         startDate: input.startDate,
         endDate,
         durationMonths: input.durationMonths,
+        monthlyRent,
         leaseAmount,
       },
       select: { id: true },

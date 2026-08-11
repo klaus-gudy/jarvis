@@ -176,6 +176,11 @@ model Lease {
   startDate DateTime
   endDate   DateTime
   durationMonths Int
+  /** The rate actually agreed for this lease, per month. Defaults to the
+   * unit's asking `rentAmount` but may be negotiated away from it, so it is
+   * stored rather than inferred from `leaseAmount / durationMonths`. */
+  monthlyRent    Int
+  /** The whole term's value: `monthlyRent * durationMonths`. */
   leaseAmount    Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

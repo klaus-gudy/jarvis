@@ -400,6 +400,18 @@ Picked from a menu of candidates; the ones turned down are listed at the end.
 - [x] The dashboard's `billing` block no longer loads every invoice with every payment nested — two narrow reads, everything derived from those
 - [x] Verified the rewrite is behaviour-preserving by capturing the figures in SQL first and matching them exactly afterwards (2 invoices, TZS 1.1M invoiced, 900k paid → 200k outstanding, 82%, 3 payments, 1 unsettled); payments page identical. Then edit end to end: below-paid refused, valid edit saved and the invoice followed it to 900k with `dueDate` moved, real overlap 409, cross-org PATCH 404, no-invoice lease edits without error. All test data removed
 
+## Phase 38 — Agreed rent per lease
+
+- [x] **Answered first, with evidence: `Lease.leaseAmount` is the whole term's value, not a monthly rate.** It was written in exactly one place (`insertLease`) as `rentAmount * durationMonths`, and every row confirmed it (Z1: 300,000 × 2 = 600,000 stored). `Invoice.amount` mirrors that total. Only the 1-month leases looked ambiguous, because there total and monthly coincide
+- [x] Migration `lease_monthly_rent`: **`Lease.monthlyRent Int`** — the rate actually agreed, stored rather than inferred from `leaseAmount / durationMonths`. Hand-written because a NOT NULL add needs a backfill; the backfill is exact (every existing `leaseAmount` was `rate × months`, so dividing recovers the rate) and was checked to satisfy `monthlyRent * durationMonths = leaseAmount` on all 6 rows
+- [x] `createLeaseSchema`/`updateLeaseSchema` gained a **nullish `monthlyRent`**: omitted means "whatever the unit asks", so callers that don't negotiate need no change. Bounds mirror `createUnitSchema.rentAmount`. Server resolves `input.monthlyRent ?? unit.rentAmount`
+- [x] `insertLease`'s param renamed `rentAmount` → `monthlyRent`: it is no longer necessarily the unit's rent, and the old name invited confusion with `unit.rentAmount`
+- [x] **Renewals carry the agreed rate forward** rather than repricing to the unit's asking rent — a renewal continues the arrangement, and silently re-rating a negotiated lease isn't a job's decision
+- [x] **The lease detail page's "Monthly rent" now shows `lease.monthlyRent`, not `unit.rentAmount`** — that row was the asking price wearing the lease's label, and would have been outright wrong the moment a rate was negotiated. The unit's asking price still shows on the Unit info card, where it belongs
+- [x] Form gained a Monthly rent field that stays **blank for the common case**, placeholdered with the unit's asking rent, and the total line now spells out the arithmetic (`TZS 180,000 × 3 = TZS 540,000`) so a negotiated rate is visible before saving
+- [x] Verified by driving `createLease`/`updateLease` directly (browser session was lost to a server restart and signing in isn't something I can do): default falls back to the unit's rent, a negotiated rate wins, editing the rate re-derives total *and* invoice, and clearing the override falls back again — 4/4 pass, test leases removed. `tsc` + lint clean
+- [ ] **Not yet eyeballed**: the new field and the corrected "Monthly rent" row have not been seen in a browser. Worth a look next time you're signed in
+
 ### Not done
 - [ ] **Leases created before the billing migration have no invoice**, so they can't be paid at all — the Billing tab reads "No invoice exists for this lease yet" and there is no UI to create one. Needs either a backfill script or an "Issue invoice" action on that empty state.
 - [ ] Auto-renewal has no scheduler — it only fires when `/leases` or `/dashboard` is loaded after a lease's end date passes. A cron-hit endpoint would close this; `runAutoRenewals` is already written to support it without changes.

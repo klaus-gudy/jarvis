@@ -39,6 +39,17 @@ export const createLeaseSchema = z.object({
     .int("Duration must be a whole number of months")
     .min(1, "Duration must be at least 1 month")
     .max(120, "Duration cannot exceed 120 months"),
+  /**
+   * The rate agreed for this lease. Omitted means "whatever the unit asks" —
+   * the server falls back to `unit.rentAmount` — so existing callers that
+   * don't negotiate need no change. Bounds mirror `createUnitSchema.rentAmount`.
+   */
+  monthlyRent: z
+    .number()
+    .int("Monthly rent must be a whole number")
+    .min(0, "Monthly rent cannot be negative")
+    .max(2_000_000_000, "Monthly rent is too large")
+    .nullish(),
 });
 
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;
