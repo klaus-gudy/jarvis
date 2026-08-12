@@ -40,6 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 export type FacetFilter = {
   columnId: string;
@@ -142,6 +143,23 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: handleColumnFiltersChange,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    /**
+     * Identify a row by its record's own id, not its position.
+     *
+     * TanStack defaults to the array index, which makes "row 0" a different
+     * record the moment a filter or sort changes. Two things depend on getting
+     * this right: React reuses the `<TableRow>` for a row that survives a
+     * filter change instead of tearing it down and building another (so the
+     * enter animation below plays only for rows that genuinely just appeared),
+     * and row selection follows the record rather than sticking to whatever
+     * now occupies that slot.
+     *
+     * Falls back to the index for any data that has no id.
+     */
+    getRowId: (row, index) => {
+      const id = (row as { id?: unknown }).id;
+      return typeof id === "string" ? id : String(index);
+    },
     initialState: { pagination: { pageSize } },
     state: { sorting, columnFilters, columnVisibility, rowSelection },
   });
@@ -242,13 +260,30 @@ export function DataTable<TData, TValue>({
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => {
+                table.getRowModel().rows.map((row, rowIndex) => {
                   const href = getRowHref?.(row.original);
                   return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
-                    className={href ? "cursor-pointer" : undefined}
+                    className={cn(
+                      // Plays on mount only, so with the stable `getRowId`
+                      // above it marks rows arriving in the view — a filter
+                      // loosening, a page turn, the first paint — and stays
+                      // quiet for rows that were already here.
+                      "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 duration-200",
+                      href && "cursor-pointer"
+                    )}
+                    style={{
+                      // Cascades down the page, capped so a 50-row page still
+                      // finishes arriving in under half a second.
+                      animationDelay: `${Math.min(rowIndex, 10) * 25}ms`,
+                      // tw-animate-css leaves fill-mode at `none`, which would
+                      // paint the row in place for the length of its delay and
+                      // only then snap back to animate. `both` holds it at the
+                      // start state until its turn.
+                      animationFillMode: "both",
+                    }}
                     onDoubleClick={
                       href
                         ? (event) => {

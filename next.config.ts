@@ -20,6 +20,17 @@ const nextConfig: NextConfig = {
     staleTimes: {
       dynamic: 30,
     },
+
+    /**
+     * Turns on React's `<ViewTransition>` integration, used in
+     * `app/(app)/layout.tsx` to animate the content area on navigation. Next
+     * marks route navigations as React Transitions, which is what activates
+     * the component — a plain `setState` would not.
+     *
+     * The flag only enables the integration; without browser support the app
+     * behaves exactly as before, the transition simply doesn't animate.
+     */
+    viewTransition: true,
   },
 };
 

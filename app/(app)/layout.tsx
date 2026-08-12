@@ -1,3 +1,4 @@
+import { ViewTransition } from "react"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -51,7 +52,19 @@ export default async function AppLayout({
       />
       <SidebarInset className="min-w-0">
         <AppHeader />
-        <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+        {/*
+          Only the content area animates on navigation. The sidebar and header
+          sit outside this boundary, so they stay part of the untouched `root`
+          snapshot and hold still — the fixed reference that makes it read as
+          "the content changed", not "the whole app moved".
+
+          `default` names the class for every case (enter, exit, update); a
+          navigation within this layout is an *update*, since the boundary
+          itself survives and only its children swap. Styled in globals.css.
+        */}
+        <ViewTransition default="page">
+          <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+        </ViewTransition>
       </SidebarInset>
       {needsOrganization && (
         <CreateOrganizationDialog userName={displayName(user)} />

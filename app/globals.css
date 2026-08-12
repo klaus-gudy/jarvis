@@ -260,4 +260,98 @@
     animation: none;
     mix-blend-mode: normal;
   }
+
+  /*
+   * Page transitions — the `<ViewTransition default="page">` boundary around
+   * the content area in `app/(app)/layout.tsx`.
+   *
+   * Asymmetric on purpose: the old page leaves quickly so it stops competing
+   * for attention, and the new one arrives more slowly, after the old has
+   * gone, so there is something to read rather than two pages crossfading
+   * through each other.
+   */
+  ::view-transition-group(.page) {
+    /*
+     * No size interpolation. Page heights differ enormously here — the
+     * dashboard against a four-field form — and letting the group morph
+     * between them squashes both snapshots the whole way across.
+     */
+    animation: none;
+  }
+
+  ::view-transition-old(.page),
+  ::view-transition-new(.page) {
+    /*
+     * With the group no longer interpolating, each snapshot would otherwise be
+     * stretched to fill the *other* page's box. `height: auto` keeps both at
+     * their own natural height.
+     */
+    height: auto;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(.page) {
+    animation: 120ms ease-in both page-fade reverse;
+  }
+
+  ::view-transition-new(.page) {
+    animation:
+      200ms ease-out 110ms both page-fade,
+      300ms ease-out both page-rise;
+  }
+
+  @keyframes page-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes page-rise {
+    from {
+      translate: 0 8px;
+    }
+    to {
+      translate: 0 0;
+    }
+  }
+
+  /*
+   * The dashboard progress bars, growing from nothing to whatever width their
+   * inline style sets. A keyframe with only a `from` animates to the element's
+   * own computed width, so the percentage stays where it belongs — on the
+   * server-rendered element — and this never needs to know it.
+   */
+  .animate-bar-grow {
+    animation: bar-grow 700ms ease-out both;
+  }
+
+  @keyframes bar-grow {
+    from {
+      width: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-bar-grow {
+      animation: none;
+    }
+  }
+
+  /*
+   * Motion sensitivity: strip the durations rather than the animations, so
+   * content still swaps — which is the browser's own no-transition behaviour —
+   * without anything sliding. Covers the theme-toggle circle too, since that
+   * reads position as much as colour.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation-duration: 0s !important;
+      animation-delay: 0s !important;
+    }
+  }
 }

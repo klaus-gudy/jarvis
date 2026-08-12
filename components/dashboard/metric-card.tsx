@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon, type LucideIcon } from "lucide-react";
 
+import { AnimatedFigure } from "@/components/dashboard/animated-figure";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -104,7 +105,10 @@ export function MetricCard({
             typeof value === "string" ? "text-xl" : "text-2xl"
           )}
         >
-          {value}
+          {/* Only the headline figure counts. The sub-stats below are 11px
+              captions — animating those too turns a row of six cards into a
+              flickering wall rather than one figure arriving. */}
+          <AnimatedFigure value={value} />
         </p>
         <p
           className={cn(
@@ -127,8 +131,11 @@ export function MetricCard({
             aria-valuemax={100}
             aria-label={label}
           >
+            {/* Grows from zero to its own computed width on mount, in step
+                with the figure above it. Pure CSS, so the card stays a server
+                component and the final width is still in the HTML. */}
             <div
-              className="h-full rounded-full bg-stat-accent transition-all"
+              className="h-full animate-bar-grow rounded-full bg-stat-accent transition-all"
               style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
             />
           </div>
