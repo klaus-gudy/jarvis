@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
+import { AttachmentsCard } from "@/components/attachments/attachments-card";
 import { BillingTab } from "@/components/leases/billing-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAttachments } from "@/lib/attachments";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types";
@@ -37,9 +39,10 @@ export default async function LeaseDetailPage({
   if (!user.activeOrgId) redirect("/leases");
 
   const { id } = await params;
-  const [lease, invoice] = await Promise.all([
+  const [lease, invoice, attachments] = await Promise.all([
     getLease(user.activeOrgId, id),
     getInvoiceForLease(user.activeOrgId, id),
+    getAttachments(user.activeOrgId, { ownerType: "lease", ownerId: id }),
   ]);
   if (!lease) notFound();
 
@@ -289,16 +292,12 @@ export default async function LeaseDetailPage({
         </TabsContent>
 
         <TabsContent value="contract" className="pt-5">
-          <Card>
-            <CardHeader className="border-b">
-              <CardTitle className="text-base">Contract</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Contract documents for lease {lease.reference} will live here.
-              </p>
-            </CardContent>
-          </Card>
+          <AttachmentsCard
+            ownerType="lease"
+            ownerId={lease.id}
+            attachments={attachments}
+            title="Contract documents"
+          />
         </TabsContent>
       </Tabs>
     </div>

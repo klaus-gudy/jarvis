@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
+import { AttachmentsCard } from "@/components/attachments/attachments-card";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { MemberLeasesTab } from "@/components/members/member-leases-tab";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
@@ -9,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAttachments } from "@/lib/attachments";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { getLeaseOptions } from "@/lib/leases";
@@ -47,7 +49,13 @@ export default async function MemberDetailPage({
   if (!user.activeOrgId) redirect("/users");
 
   const { membershipId } = await params;
-  const member = await getTenantDetail(user.activeOrgId, membershipId);
+  const [member, attachments] = await Promise.all([
+    getTenantDetail(user.activeOrgId, membershipId),
+    getAttachments(user.activeOrgId, {
+      ownerType: "membership",
+      ownerId: membershipId,
+    }),
+  ]);
   if (!member) notFound();
 
   const { profile } = member;
@@ -123,6 +131,9 @@ export default async function MemberDetailPage({
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
               {member.leases.length}
             </span>
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex-none px-3">
+            Documents
           </TabsTrigger>
         </TabsList>
 
@@ -215,6 +226,15 @@ export default async function MemberDetailPage({
             isTenant={isTenant}
             roleName={member.roleName}
             options={leaseOptions}
+          />
+        </TabsContent>
+
+        <TabsContent value="documents" className="pt-5">
+          <AttachmentsCard
+            ownerType="membership"
+            ownerId={member.membershipId}
+            attachments={attachments}
+            title="Identity & records"
           />
         </TabsContent>
       </Tabs>

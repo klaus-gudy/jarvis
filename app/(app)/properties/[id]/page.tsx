@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon } from "lucide-react";
 
+import { AttachmentsCard } from "@/components/attachments/attachments-card";
 import { DetailRow } from "@/components/detail-row";
 import { PropertyActions } from "@/components/properties/property-actions";
 import { PropertyIcon } from "@/components/properties/property-icon";
@@ -9,6 +10,7 @@ import { UnitsTable } from "@/components/properties/units-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAttachments } from "@/lib/attachments";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getProperty } from "@/lib/properties";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,10 @@ export default async function PropertyDetailPage({
   if (!user.activeOrgId) redirect("/properties");
 
   const { id } = await params;
-  const property = await getProperty(user.activeOrgId, id);
+  const [property, attachments] = await Promise.all([
+    getProperty(user.activeOrgId, id),
+    getAttachments(user.activeOrgId, { ownerType: "property", ownerId: id }),
+  ]);
   if (!property) notFound();
 
   const isActive = property.status === "ACTIVE";
@@ -85,6 +90,9 @@ export default async function PropertyDetailPage({
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
               {property.totalUnits}
             </span>
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex-none px-3">
+            Documents
           </TabsTrigger>
         </TabsList>
 
@@ -186,6 +194,15 @@ export default async function PropertyDetailPage({
               // Dates must be serialisable to cross the server/client boundary.
               leaseStart: unit.leaseStart ? unit.leaseStart.toISOString() : null,
             }))}
+          />
+        </TabsContent>
+
+        <TabsContent value="documents" className="pt-5">
+          <AttachmentsCard
+            ownerType="property"
+            ownerId={property.id}
+            attachments={attachments}
+            title="Property documents"
           />
         </TabsContent>
       </Tabs>

@@ -27,6 +27,7 @@ model Organization {
   properties  Property[]
   roles       Role[]
   invitations Invitation[]
+  attachments Attachment[]
 }
 
 model Role {
@@ -43,9 +44,9 @@ model Role {
 }
 
 model User {
-  id String @id @default(cuid())
-  email String? @unique
-  phone String? @unique
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  phone        String?  @unique
   passwordHash String?
   name         String?
   createdAt    DateTime @default(now())
@@ -61,7 +62,7 @@ enum InvitationStatus {
 }
 
 model Invitation {
-  id String @id @default(cuid())
+  id         String           @id @default(cuid())
   tokenHash  String           @unique
   email      String?
   phone      String?
@@ -98,6 +99,11 @@ model Membership {
   leases  Lease[]
   profile MemberProfile?
 
+  /// Files *about* this member (ID documents, signed forms).
+  attachments Attachment[] @relation("AttachmentSubject")
+  /// Files this member uploaded, anywhere in the org.
+  uploads     Attachment[] @relation("AttachmentUploader")
+
   @@unique([userId, organizationId])
 }
 
@@ -127,63 +133,71 @@ enum PropertyStatus {
 }
 
 model Property {
-  id   String       @id @default(cuid())
-  name String
-  type PropertyType
-  category String
-  address  String
-  status PropertyStatus @default(ACTIVE)
+  id          String         @id @default(cuid())
+  name        String
+  type        PropertyType
+  category    String
+  address     String
+  status      PropertyStatus @default(ACTIVE)
   description String?
-  amenities String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  amenities   String[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  units Unit[]
+  units       Unit[]
+  attachments Attachment[]
 
   @@index([organizationId])
 }
 
 model Unit {
-  id    String @id @default(cuid())
-  label String
-  rentAmount Int
+  id              String   @id @default(cuid())
+  label           String
+  rentAmount      Int
   minTenureMonths Int?
-  /** When true, a lease on this unit gets a successor created automatically
-   * at term end, for minTenureMonths at the unit's current rentAmount. */
-  autoRenew Boolean @default(false)
-  unitType String?
-  floor   String?
-  block   String?
-  sizeSqm Float?
-  amenities String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  /**
+   * When true, a lease on this unit gets a successor created automatically
+   * at term end, for minTenureMonths at the unit's current rentAmount.
+   */
+  autoRenew       Boolean  @default(false)
+  unitType        String?
+  floor           String?
+  block           String?
+  sizeSqm         Float?
+  amenities       String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  leases Lease[]
+  leases      Lease[]
+  attachments Attachment[]
 
   @@unique([propertyId, label])
   @@index([propertyId])
 }
 
 model Lease {
-  id        String   @id @default(cuid())
-  startDate DateTime
-  endDate   DateTime
+  id             String   @id @default(cuid())
+  startDate      DateTime
+  endDate        DateTime
   durationMonths Int
-  /** The rate actually agreed for this lease, per month. Defaults to the
+  /**
+   * The rate actually agreed for this lease, per month. Defaults to the
    * unit's asking `rentAmount` but may be negotiated away from it, so it is
-   * stored rather than inferred from `leaseAmount / durationMonths`. */
+   * stored rather than inferred from `leaseAmount / durationMonths`.
+   */
   monthlyRent    Int
-  /** The whole term's value: `monthlyRent * durationMonths`. */
+  /**
+   * The whole term's value: `monthlyRent * durationMonths`.
+   */
   leaseAmount    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   unitId String
   unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
@@ -191,10 +205,13 @@ model Lease {
   membershipId String
   membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
-  invoice Invoice?
+  invoice     Invoice?
+  attachments Attachment[]
 
-  /** Renewal lineage: the auto-renewal job links a new lease back to the one
-   * it succeeded, so it can be skipped on the next pass. */
+  /**
+   * Renewal lineage: the auto-renewal job links a new lease back to the one
+   * it succeeded, so it can be skipped on the next pass.
+   */
   renewedFromId String? @unique
   renewedFrom   Lease?  @relation("LeaseRenewal", fields: [renewedFromId], references: [id])
   renewedTo     Lease?  @relation("LeaseRenewal")
@@ -224,5 +241,76 @@ model Payment {
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
+  attachments Attachment[]
+
   @@index([invoiceId])
+}
+
+enum AttachmentKind {
+  IMAGE
+  DOCUMENT
+}
+
+/// A file held in object storage. The bytes live in the bucket; this row is
+/// the record of what they are and what they belong to. Everything here is
+/// storage-provider agnostic — `key` is an S3 object key, which R2, MinIO,
+/// Supabase Storage and B2 all speak.
+model Attachment {
+  id          String         @id @default(cuid())
+  /// Object key in the bucket, namespaced by organization so one org's prefix
+  /// can be listed or purged without touching another's. Generated, never
+  /// taken from the upload — a user-supplied name could escape the prefix.
+  key         String         @unique
+  /// The name the uploaded file had. Shown in the UI and sent back as the
+  /// download filename; never used to build `key`.
+  fileName    String
+  contentType String
+  sizeBytes   Int
+  kind        AttachmentKind
+  /// Which named document this file *is* — `contract`, `nida`, `photos` — from
+  /// the slot list its owner type defines in `lib/attachment-slots.ts`. Null
+  /// means an ad-hoc upload that fits none of them, which must carry a `title`
+  /// instead. The key is stored rather than the label so renaming a label in
+  /// config renames it everywhere, including on files already uploaded.
+  slotKey     String?
+  /// This file's own label, when it needs one the slot can't give: slots that
+  /// hold several files (a property's photos) and ad-hoc uploads, where it is
+  /// the only name the file has. Falls back to the slot label, then the
+  /// filename — see `attachmentDisplayName`.
+  title       String?
+  createdAt   DateTime       @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Who uploaded it. Nullable and `SetNull` so removing a member leaves
+  /// their uploads in place rather than deleting the org's documents.
+  uploadedById String?
+  uploadedBy   Membership? @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  /// Exactly one of the five owners below is set — enforced by a CHECK
+  /// constraint in the migration, since Prisma cannot express it. Real FKs
+  /// rather than a polymorphic (ownerType, ownerId) pair so the database
+  /// cascades the rows when a parent goes.
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  leaseId String?
+  lease   Lease?  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  membershipId String?
+  membership   Membership? @relation("AttachmentSubject", fields: [membershipId], references: [id], onDelete: Cascade)
+
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([leaseId])
+  @@index([membershipId])
+  @@index([paymentId])
 }

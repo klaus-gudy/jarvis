@@ -24,5 +24,56 @@ services:
       timeout: 5s
       retries: 5
 
+  # Stands in for Cloudflare R2 locally. Same S3 API, so lib/storage.ts talks to
+  # this and to R2 with identical code — only the four STORAGE_* env vars differ.
+  minio:
+    image: minio/minio:latest
+
+    container_name: jarvis-storage
+
+    restart: always
+
+    command: server /data --console-address :9001
+
+    environment:
+      MINIO_ROOT_USER: jarvis
+      MINIO_ROOT_PASSWORD: jarvis-dev-secret
+      # Uploads go straight from the browser to the bucket via a presigned PUT,
+      # so the bucket must accept cross-origin requests from the dev server.
+      # R2 needs the same thing, set as a CORS policy — see README.
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:3347"
+
+    ports:
+      # 9000/9001 are taken by another project's MinIO on this machine.
+      - "9010:9000"
+      - "9011:9001"
+
+    volumes:
+      - minio_data:/data
+
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # One-shot: creates the bucket and makes sure it is not public. Runs to
+  # completion and exits, so `docker compose up -d` leaves it in `Exited (0)`.
+  minio-init:
+    image: minio/mc:latest
+
+    depends_on:
+      minio:
+        condition: service_healthy
+
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set jarvis http://minio:9000 jarvis jarvis-dev-secret
+        mc mb --ignore-existing jarvis/jarvis-files
+        mc anonymous set none jarvis/jarvis-files
+
 volumes:
   postgres_data:
+  minio_data:
