@@ -7,9 +7,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: Inter, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-heading: var(--font-sans);
+  /*
+   * The single source for these three — not `:root`/`.dark` below. Tailwind's
+   * `@theme inline` bakes a token's value into every utility/`@apply` that
+   * uses it directly (e.g. `html { @apply font-sans }` compiles to a literal
+   * `font-family: ...`), reading ONLY this declaration; a same-named override
+   * in `:root` or `.dark` never reaches it. `--font-hanken`/`--font-sora`/
+   * `--font-plex-mono` are next/font CSS variables set once on `<html>` in
+   * app/layout.tsx, so they're already theme-independent — no per-theme
+   * override was ever needed here, which is what made the bug invisible.
+   */
+  --font-sans: var(--font-hanken), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-heading: var(--font-sora), var(--font-hanken), system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -115,9 +125,9 @@
   --sidebar-border: oklch(0.8853 0 0);
   --sidebar-ring: oklch(0.6397 0.1720 36.4421);
   --destructive-foreground: oklch(1.0000 0 0);
-  --font-sans: Inter, sans-serif;
+  /* Not --font-sans/--font-mono here: see the @theme inline comment above —
+     a same-named override in :root never reaches an already-baked utility. */
   --font-serif: Source Serif 4, serif;
-  --font-mono: JetBrains Mono, monospace;
   --shadow-color: hsl(0 0% 0%);
   --shadow-opacity: 0.1;
   --shadow-blur: 3px;
@@ -207,9 +217,6 @@
   --sidebar-ring: oklch(0.6397 0.1720 36.4421);
   --destructive-foreground: oklch(1.0000 0 0);
   --radius: 0.75rem;
-  --font-sans: var(--font-hanken), system-ui, -apple-system, sans-serif;
-  --font-heading: var(--font-sora), var(--font-hanken), system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --shadow-color: hsl(0 0% 0%);
   --shadow-opacity: 0.1;
   --shadow-blur: 3px;
@@ -238,5 +245,19 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /*
+   * Pairs with the click-driven circle in components/theme-toggle.tsx. The
+   * View Transitions API's own default is a ~250ms crossfade of the old/new
+   * snapshots; left alone, that fade runs underneath our clip-path circle at
+   * the same time and muddies it. Turning it off makes the circle the only
+   * motion — the new-theme snapshot is simply clipped to nothing until the
+   * animation grows it from the click point.
+   */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
   }
 }
