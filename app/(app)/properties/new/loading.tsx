@@ -1,5 +1,5 @@
-import { FormSkeleton } from "@/components/skeletons";
+import { AppLoader } from "@/components/app-loader";
 
 export default function NewPropertyLoading() {
-  return <FormSkeleton fields={4} />;
+  return <AppLoader label="Preparing the form" />;
 }

@@ -33,6 +33,10 @@ const TYPE_ORDER: SearchResultType[] = [
   "tenant",
   "user",
   "lease",
+  // Required, not cosmetic: this array is both the section order *and* the
+  // filter, so a type missing from it never renders however many rows the API
+  // returns.
+  "payment",
 ];
 
 /** Long enough to swallow a typing burst, short enough to feel immediate. */

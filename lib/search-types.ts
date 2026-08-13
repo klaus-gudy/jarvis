@@ -12,6 +12,7 @@ export type SearchResultType =
   | "unit"
   | "tenant"
   | "lease"
+  | "payment"
   /** A member who isn't a tenant — Owner, Manager, Caretaker and so on. */
   | "user";
 
@@ -31,6 +32,7 @@ export const SEARCH_TYPE_LABEL: Record<SearchResultType, string> = {
   unit: "Unit",
   tenant: "Tenant",
   lease: "Lease",
+  payment: "Payment",
   user: "User",
 };
 
@@ -46,6 +48,7 @@ export const SEARCH_TYPE_BADGE: Record<SearchResultType, string> = {
   unit: "border-kind-unit/25 bg-kind-unit/10 text-kind-unit",
   tenant: "border-kind-tenant/25 bg-kind-tenant/10 text-kind-tenant",
   lease: "border-kind-lease/25 bg-kind-lease/10 text-kind-lease",
+  payment: "border-kind-payment/25 bg-kind-payment/10 text-kind-payment",
   user: "border-kind-user/25 bg-kind-user/10 text-kind-user",
 };
 

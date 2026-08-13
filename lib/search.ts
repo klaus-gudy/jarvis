@@ -1,4 +1,5 @@
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDayMonth } from "@/lib/format";
+import { invoiceReference } from "@/lib/invoice-types";
 import { leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
@@ -14,12 +15,21 @@ const PER_TYPE_LIMIT = 5;
  * prefix and match the id's suffix. cuids are lowercase, the reference is
  * shown uppercase, hence the fold.
  */
-function leaseIdSuffix(query: string): string | null {
-  const stripped = query.trim().replace(/^l-/i, "").toLowerCase();
+function referenceSuffix(query: string, prefix: RegExp): string | null {
+  const stripped = query.trim().replace(prefix, "").toLowerCase();
   if (stripped.length < 3) return null;
   if (!/^[a-z0-9]+$/.test(stripped)) return null;
   return stripped;
 }
+
+const leaseIdSuffix = (query: string) => referenceSuffix(query, /^l-/i);
+
+/**
+ * Same idea for `invoiceReference`'s "INV-9VNQV". The two can't collide: a
+ * query still carrying the other prefix keeps its hyphen after the strip and
+ * fails the alphanumeric test, so "INV-ABC" is never matched against lease ids.
+ */
+const invoiceIdSuffix = (query: string) => referenceSuffix(query, /^inv-/i);
 
 /**
  * One search across everything the organization owns.
@@ -37,9 +47,10 @@ export async function searchOrganization(
 
   const contains = { contains: q, mode: "insensitive" as const };
   const suffix = leaseIdSuffix(q);
+  const invoiceSuffix = invoiceIdSuffix(q);
   const now = new Date();
 
-  const [properties, units, tenants, users, leases] = await Promise.all([
+  const [properties, units, tenants, users, leases, payments] = await Promise.all([
     prisma.property.findMany({
       where: {
         organizationId,
@@ -138,6 +149,66 @@ export async function searchOrganization(
         },
       },
     }),
+
+    // Scoped through the invoice's lease with the same double filter every
+    // other lease query uses — the membership's org *and* the unit's property's
+    // org — so a payment can't surface from a lease that crosses organizations.
+    prisma.payment.findMany({
+      where: {
+        invoice: {
+          lease: {
+            membership: { organizationId },
+            unit: { property: { organizationId } },
+          },
+        },
+        OR: [
+          { method: contains },
+          {
+            invoice: {
+              lease: {
+                membership: {
+                  user: {
+                    OR: [
+                      { name: contains },
+                      { email: contains },
+                      { phone: contains },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+          // Same guard as the lease reference: only scan ids when the query
+          // could actually be one.
+          ...(invoiceSuffix
+            ? [{ invoice: { id: { endsWith: invoiceSuffix } } }]
+            : []),
+        ],
+      },
+      orderBy: { paidAt: "desc" },
+      take: PER_TYPE_LIMIT,
+      select: {
+        id: true,
+        amount: true,
+        method: true,
+        paidAt: true,
+        invoice: {
+          select: {
+            id: true,
+            leaseId: true,
+            lease: {
+              select: {
+                membership: {
+                  select: {
+                    user: { select: { name: true, email: true, phone: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
   ]);
 
   return [
@@ -198,5 +269,20 @@ export async function searchOrganization(
         href: `/leases/${lease.id}`,
       };
     }),
+
+    ...payments.map((payment) => ({
+      key: `payment-${payment.id}`,
+      type: "payment" as const,
+      title: displayName(payment.invoice.lease.membership.user),
+      // Which invoice it settled, how it was paid, and when — the three things
+      // that tell one payment from another by the same tenant.
+      subtitle: `${invoiceReference(payment.invoice.id)} · ${
+        payment.method ?? "Payment"
+      } · ${formatDayMonth(payment.paidAt)}`,
+      meta: formatCurrency(payment.amount),
+      // There is no payment detail route; the payments table's own rows open
+      // the parent lease, so this goes to the same place.
+      href: `/leases/${payment.invoice.leaseId}`,
+    })),
   ];
 }

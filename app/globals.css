@@ -89,6 +89,10 @@
   --color-kind-tenant: var(--kind-tenant);
   --color-kind-lease: var(--kind-lease);
   --color-kind-user: var(--kind-user);
+  --color-kind-payment: var(--kind-payment);
+
+  /* Plays once on the icon of the nav item that has just become active. */
+  --animate-nav-pop: nav-pop 320ms ease-out;
 }
 
 :root {
@@ -171,6 +175,13 @@
   --kind-tenant: oklch(0.4800 0.1100 35.9616);
   --kind-lease: oklch(0.4650 0.0850 155.0000);
   --kind-user: oklch(0.4700 0.0900 300.0000);
+  /*
+   * Payment. The existing hues sit at 36/81/155/254/300, and the rule has been
+   * a minimum 45° of separation — which leaves exactly two openings, ~204 and
+   * ~348. Teal over rose: a rose badge on a money row reads as a warning, and
+   * teal keeps payments in the same cool family as the navy chrome.
+   */
+  --kind-payment: oklch(0.4700 0.0900 204.0000);
 }
 
 .dark {
@@ -180,6 +191,7 @@
   --kind-tenant: oklch(0.7900 0.0900 34.1875);
   --kind-lease: oklch(0.7900 0.0850 155.0000);
   --kind-user: oklch(0.7900 0.0850 300.0000);
+  --kind-payment: oklch(0.7900 0.0850 204.0000);
   /* Deeper than --background so the slab still separates from the page. */
   --stat: oklch(0.2210 0.0253 246.6492);
   --stat-foreground: oklch(0.9219 0 0);
@@ -315,6 +327,123 @@
     }
     to {
       translate: 0 0;
+    }
+  }
+
+  /*
+   * `AppLoader` — a drop hitting water. Each ring starts small and faint at the
+   * mark, then runs out and fades; three of them a third of a cycle apart keep
+   * one always arriving.
+   */
+  .app-loader-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: calc(infinity * 1px);
+    border: 1px solid var(--stat-accent);
+    opacity: 0;
+    animation: app-loader-ring 1800ms ease-out infinite;
+  }
+
+  @keyframes app-loader-ring {
+    0% {
+      transform: scale(0.42);
+      opacity: 0.55;
+    }
+    70% {
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1.35);
+      opacity: 0;
+    }
+  }
+
+  /*
+   * The label reads in the muted tone with a single gold highlight travelling
+   * across it. Clipping a moving gradient to the glyphs costs one element,
+   * where an opacity pulse on the whole word reads as a warning light.
+   */
+  .app-loader-label {
+    background-image: linear-gradient(
+      100deg,
+      var(--muted-foreground) 40%,
+      var(--stat-accent) 50%,
+      var(--muted-foreground) 60%
+    );
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: app-loader-sheen 2200ms linear infinite;
+  }
+
+  @keyframes app-loader-sheen {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -150% 0;
+    }
+  }
+
+  /*
+   * Auth pages: navigating between sign in, register and the reset steps sends
+   * rings out from the middle of the form panel. Soft-edged via a gradient
+   * rather than a hard border, which is what makes it read as water rather
+   * than as a loading spinner.
+   */
+  .auth-ripple {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 46vmax;
+    width: 46vmax;
+    margin: -23vmax 0 0 -23vmax;
+    border-radius: calc(infinity * 1px);
+    background: radial-gradient(
+      circle,
+      transparent 56%,
+      color-mix(in oklab, var(--stat-accent) 40%, transparent) 62%,
+      transparent 70%
+    );
+    opacity: 0;
+    animation: auth-ripple 1500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes auth-ripple {
+    0% {
+      transform: scale(0);
+      opacity: 0.75;
+    }
+    100% {
+      transform: scale(1.9);
+      opacity: 0;
+    }
+  }
+
+  /* The icon of a nav item that has just become the active one. */
+  @keyframes nav-pop {
+    0% {
+      transform: scale(1);
+    }
+    45% {
+      transform: scale(1.22);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-loader-ring,
+    .app-loader-label,
+    .auth-ripple {
+      animation: none;
+    }
+    /* The label still has to be readable with the sheen switched off. */
+    .app-loader-label {
+      background-image: none;
+      color: var(--muted-foreground);
     }
   }
 
