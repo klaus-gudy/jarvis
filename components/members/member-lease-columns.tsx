@@ -8,7 +8,10 @@ import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import type { LeaseExpiry, LeaseStatus } from "@/lib/leases";
 
-const STATUS_VARIANT: Record<LeaseStatus, "secondary" | "outline" | "destructive"> = {
+export const LEASE_STATUS_VARIANT: Record<
+  LeaseStatus,
+  "secondary" | "outline" | "destructive"
+> = {
   Active: "secondary",
   Upcoming: "outline",
   Ended: "outline",
@@ -93,7 +96,7 @@ export function buildMemberLeaseColumns(): ColumnDef<MemberLeaseRow>[] {
       header: "Status",
       cell: ({ row }) => (
         <Badge
-          variant={STATUS_VARIANT[row.original.status]}
+          variant={LEASE_STATUS_VARIANT[row.original.status]}
           className="rounded-full font-normal"
         >
           {row.original.status}

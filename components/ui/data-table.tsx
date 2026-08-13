@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   flexRender,
@@ -20,11 +21,21 @@ import {
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
+  MoreVerticalIcon,
+  SlidersHorizontalIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -40,13 +51,40 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 export type FacetFilter = {
   columnId: string;
+  /** Shown in the closed select, and used as the "no filter" option. */
   placeholder: string;
+  /**
+   * Field name for the mobile filter sheet, where the select carries its own
+   * caption above it. Without this the caption repeats the placeholder —
+   * "All statuses" over a control already reading "All statuses". Falls back
+   * to the placeholder, so a filter that hasn't been given one still reads.
+   */
+  label?: string;
   options: { label: string; value: string }[];
 };
+
+/**
+ * One thing you can do to a row. On mobile these fill a bottom sheet, where a
+ * strip of 28px icon buttons would be unusable; a table that also shows them on
+ * desktop should build its actions column from this same list rather than a
+ * second copy, so the two can't offer different things.
+ */
+export type RowAction = {
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  /** A destination. Mutually exclusive with `onSelect`. */
+  href?: string;
+  onSelect?: () => void;
+  tone?: "default" | "destructive";
+};
+
+/** Rows added each time the sentinel comes into view. */
+const MOBILE_PAGE = 8;
 
 type StickyTableState = {
   sorting: SortingState;
@@ -77,6 +115,8 @@ export function DataTable<TData, TValue>({
   emptyMessage = "No results.",
   getRowHref,
   stateKey,
+  renderCard,
+  rowActions,
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -98,8 +138,24 @@ export function DataTable<TData, TValue>({
    * once per entity, so one property's filters can't show up on another's.
    */
   stateKey?: string;
+  /**
+   * Renders one row as a card. Supplying it is what turns on the mobile view —
+   * a table under 768px either scrolls sideways or crushes its columns, and
+   * neither is worth reading. Without it, mobile keeps the scrolling table.
+   */
+  renderCard?: (row: TData) => React.ReactNode;
+  /** Row actions for the mobile sheet. See `RowAction`. */
+  rowActions?: (row: TData) => RowAction[];
 }) {
   const router = useRouter();
+  const isMobile = useIsMobile();
+  // `useIsMobile` reports desktop on the server, so the first client render
+  // matches the server markup and only then swaps — no hydration mismatch.
+  const asCards = isMobile && Boolean(renderCard);
+
+  const [visibleCount, setVisibleCount] = React.useState(MOBILE_PAGE);
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [actionsRow, setActionsRow] = React.useState<TData | null>(null);
   const remembered = stateKey ? stickyTableState.get(stateKey) : undefined;
   const [sorting, setSorting] = React.useState<SortingState>(
     remembered?.sorting ?? []
@@ -124,12 +180,19 @@ export function DataTable<TData, TValue>({
     const next = typeof updater === "function" ? updater(sorting) : updater;
     setSorting(next);
     remember({ sorting: next });
+    // Written from the change handler, not an effect: re-sorting reorders the
+    // whole list, so the eight rows already revealed are no longer the eight
+    // the reader was looking at.
+    setVisibleCount(MOBILE_PAGE);
   };
 
   const handleColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (updater) => {
     const next = typeof updater === "function" ? updater(columnFilters) : updater;
     setColumnFilters(next);
     remember({ columnFilters: next });
+    // Covers the search box too — it filters through `column.setFilterValue`,
+    // so every narrowing of the list arrives here.
+    setVisibleCount(MOBILE_PAGE);
   };
 
   const table = useReactTable({
@@ -167,6 +230,235 @@ export function DataTable<TData, TValue>({
   const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined;
   const selectedCount = table.getFilteredSelectedRowModel().rows.length;
   const filteredCount = table.getFilteredRowModel().rows.length;
+
+  if (asCards) {
+    // Sorted-but-unpaginated: on mobile the page size is replaced by a window
+    // that only ever grows, so pagination controls never appear.
+    const allRows = table.getSortedRowModel().rows;
+    const shown = allRows.slice(0, visibleCount);
+    const more = allRows.length - shown.length;
+
+    const activeFacetCount = facetFilters.filter((filter) =>
+      columnFilters.some(
+        (columnFilter) => columnFilter.id === filter.columnId
+      )
+    ).length;
+
+    return (
+      <div className="space-y-3">
+        {/*
+          Sticky, and the search is always here rather than behind the filter
+          button: searching is the common case and should cost no taps, while
+          the facets are the occasional case and can afford a sheet.
+          `-mx-4 px-4` bleeds it to the edges of the page's own p-4 gutter.
+        */}
+        <div className="sticky top-0 z-20 -mx-4 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
+          {searchColumn && (
+            <Input
+              value={(searchColumn.getFilterValue() as string) ?? ""}
+              onChange={(event) => searchColumn.setFilterValue(event.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-9 flex-1 bg-card"
+              aria-label={searchPlaceholder}
+            />
+          )}
+
+          {facetFilters.length > 0 && (
+            <Button
+              variant="outline"
+              className="h-9 shrink-0 bg-card"
+              onClick={() => setFiltersOpen(true)}
+              aria-label="Filters"
+            >
+              <SlidersHorizontalIcon />
+              Filters
+              {activeFacetCount > 0 && (
+                <span className="ml-0.5 flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground tabular-nums">
+                  {activeFacetCount}
+                </span>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {shown.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">
+            {emptyMessage}
+          </p>
+        ) : (
+          <ul className="space-y-2.5">
+            {shown.map((row, index) => {
+              const href = getRowHref?.(row.original);
+              const actions = rowActions?.(row.original) ?? [];
+              const body = renderCard!(row.original);
+
+              return (
+                <li
+                  key={row.id}
+                  className={cn(
+                    "flex items-start gap-1 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10",
+                    "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 duration-200"
+                  )}
+                  style={{
+                    // Only the newly revealed rows stagger — the ones already on
+                    // screen keep their DOM nodes and never re-animate, the same
+                    // `getRowId` property the desktop rows rely on.
+                    animationDelay: `${Math.min(index % MOBILE_PAGE, 7) * 25}ms`,
+                    animationFillMode: "both",
+                  }}
+                >
+                  {/* A link beside the actions button, not wrapped around it —
+                      a <button> inside an <a> is invalid, and the stretched-link
+                      alternative costs the card its text selection. */}
+                  {href ? (
+                    <Link href={href} className="min-w-0 flex-1 outline-none">
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="min-w-0 flex-1">{body}</div>
+                  )}
+
+                  {actions.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="-mr-1 shrink-0"
+                      onClick={() => setActionsRow(row.original)}
+                      aria-label="Actions"
+                    >
+                      <MoreVerticalIcon />
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {more > 0 && (
+          /*
+           * Remounted on every growth (`key`), which is what makes repeated
+           * loads work: an IntersectionObserver fires on a *change* of
+           * intersection, so a sentinel that stays on screen after a short
+           * batch would never fire twice. A fresh node re-observes and fires
+           * immediately if it is still in view.
+           */
+          <LoadMoreSentinel
+            key={visibleCount}
+            remaining={more}
+            onReach={() => setVisibleCount((count) => count + MOBILE_PAGE)}
+          />
+        )}
+
+        {allRows.length > 0 && more === 0 && (
+          <p className="pt-1 pb-2 text-center text-xs text-muted-foreground">
+            {allRows.length} {allRows.length === 1 ? "result" : "results"}
+          </p>
+        )}
+
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetContent side="bottom" className="max-h-[85vh]">
+            {/* Keyed on open so the draft re-seeds from the live filters each
+                time, rather than being synced back by an effect. */}
+            <FilterSheetBody
+              key={String(filtersOpen)}
+              facetFilters={facetFilters}
+              current={Object.fromEntries(
+                columnFilters.map((filter) => [filter.id, String(filter.value)])
+              )}
+              onApply={(draft) => {
+                for (const filter of facetFilters) {
+                  const value = draft[filter.columnId];
+                  table
+                    .getColumn(filter.columnId)
+                    ?.setFilterValue(value === "all" ? undefined : value);
+                }
+                setFiltersOpen(false);
+                // Back to the top of the new results. Applying a facet while
+                // scrolled deep otherwise leaves you in the middle of a list
+                // that just changed underneath you — and the window reset is
+                // undone anyway, since the sentinel is in view down there.
+                //
+                // Deliberately *not* done for the search box: that fires per
+                // keystroke, and yanking the page to the top on every letter
+                // is unusable.
+                window.scrollTo({ top: 0 });
+              }}
+              onReset={() => {
+                // The search box is deliberately untouched: it is visible and
+                // clearable on its own, and wiping it from a panel the reader
+                // can't see it in would look like the list broke.
+                for (const filter of facetFilters) {
+                  table.getColumn(filter.columnId)?.setFilterValue(undefined);
+                }
+                setFiltersOpen(false);
+                window.scrollTo({ top: 0 });
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+
+        <Sheet
+          open={actionsRow !== null}
+          onOpenChange={(open) => !open && setActionsRow(null)}
+        >
+          <SheetContent side="bottom">
+            <SheetHeader>
+              <SheetTitle>Actions</SheetTitle>
+              <SheetDescription className="sr-only">
+                Choose an action for the selected row.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex flex-col gap-1 px-4 pb-6">
+              {(actionsRow ? (rowActions?.(actionsRow) ?? []) : []).map(
+                (action) => {
+                  const Icon = action.icon;
+                  const className = cn(
+                    "h-11 justify-start gap-3 px-3 text-sm",
+                    action.tone === "destructive" &&
+                      "text-destructive hover:text-destructive"
+                  );
+
+                  if (action.href) {
+                    return (
+                      <Button
+                        key={action.label}
+                        variant="ghost"
+                        className={className}
+                        nativeButton={false}
+                        render={<Link href={action.href} />}
+                        onClick={() => setActionsRow(null)}
+                      >
+                        {Icon && <Icon />}
+                        {action.label}
+                      </Button>
+                    );
+                  }
+
+                  return (
+                    <Button
+                      key={action.label}
+                      variant="ghost"
+                      className={className}
+                      onClick={() => {
+                        // Closed first: the action usually opens a dialog, and
+                        // two layered overlays trap focus in the wrong one.
+                        setActionsRow(null);
+                        action.onSelect?.();
+                      }}
+                    >
+                      {Icon && <Icon />}
+                      {action.label}
+                    </Button>
+                  );
+                }
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    );
+  }
 
   return (
     <Card className="gap-4 p-4">
@@ -396,6 +688,144 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Reveals the next batch when it scrolls into view.
+ *
+ * The observer is created in a **ref callback** rather than an effect — React
+ * 19 runs the returned cleanup when the node detaches, which gives the same
+ * lifecycle without an effect, and without tripping the codebase's
+ * set-state-in-effect rule. `rootMargin` starts the next batch before the
+ * reader reaches the bottom, so the list feels continuous rather than paged.
+ */
+function LoadMoreSentinel({
+  remaining,
+  onReach,
+}: {
+  remaining: number;
+  onReach: () => void;
+}) {
+  const attach = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) onReach();
+        },
+        { rootMargin: "240px" }
+      );
+      observer.observe(node);
+      return () => observer.disconnect();
+    },
+    [onReach]
+  );
+
+  return (
+    <div ref={attach} className="flex justify-center py-4">
+      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="size-3.5 animate-spin rounded-full border-2 border-transparent border-t-stat-accent" />
+        {remaining} more
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The filter sheet's body. Its own component so the draft can be seeded from
+ * props at mount and re-seeded by a `key` remount — the pattern this codebase
+ * uses for every dialog form, in place of an effect that syncs state to props.
+ *
+ * Draft rather than live: on a sheet that covers the list, applying each choice
+ * immediately means changing three facets against results nobody can see.
+ */
+function FilterSheetBody({
+  facetFilters,
+  current,
+  onApply,
+  onReset,
+}: {
+  facetFilters: FacetFilter[];
+  current: Record<string, string>;
+  onApply: (draft: Record<string, string>) => void;
+  onReset: () => void;
+}) {
+  const [draft, setDraft] = React.useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      facetFilters.map((filter) => [
+        filter.columnId,
+        current[filter.columnId] ?? "all",
+      ])
+    )
+  );
+
+  const activeCount = Object.values(draft).filter(
+    (value) => value !== "all"
+  ).length;
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>Filters</SheetTitle>
+        <SheetDescription>
+          {activeCount === 0
+            ? "Narrow the list down."
+            : `${activeCount} filter${activeCount === 1 ? "" : "s"} selected.`}
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="flex flex-col gap-4 overflow-y-auto px-4">
+        {facetFilters.map((filter) => (
+          <div key={filter.columnId} className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">
+              {filter.label ?? filter.placeholder}
+            </p>
+            <Select
+              value={draft[filter.columnId] ?? "all"}
+              onValueChange={(next) =>
+                setDraft((previous) => ({
+                  ...previous,
+                  // Base UI can hand back null when a selection is cleared;
+                  // "all" is this component's own word for "no filter".
+                  [filter.columnId]: next ?? "all",
+                }))
+              }
+            >
+              <SelectTrigger
+                className="h-10 w-full bg-background"
+                aria-label={filter.placeholder}
+              >
+                {/* Base UI renders the raw value unless given a formatter. */}
+                <SelectValue>
+                  {(selected: string) =>
+                    filter.options.find((option) => option.value === selected)
+                      ?.label ?? filter.placeholder
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{filter.placeholder}</SelectItem>
+                {filter.options.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ))}
+      </div>
+
+      <SheetFooter className="flex-row gap-2 pb-6">
+        <Button variant="outline" className="flex-1" onClick={onReset}>
+          Reset
+        </Button>
+        <Button className="flex-1" onClick={() => onApply(draft)}>
+          Apply
+        </Button>
+      </SheetFooter>
+    </>
   );
 }
 

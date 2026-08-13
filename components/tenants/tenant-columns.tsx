@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DataTableColumnHeader } from "@/components/ui/data-table";
+import {
+  DataTableColumnHeader,
+  type RowAction,
+} from "@/components/ui/data-table";
 import { formatDate } from "@/lib/format";
 import type { TenantRow } from "@/lib/tenants";
 
-const STATUS_VARIANT: Record<
+export const TENANT_STATUS_VARIANT: Record<
   TenantRow["status"],
   "secondary" | "outline" | "destructive"
 > = {
@@ -22,12 +24,16 @@ const STATUS_VARIANT: Record<
   Vacated: "outline",
 };
 
+/**
+ * `rowActions` is the same function the `DataTable` hands its mobile sheet, so
+ * the icon strip below and the sheet can never offer different things — the
+ * failure mode when the two are written separately is one of them quietly
+ * missing an action after a later edit.
+ */
 export function buildTenantColumns({
-  onEdit,
-  onDelete,
+  rowActions,
 }: {
-  onEdit: (tenant: TenantRow) => void;
-  onDelete: (tenant: TenantRow) => void;
+  rowActions: (tenant: TenantRow) => RowAction[];
 }): ColumnDef<TenantRow>[] {
   return [
     {
@@ -123,7 +129,7 @@ export function buildTenantColumns({
       header: "Status",
       cell: ({ row }) => (
         <Badge
-          variant={STATUS_VARIANT[row.original.status]}
+          variant={TENANT_STATUS_VARIANT[row.original.status]}
           className="rounded-full font-normal"
         >
           {row.original.status}
@@ -136,31 +142,31 @@ export function buildTenantColumns({
       header: "",
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            nativeButton={false}
-            render={<Link href={`/members/${row.original.membershipId}`} />}
-            aria-label={`View ${row.original.name}`}
-          >
-            <EyeIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onEdit(row.original)}
-            aria-label={`Edit ${row.original.name}`}
-          >
-            <PencilIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onDelete(row.original)}
-            aria-label={`Remove ${row.original.name}`}
-          >
-            <Trash2Icon />
-          </Button>
+          {rowActions(row.original).map((action) => {
+            const Icon = action.icon;
+            // The label carries the row's name ("Remove Amani Mwakalinga"), so
+            // it doubles as the accessible name for an icon-only button.
+            const shared = {
+              variant: "ghost" as const,
+              size: "icon-sm" as const,
+              "aria-label": action.label,
+            };
+
+            return action.href ? (
+              <Button
+                key={action.label}
+                {...shared}
+                nativeButton={false}
+                render={<Link href={action.href} />}
+              >
+                {Icon && <Icon />}
+              </Button>
+            ) : (
+              <Button key={action.label} {...shared} onClick={action.onSelect}>
+                {Icon && <Icon />}
+              </Button>
+            );
+          })}
         </div>
       ),
       enableSorting: false,

@@ -2,15 +2,22 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon, UploadIcon } from "lucide-react";
+import {
+  EyeIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { ImportDialog } from "@/components/import-dialog";
 import { MemberEditDialog } from "@/components/member-edit-dialog";
+import { TenantCard } from "@/components/tenants/tenant-card";
 import { buildTenantColumns } from "@/components/tenants/tenant-columns";
 import { TenantFormDialog } from "@/components/tenants/tenant-form-dialog";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type RowAction } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -31,16 +38,39 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const columns = React.useMemo(
-    () =>
-      buildTenantColumns({
-        onEdit: (tenant) => setEditing(tenant),
-        onDelete: (tenant) => {
+  /**
+   * The single description of what you can do to a tenant. The desktop icon
+   * strip is built from it, and `DataTable` hands the same list to its mobile
+   * actions sheet — so neither surface can drift from the other.
+   */
+  const rowActions = React.useCallback(
+    (tenant: TenantRow): RowAction[] => [
+      {
+        label: `View ${tenant.name}`,
+        icon: EyeIcon,
+        href: `/members/${tenant.membershipId}`,
+      },
+      {
+        label: `Edit ${tenant.name}`,
+        icon: PencilIcon,
+        onSelect: () => setEditing(tenant),
+      },
+      {
+        label: `Remove ${tenant.name}`,
+        icon: Trash2Icon,
+        tone: "destructive",
+        onSelect: () => {
           setError(null);
           setDeleting(tenant);
         },
-      }),
+      },
+    ],
     []
+  );
+
+  const columns = React.useMemo(
+    () => buildTenantColumns({ rowActions }),
+    [rowActions]
   );
 
   async function handleDelete() {
@@ -95,6 +125,7 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
           {
             columnId: "status",
             placeholder: "All statuses",
+            label: "Status",
             options: [
               { label: "Active", value: "Active" },
               { label: "Upcoming", value: "Upcoming" },
@@ -105,6 +136,8 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
         ]}
         emptyMessage="No tenants yet. Use “Add tenant” to record the first one."
         getRowHref={(tenant) => `/members/${tenant.membershipId}`}
+        renderCard={(tenant) => <TenantCard tenant={tenant} />}
+        rowActions={rowActions}
       />
 
       <MemberEditDialog

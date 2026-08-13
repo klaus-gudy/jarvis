@@ -1,15 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { PlusIcon } from "lucide-react";
+import { EyeIcon, PlusIcon } from "lucide-react";
 
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
+import { MemberLeaseCard } from "@/components/members/member-lease-card";
 import {
   buildMemberLeaseColumns,
   type MemberLeaseRow,
 } from "@/components/members/member-lease-columns";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type RowAction } from "@/components/ui/data-table";
 import type { LeaseOptions } from "@/lib/leases";
 
 /**
@@ -56,6 +57,7 @@ export function MemberLeasesTab({
           {
             columnId: "status",
             placeholder: "All statuses",
+            label: "Status",
             options: [
               { label: "Active", value: "Active" },
               { label: "Upcoming", value: "Upcoming" },
@@ -69,6 +71,16 @@ export function MemberLeasesTab({
             : `${roleName} members do not normally hold leases.`
         }
         getRowHref={(lease) => `/leases/${lease.id}`}
+        renderCard={(lease) => <MemberLeaseCard lease={lease} />}
+        // Mobile only, and nothing to drift from: this table has never had a
+        // desktop actions column — opening a lease is a double-click there.
+        rowActions={(lease): RowAction[] => [
+          {
+            label: "View lease",
+            icon: EyeIcon,
+            href: `/leases/${lease.id}`,
+          },
+        ]}
       />
 
       {options && (
