@@ -477,14 +477,25 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 const sidebarMenuButtonVariants = cva(
   // Motion, added deliberately rather than via `transition-all`: the property
   // list is explicit so a future `filter` or `opacity` utility on a menu button
-  // doesn't silently start easing too. `duration-200` is the hover nudge and
-  // the colour fade; `ease-out` so it arrives quickly and settles.
+  // doesn't silently start easing too.
+  //
+  // **`translate` and `scale` must be named, not `transform`.** Tailwind v4
+  // compiles `translate-x-0.5` to the `translate` property and `scale-110` to
+  // `scale` — both separate from `transform`. Listing `transform` therefore
+  // transitions nothing: the nudge jumped its 2px in a single frame while the
+  // icon (whose `transition-transform` *does* expand to all four) eased over
+  // 200ms, and a button snapping under an icon that glides is exactly what
+  // reads as "not smooth".
+  //
+  // 150ms rather than 200: sweeping down the list leaves several items easing
+  // at once, and the shorter the tail the cleaner that looks. It is also the
+  // duration the collapse animation had before any of this was added.
   //
   // The nudge is suppressed in the collapsed icon rail — sliding a 32px square
   // sideways inside a 48px rail reads as the icon coming loose, not as a
   // response to the pointer. `nav-pop` fires once on the icon of whichever item
   // has just become active, which is the navigation itself being acknowledged.
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,color,transform,box-shadow] duration-200 ease-out motion-safe:hover:translate-x-0.5 group-data-[collapsible=icon]:hover:translate-x-0 [&_svg]:transition-transform [&_svg]:duration-200 motion-safe:hover:[&_svg]:scale-110 motion-safe:data-active:[&_svg]:animate-nav-pop data-active:shadow-sm group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 active:bg-accent active:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-accent data-open:hover:text-accent-foreground data-active:bg-primary data-active:font-medium data-active:text-primary-foreground data-active:hover:bg-primary/80 data-active:hover:text-primary-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,color,translate,scale,box-shadow] duration-150 ease-out motion-safe:hover:translate-x-0.5 group-data-[collapsible=icon]:hover:translate-x-0 [&_svg]:transition-transform [&_svg]:duration-150 motion-safe:hover:[&_svg]:scale-110 motion-safe:data-active:[&_svg]:animate-nav-pop data-active:shadow-sm group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 active:bg-accent active:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-accent data-open:hover:text-accent-foreground data-active:bg-primary data-active:font-medium data-active:text-primary-foreground data-active:hover:bg-primary/80 data-active:hover:text-primary-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
   {
     variants: {
       variant: {
