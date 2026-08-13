@@ -367,12 +367,35 @@ export function DataTable<TData, TValue>({
                 columnFilters.map((filter) => [filter.id, String(filter.value)])
               )}
               onApply={(draft) => {
-                for (const filter of facetFilters) {
-                  const value = draft[filter.columnId];
-                  table
-                    .getColumn(filter.columnId)
-                    ?.setFilterValue(value === "all" ? undefined : value);
-                }
+                /*
+                 * Applied as ONE `setColumnFilters`, never a loop of
+                 * `setFilterValue` calls.
+                 *
+                 * Each `setFilterValue` resolves its updater against
+                 * `columnFilters` as captured in the current render, so two
+                 * calls in the same tick both start from the same stale array
+                 * and the second silently discards the first — with two facets
+                 * selected, only the last one survived Apply.
+                 *
+                 * Non-facet filters are carried over untouched, which is what
+                 * keeps the search box working alongside the facets.
+                 */
+                const facetIds = new Set(
+                  facetFilters.map((filter) => filter.columnId)
+                );
+
+                table.setColumnFilters([
+                  ...columnFilters.filter((filter) => !facetIds.has(filter.id)),
+                  ...facetFilters
+                    .filter(
+                      (filter) => (draft[filter.columnId] ?? "all") !== "all"
+                    )
+                    .map((filter) => ({
+                      id: filter.columnId,
+                      value: draft[filter.columnId],
+                    })),
+                ]);
+
                 setFiltersOpen(false);
                 // Back to the top of the new results. Applying a facet while
                 // scrolled deep otherwise leaves you in the middle of a list
@@ -385,12 +408,21 @@ export function DataTable<TData, TValue>({
                 window.scrollTo({ top: 0 });
               }}
               onReset={() => {
+                // One call, for the same reason as Apply above — looping
+                // `setFilterValue(undefined)` over two facets left the first
+                // one still applied.
+                //
                 // The search box is deliberately untouched: it is visible and
                 // clearable on its own, and wiping it from a panel the reader
-                // can't see it in would look like the list broke.
-                for (const filter of facetFilters) {
-                  table.getColumn(filter.columnId)?.setFilterValue(undefined);
-                }
+                // can't see it in would look like the list broke. Keeping every
+                // non-facet filter is what preserves it.
+                const facetIds = new Set(
+                  facetFilters.map((filter) => filter.columnId)
+                );
+                table.setColumnFilters(
+                  columnFilters.filter((filter) => !facetIds.has(filter.id))
+                );
+
                 setFiltersOpen(false);
                 window.scrollTo({ top: 0 });
               }}
@@ -778,6 +810,18 @@ function LoadMoreSentinel({
  *
  * Draft rather than live: on a sheet that covers the list, applying each choice
  * immediately means changing three facets against results nobody can see.
+ *
+ * **Chips, not the `Select` the desktop toolbar uses.** A select popup is an
+ * anchored overlay, and this sheet is already pinned to the bottom of the
+ * viewport — so the popup had nowhere to open. It rendered over the sheet,
+ * overflowed the screen edge with its last options unreachable, and covered
+ * Reset and Apply. Its portal also carries `z-50`, the same as the sheet, so
+ * which of the two painted on top during the open/close transition came down
+ * to DOM order, which is what made the transition look wrong.
+ *
+ * Laying the options out inline removes the nested overlay entirely rather than
+ * fighting it, halves the taps, and matches the pills the properties page
+ * already uses for exactly this job.
  */
 function FilterSheetBody({
   facetFilters,
@@ -814,46 +858,53 @@ function FilterSheetBody({
         </SheetDescription>
       </SheetHeader>
 
-      <div className="flex flex-col gap-4 overflow-y-auto px-4">
-        {facetFilters.map((filter) => (
-          <div key={filter.columnId} className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">
-              {filter.label ?? filter.placeholder}
-            </p>
-            <Select
-              value={draft[filter.columnId] ?? "all"}
-              onValueChange={(next) =>
-                setDraft((previous) => ({
-                  ...previous,
-                  // Base UI can hand back null when a selection is cleared;
-                  // "all" is this component's own word for "no filter".
-                  [filter.columnId]: next ?? "all",
-                }))
-              }
-            >
-              <SelectTrigger
-                className="h-10 w-full bg-background"
-                aria-label={filter.placeholder}
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-2">
+        {facetFilters.map((filter) => {
+          const fieldName = filter.label ?? filter.placeholder;
+          const selected = draft[filter.columnId] ?? "all";
+
+          return (
+            <div key={filter.columnId} className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                {fieldName}
+              </p>
+              {/* Single choice per facet, so radio semantics rather than a set
+                  of independent toggles. The placeholder leads as the "no
+                  filter" option, the same role it plays in the select. */}
+              <div
+                role="radiogroup"
+                aria-label={fieldName}
+                className="flex flex-wrap gap-2"
               >
-                {/* Base UI renders the raw value unless given a formatter. */}
-                <SelectValue>
-                  {(selected: string) =>
-                    filter.options.find((option) => option.value === selected)
-                      ?.label ?? filter.placeholder
+                {[{ label: filter.placeholder, value: "all" }, ...filter.options].map(
+                  (option) => {
+                    const isSelected = selected === option.value;
+                    return (
+                      <Button
+                        key={option.value}
+                        role="radio"
+                        aria-checked={isSelected}
+                        variant={isSelected ? "default" : "outline"}
+                        // h-10 for a comfortable touch target; `bg-card`
+                        // because `outline`'s own fill is the sheet's colour
+                        // and would leave only the border showing.
+                        className={cn("h-10 rounded-full", !isSelected && "bg-card")}
+                        onClick={() =>
+                          setDraft((previous) => ({
+                            ...previous,
+                            [filter.columnId]: option.value,
+                          }))
+                        }
+                      >
+                        {option.label}
+                      </Button>
+                    );
                   }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{filter.placeholder}</SelectItem>
-                {filter.options.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <SheetFooter className="flex-row gap-2 pb-6">
