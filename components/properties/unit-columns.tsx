@@ -1,11 +1,13 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
-import { DataTableColumnHeader } from "@/components/ui/data-table";
+import {
+  DataTableColumnHeader,
+  RowActionButtons,
+  type RowAction,
+} from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrencyFull } from "@/lib/format";
 
@@ -30,13 +32,9 @@ export type UnitRow = {
  * only ever show up in the View dialog, opened from the row actions.
  */
 export function buildUnitColumns({
-  onView,
-  onEdit,
-  onDelete,
+  rowActions,
 }: {
-  onView: (unit: UnitRow) => void;
-  onEdit: (unit: UnitRow) => void;
-  onDelete: (unit: UnitRow) => void;
+  rowActions: (unit: UnitRow) => RowAction[];
 }): ColumnDef<UnitRow>[] {
   return [
     {
@@ -135,34 +133,7 @@ export function buildUnitColumns({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onView(row.original)}
-            aria-label={`View unit ${row.original.label}`}
-          >
-            <EyeIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onEdit(row.original)}
-            aria-label={`Edit unit ${row.original.label}`}
-          >
-            <PencilIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onDelete(row.original)}
-            aria-label={`Delete unit ${row.original.label}`}
-          >
-            <Trash2Icon />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <RowActionButtons actions={rowActions(row.original)} />,
       enableSorting: false,
     },
   ];

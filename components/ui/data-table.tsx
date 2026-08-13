@@ -692,6 +692,45 @@ export function DataTable<TData, TValue>({
 }
 
 /**
+ * The desktop actions cell, rendered from the same `RowAction[]` the mobile
+ * sheet is given. Every table with an icon strip goes through here, so the
+ * strip's spacing, sizing and accessible naming are defined once — and adding
+ * an action to a table adds it to both surfaces or neither.
+ *
+ * The label doubles as the accessible name, which is why callers write it as
+ * "Remove Amani Mwakalinga" rather than "Remove".
+ */
+export function RowActionButtons({ actions }: { actions: RowAction[] }) {
+  return (
+    <div className="flex justify-end gap-1">
+      {actions.map((action) => {
+        const Icon = action.icon;
+        const shared = {
+          variant: "ghost" as const,
+          size: "icon-sm" as const,
+          "aria-label": action.label,
+        };
+
+        return action.href ? (
+          <Button
+            key={action.label}
+            {...shared}
+            nativeButton={false}
+            render={<Link href={action.href} />}
+          >
+            {Icon && <Icon />}
+          </Button>
+        ) : (
+          <Button key={action.label} {...shared} onClick={action.onSelect}>
+            {Icon && <Icon />}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * Reveals the next batch when it scrolls into view.
  *
  * The observer is created in a **ref callback** rather than an effect — React

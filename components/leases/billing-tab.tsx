@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { BillingPaymentCard } from "@/components/leases/billing-payment-card";
 import {
   buildBillingPaymentColumns,
   type BillingPaymentRow,
@@ -11,7 +13,7 @@ import {
 import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type RowAction } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -54,9 +56,21 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
   const [deleting, setDeleting] = React.useState<BillingPaymentRow | null>(null);
   const [pending, setPending] = React.useState(false);
 
-  const columns = React.useMemo(
-    () => buildBillingPaymentColumns({ onDelete: setDeleting }),
+  const rowActions = React.useCallback(
+    (payment: BillingPaymentRow): RowAction[] => [
+      {
+        label: `Remove payment of ${payment.amount}`,
+        icon: Trash2Icon,
+        tone: "destructive",
+        onSelect: () => setDeleting(payment),
+      },
+    ],
     []
+  );
+
+  const columns = React.useMemo(
+    () => buildBillingPaymentColumns({ rowActions }),
+    [rowActions]
   );
 
   const rows: BillingPaymentRow[] = React.useMemo(
@@ -118,6 +132,7 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
           {
             columnId: "method",
             placeholder: "All methods",
+            label: "Method",
             options: PAYMENT_METHOD_OPTIONS.map((option) => ({
               label: option,
               value: option,
@@ -125,6 +140,8 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
           },
         ]}
         emptyMessage="No payments recorded yet."
+        renderCard={(payment) => <BillingPaymentCard payment={payment} />}
+        rowActions={rowActions}
       />
 
       <RecordPaymentDialog

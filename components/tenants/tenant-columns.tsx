@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DataTableColumnHeader,
+  RowActionButtons,
   type RowAction,
 } from "@/components/ui/data-table";
 import { formatDate } from "@/lib/format";
@@ -140,35 +139,7 @@ export function buildTenantColumns({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-1">
-          {rowActions(row.original).map((action) => {
-            const Icon = action.icon;
-            // The label carries the row's name ("Remove Amani Mwakalinga"), so
-            // it doubles as the accessible name for an icon-only button.
-            const shared = {
-              variant: "ghost" as const,
-              size: "icon-sm" as const,
-              "aria-label": action.label,
-            };
-
-            return action.href ? (
-              <Button
-                key={action.label}
-                {...shared}
-                nativeButton={false}
-                render={<Link href={action.href} />}
-              >
-                {Icon && <Icon />}
-              </Button>
-            ) : (
-              <Button key={action.label} {...shared} onClick={action.onSelect}>
-                {Icon && <Icon />}
-              </Button>
-            );
-          })}
-        </div>
-      ),
+      cell: ({ row }) => <RowActionButtons actions={rowActions(row.original)} />,
       enableSorting: false,
     },
   ];

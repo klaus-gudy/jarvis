@@ -8,7 +8,9 @@ import { toast } from "sonner";
 
 import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { PersonCell } from "@/components/person-cell";
+import { InvitationCard } from "@/components/users/invitation-card";
 import { InviteDialog } from "@/components/users/invite-dialog";
+import { MemberCard } from "@/components/users/member-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type RowAction } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/format";
 import type { InvitationRow } from "@/lib/invitations";
@@ -293,6 +295,7 @@ export function UsersView({
               {
                 columnId: "roleName",
                 placeholder: "All roles",
+                label: "Role",
                 options: roles.map((role) => ({
                   label: role.name,
                   value: role.name,
@@ -301,6 +304,39 @@ export function UsersView({
             ]}
             emptyMessage="No members yet."
             getRowHref={(member) => `/members/${member.membershipId}`}
+            renderCard={(member) => <MemberCard member={member} />}
+            /*
+             * Mobile only, and *not* wired back into the desktop column here —
+             * that column mixes a labelled "Invite" button with icon buttons,
+             * and rendering it through `RowActionButtons` would flatten Invite
+             * into an unlabelled icon. The list below is kept in step with it
+             * by hand, including the same `canSignIn` condition on Invite.
+             */
+            rowActions={(member): RowAction[] => [
+              ...(member.canSignIn
+                ? []
+                : [
+                    {
+                      label: `Invite ${member.name}`,
+                      icon: SendIcon,
+                      onSelect: () => setInviting(member),
+                    },
+                  ]),
+              {
+                label: `Edit ${member.name}`,
+                icon: PencilIcon,
+                onSelect: () => setEditing(member),
+              },
+              {
+                label: `Remove ${member.name}`,
+                icon: Trash2Icon,
+                tone: "destructive",
+                onSelect: () => {
+                  setError(null);
+                  setRemoving(member);
+                },
+              },
+            ]}
           />
         </TabsContent>
 
@@ -314,6 +350,7 @@ export function UsersView({
               {
                 columnId: "roleName",
                 placeholder: "All roles",
+                label: "Role",
                 options: roles.map((role) => ({
                   label: role.name,
                   value: role.name,
@@ -321,6 +358,20 @@ export function UsersView({
               },
             ]}
             emptyMessage="No pending invites. Use “Invite user” to send one."
+            renderCard={(invitation) => (
+              <InvitationCard invitation={invitation} />
+            )}
+            rowActions={(invitation): RowAction[] => [
+              {
+                label: "Revoke invite",
+                icon: XIcon,
+                tone: "destructive",
+                onSelect: () => {
+                  setError(null);
+                  setRevoking(invitation);
+                },
+              },
+            ]}
           />
         </TabsContent>
       </Tabs>

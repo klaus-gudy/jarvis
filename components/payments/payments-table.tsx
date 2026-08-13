@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { MakePaymentDialog } from "@/components/payments/make-payment-dialog";
+import { PaymentCard } from "@/components/payments/payment-card";
 import { buildPaymentColumns } from "@/components/payments/payment-columns";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type RowAction } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -35,15 +36,24 @@ export function PaymentsTable({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const columns = React.useMemo(
-    () =>
-      buildPaymentColumns({
-        onDelete: (payment) => {
+  const rowActions = React.useCallback(
+    (payment: PaymentRow): RowAction[] => [
+      {
+        label: `Remove payment of ${payment.amount}`,
+        icon: Trash2Icon,
+        tone: "destructive",
+        onSelect: () => {
           setError(null);
           setDeleting(payment);
         },
-      }),
+      },
+    ],
     []
+  );
+
+  const columns = React.useMemo(
+    () => buildPaymentColumns({ rowActions }),
+    [rowActions]
   );
 
   async function handleDelete() {
@@ -91,6 +101,7 @@ export function PaymentsTable({
           {
             columnId: "invoiceStatus",
             placeholder: "All invoice statuses",
+            label: "Invoice status",
             options: INVOICE_STATUSES.map((status) => ({
               label: status,
               value: status,
@@ -99,6 +110,7 @@ export function PaymentsTable({
           {
             columnId: "method",
             placeholder: "All methods",
+            label: "Method",
             options: PAYMENT_METHOD_OPTIONS.map((option) => ({
               label: option,
               value: option,
@@ -107,6 +119,8 @@ export function PaymentsTable({
         ]}
         emptyMessage="No payments recorded yet. Use “Make payment” to record one against an invoice."
         getRowHref={(payment) => `/leases/${payment.leaseId}`}
+        renderCard={(payment) => <PaymentCard payment={payment} />}
+        rowActions={rowActions}
       />
 
       <MakePaymentDialog

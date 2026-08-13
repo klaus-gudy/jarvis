@@ -1,12 +1,14 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Trash2Icon } from "lucide-react";
 
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DataTableColumnHeader } from "@/components/ui/data-table";
+import {
+  DataTableColumnHeader,
+  RowActionButtons,
+  type RowAction,
+} from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types";
 import type { PaymentRow } from "@/lib/payments";
@@ -17,9 +19,9 @@ import type { PaymentRow } from "@/lib/payments";
  * table provides.
  */
 export function buildPaymentColumns({
-  onDelete,
+  rowActions,
 }: {
-  onDelete: (payment: PaymentRow) => void;
+  rowActions: (payment: PaymentRow) => RowAction[];
 }): ColumnDef<PaymentRow>[] {
   return [
     {
@@ -102,18 +104,7 @@ export function buildPaymentColumns({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onDelete(row.original)}
-            aria-label={`Remove payment of ${row.original.amount}`}
-          >
-            <Trash2Icon />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <RowActionButtons actions={rowActions(row.original)} />,
       enableSorting: false,
     },
   ];

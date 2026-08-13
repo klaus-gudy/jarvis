@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon, UploadIcon } from "lucide-react";
+import { EyeIcon, PencilIcon, PlusIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { UnitCard } from "@/components/properties/unit-card";
 import {
   buildUnitColumns,
   type UnitRow,
@@ -16,7 +17,7 @@ import {
 import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
 import { ImportDialog } from "@/components/import-dialog";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type RowAction } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -62,20 +63,38 @@ export function UnitsTable({
   const [deletePending, setDeletePending] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
-  const columns = React.useMemo(
-    () =>
-      buildUnitColumns({
-        onView: (unit) => setViewing(unit),
-        onEdit: (unit) => {
+  /** One description of what you can do to a unit, for both surfaces. */
+  const rowActions = React.useCallback(
+    (unit: UnitRow): RowAction[] => [
+      {
+        label: `View unit ${unit.label}`,
+        icon: EyeIcon,
+        onSelect: () => setViewing(unit),
+      },
+      {
+        label: `Edit unit ${unit.label}`,
+        icon: PencilIcon,
+        onSelect: () => {
           setEditing(unit);
           setFormOpen(true);
         },
-        onDelete: (unit) => {
+      },
+      {
+        label: `Delete unit ${unit.label}`,
+        icon: Trash2Icon,
+        tone: "destructive",
+        onSelect: () => {
           setDeleteError(null);
           setDeleting(unit);
         },
-      }),
+      },
+    ],
     []
+  );
+
+  const columns = React.useMemo(
+    () => buildUnitColumns({ rowActions }),
+    [rowActions]
   );
 
   async function handleDelete() {
@@ -137,6 +156,7 @@ export function UnitsTable({
           {
             columnId: "status",
             placeholder: "All statuses",
+            label: "Status",
             options: [
               { label: "Occupied", value: "Occupied" },
               { label: "Vacant", value: "Vacant" },
@@ -145,10 +165,13 @@ export function UnitsTable({
           {
             columnId: "unitType",
             placeholder: "All types",
+            label: "Unit type",
             options: UNIT_TYPE_OPTIONS.map((type) => ({ label: type, value: type })),
           },
         ]}
         emptyMessage="No units yet. Use “Add unit” to create the first one."
+        renderCard={(unit) => <UnitCard unit={unit} />}
+        rowActions={rowActions}
       />
 
       <UnitViewDialog unit={viewing} onOpenChange={(open) => !open && setViewing(null)} />

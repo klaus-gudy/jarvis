@@ -1,15 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DataTableColumnHeader } from "@/components/ui/data-table";
+import {
+  DataTableColumnHeader,
+  RowActionButtons,
+  type RowAction,
+} from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import type { InvoiceStatus } from "@/lib/invoices";
 import type { LeaseRow } from "@/lib/leases";
@@ -33,11 +34,9 @@ const INVOICE_STATUS_VARIANT: Record<
 };
 
 export function buildLeaseColumns({
-  onEdit,
-  onDelete,
+  rowActions,
 }: {
-  onEdit: (lease: LeaseRow) => void;
-  onDelete: (lease: LeaseRow) => void;
+  rowActions: (lease: LeaseRow) => RowAction[];
 }): ColumnDef<LeaseRow>[] {
   return [
     {
@@ -171,35 +170,7 @@ export function buildLeaseColumns({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            nativeButton={false}
-            render={<Link href={`/leases/${row.original.id}`} />}
-            aria-label={`View lease for ${row.original.tenantName}`}
-          >
-            <EyeIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onEdit(row.original)}
-            aria-label={`Edit lease for ${row.original.tenantName}`}
-          >
-            <PencilIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onDelete(row.original)}
-            aria-label={`Delete lease for ${row.original.tenantName}`}
-          >
-            <Trash2Icon />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <RowActionButtons actions={rowActions(row.original)} />,
       enableSorting: false,
     },
   ];

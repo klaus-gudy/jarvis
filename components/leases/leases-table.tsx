@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon } from "lucide-react";
+import { EyeIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { LeaseCard } from "@/components/leases/lease-card";
 import { buildLeaseColumns } from "@/components/leases/lease-columns";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type RowAction } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -33,16 +34,34 @@ export function LeasesTable({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const columns = React.useMemo(
-    () =>
-      buildLeaseColumns({
-        onEdit: setEditing,
-        onDelete: (lease) => {
+  const rowActions = React.useCallback(
+    (lease: LeaseRow): RowAction[] => [
+      {
+        label: `View lease for ${lease.tenantName}`,
+        icon: EyeIcon,
+        href: `/leases/${lease.id}`,
+      },
+      {
+        label: `Edit lease for ${lease.tenantName}`,
+        icon: PencilIcon,
+        onSelect: () => setEditing(lease),
+      },
+      {
+        label: `Delete lease for ${lease.tenantName}`,
+        icon: Trash2Icon,
+        tone: "destructive",
+        onSelect: () => {
           setError(null);
           setDeleting(lease);
         },
-      }),
+      },
+    ],
     []
+  );
+
+  const columns = React.useMemo(
+    () => buildLeaseColumns({ rowActions }),
+    [rowActions]
   );
 
   async function handleDelete() {
@@ -88,6 +107,7 @@ export function LeasesTable({
           {
             columnId: "status",
             placeholder: "All statuses",
+            label: "Status",
             options: [
               { label: "Active", value: "Active" },
               { label: "Upcoming", value: "Upcoming" },
@@ -97,6 +117,8 @@ export function LeasesTable({
         ]}
         emptyMessage="No leases yet. Use “Create lease” to connect a tenant to a unit."
         getRowHref={(lease) => `/leases/${lease.id}`}
+        renderCard={(lease) => <LeaseCard lease={lease} />}
+        rowActions={rowActions}
       />
 
       <LeaseFormDialog

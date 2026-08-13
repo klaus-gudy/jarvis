@@ -1,10 +1,12 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Trash2Icon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { DataTableColumnHeader } from "@/components/ui/data-table";
+import {
+  DataTableColumnHeader,
+  RowActionButtons,
+  type RowAction,
+} from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 
 export type BillingPaymentRow = {
@@ -19,9 +21,9 @@ export type BillingPaymentRow = {
 };
 
 export function buildBillingPaymentColumns({
-  onDelete,
+  rowActions,
 }: {
-  onDelete: (payment: BillingPaymentRow) => void;
+  rowActions: (payment: BillingPaymentRow) => RowAction[];
 }): ColumnDef<BillingPaymentRow>[] {
   return [
     {
@@ -77,18 +79,7 @@ export function buildBillingPaymentColumns({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onDelete(row.original)}
-            aria-label={`Remove payment of ${row.original.amount}`}
-          >
-            <Trash2Icon />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <RowActionButtons actions={rowActions(row.original)} />,
       enableSorting: false,
     },
   ];

@@ -4,6 +4,7 @@ import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { LockIcon, PlusIcon, ShieldCheckIcon } from "lucide-react";
 
+import { RoleCard } from "@/components/roles/role-card";
 import { RoleFormDialog } from "@/components/roles/role-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,7 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
           {
             columnId: "isSystem",
             placeholder: "All types",
+            label: "Type",
             options: [
               { label: "Built-in", value: "true" },
               { label: "Custom", value: "false" },
@@ -104,6 +106,9 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
           },
         ]}
         emptyMessage="No roles yet."
+        // No `rowActions`: roles can't be renamed or deleted yet, so the card
+        // shows no actions button rather than one that opens an empty sheet.
+        renderCard={(role) => <RoleCard role={role} />}
       />
 
       <RoleFormDialog
