@@ -2,6 +2,7 @@ import { BuildingIcon, ReceiptIcon, WrenchIcon } from "lucide-react";
 
 import { RentopsLogo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { cn } from "@/lib/utils";
 
 /**
  * Brand colours are fixed hex rather than theme tokens, matching logo.tsx's
@@ -13,6 +14,29 @@ import { ThemeToggle } from "@/components/theme-toggle";
  */
 const NAVY = "#1c2f40";
 const GOLD = "#a68446";
+
+/**
+ * The brand panel reveals a line at a time rather than arriving all at once —
+ * mark, headline, blurb, then the three features, then the footer. Reading
+ * order and appearance order match, so the eye is led down the panel instead of
+ * being handed the whole thing to sort out.
+ *
+ * `fill-mode-both` is not optional: tw-animate-css leaves `animation-fill-mode`
+ * at `none`, so a delayed element would paint at its *final* position for the
+ * length of its delay and only then jump back to animate. `both` holds it at
+ * the start state until its turn comes.
+ *
+ * Everything is `motion-safe:`, so under reduced motion the panel simply is
+ * where it belongs, with no delay and nothing moving.
+ */
+const REVEAL =
+  "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4 duration-700 ease-out fill-mode-both";
+
+/**
+ * Written out rather than computed from the index: Tailwind scans source text
+ * for candidates, so a class built at runtime (`delay-${n}`) is never generated.
+ */
+const FEATURE_DELAY = ["delay-450", "delay-550", "delay-650"];
 
 const FEATURES = [
   {
@@ -39,34 +63,61 @@ export default function AuthLayout({
         className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex"
         style={{ backgroundColor: NAVY }}
       >
+        {/* The glow washes in on its own, slower and undelayed, so the panel is
+            lit before anything lands on it. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 motion-safe:animate-in motion-safe:fade-in-0 duration-1000 fill-mode-both"
           style={{
             background: `radial-gradient(90% 70% at 75% 15%, ${GOLD}26, transparent)`,
           }}
         />
 
-        <div className="relative flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+        <div
+          className={cn(
+            "relative flex items-center gap-2.5 text-lg font-semibold tracking-tight",
+            REVEAL,
+            "delay-75"
+          )}
+        >
           <RentopsLogo className="size-9" />
           Rentops
         </div>
 
         <div className="relative max-w-md space-y-10">
           <div className="space-y-4">
-            <p className="text-4xl font-semibold leading-tight tracking-tight text-balance">
+            <p
+              className={cn(
+                "text-4xl font-semibold leading-tight tracking-tight text-balance",
+                REVEAL,
+                "delay-200"
+              )}
+            >
               Property management,{" "}
               <span style={{ color: GOLD }}>the calm way.</span>
             </p>
-            <p className="text-sm leading-relaxed text-white/75">
+            <p
+              className={cn(
+                "text-sm leading-relaxed text-white/75",
+                REVEAL,
+                "delay-300"
+              )}
+            >
               Sign in to manage your portfolio — buildings, tenants, billing and
               maintenance, all from one place.
             </p>
           </div>
 
           <ul className="space-y-5">
-            {FEATURES.map((feature) => (
-              <li key={feature.text} className="flex items-center gap-4">
+            {FEATURES.map((feature, index) => (
+              <li
+                key={feature.text}
+                className={cn(
+                  "flex items-center gap-4",
+                  REVEAL,
+                  FEATURE_DELAY[index]
+                )}
+              >
                 <span
                   className="flex size-11 shrink-0 items-center justify-center rounded-xl"
                   style={{ backgroundColor: `${GOLD}26` }}
@@ -83,7 +134,9 @@ export default function AuthLayout({
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/50">
+        <p
+          className={cn("relative text-xs text-white/50", REVEAL, "delay-800")}
+        >
           © {new Date().getFullYear()} Rentops · Dar es Salaam
         </p>
       </aside>
