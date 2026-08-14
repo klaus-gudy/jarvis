@@ -81,6 +81,16 @@ export type RowAction = {
   href?: string;
   onSelect?: () => void;
   tone?: "default" | "destructive";
+  /**
+   * Shown but not usable, rather than omitted.
+   *
+   * Keeping the slot means the actions sit in the same order on every row, so
+   * the one you want is always in the same place — dropping an action shifts
+   * everything after it and turns a familiar position into a misclick.
+   */
+  disabled?: boolean;
+  /** Why it is unavailable. Surfaced on hover, and beside the label on mobile. */
+  disabledReason?: string;
 };
 
 /** Rows added each time the sentinel comes into view. */
@@ -451,6 +461,30 @@ export function DataTable<TData, TValue>({
                       "text-destructive hover:text-destructive"
                   );
 
+                  // Kept in place rather than dropped, so every row's sheet
+                  // lists the same actions in the same order. The reason sits
+                  // beside the label, since a greyed row with no explanation
+                  // just raises the question.
+                  if (action.disabled) {
+                    return (
+                      <Button
+                        key={action.label}
+                        variant="ghost"
+                        className={className}
+                        disabled
+                        aria-disabled
+                      >
+                        {Icon && <Icon />}
+                        {action.label}
+                        {action.disabledReason && (
+                          <span className="ml-auto text-xs font-normal">
+                            {action.disabledReason}
+                          </span>
+                        )}
+                      </Button>
+                    );
+                  }
+
                   if (action.href) {
                     return (
                       <Button
@@ -741,7 +775,19 @@ export function RowActionButtons({ actions }: { actions: RowAction[] }) {
           variant: "ghost" as const,
           size: "icon-sm" as const,
           "aria-label": action.label,
+          title: action.disabled ? action.disabledReason : undefined,
         };
+
+        // A disabled action renders as a button even when it would normally be
+        // a link: an anchor has no disabled state, and `pointer-events-none`
+        // would leave it focusable and followable by keyboard.
+        if (action.disabled) {
+          return (
+            <Button key={action.label} {...shared} disabled aria-disabled>
+              {Icon && <Icon />}
+            </Button>
+          );
+        }
 
         return action.href ? (
           <Button

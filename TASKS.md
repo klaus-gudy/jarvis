@@ -574,6 +574,17 @@ Took three attempts, each fixing the previous one's fault.
 - [x] **Mobile unaffected**: below `lg` the grid is one column, each wrapper is its own row, so there is no surplus and `grow` does nothing — heights measured back at their natural 217/409/361/312, order still Tenant → Unit info → Lease terms → Invoice, no overflow
 - [x] Not reverted to the pre-Phase-52 shape (two side by side, two full-width): that gave Lease terms and Invoice the whole width for six short rows each and pushed the invoice below the fold
 
+## Phase 54 — "Make payment" as a lease row action
+
+- [x] **Added to the leases table's row actions**, second after View — paying against a lease is a routine job that previously meant opening the lease, switching to Billing, and only then recording it
+- [x] **Order is fixed on every row: Make payment → View → Edit → Delete.** Payment leads because it is the routine job on this page
+- [x] **A lease with nothing to pay shows the control greyed, not missing.** `RowAction` gained `disabled` + `disabledReason`, honoured by both the desktop icon strip and the mobile sheet. Omitting it would shift View, Edit and Delete one place left on some rows and turn a familiar position into a misclick — which is why this differs from the "hide an affordance that can only fail" rule used for Create lease (see the decision log for when each applies)
+- [x] Reuses **`RecordPaymentDialog`**, not the payments page's picker version: the row already determines the invoice, so asking which one would be asking a question whose answer is known. Keyed on the lease id so opening a different row re-seeds the form rather than syncing in an effect
+- [x] Verified on desktop: all four rows list the same four actions in the same order; the Paid row's payment button measures **`disabled`, opacity 0.5, `title="Fully paid"`**, and clicking it opens nothing, while the enabled one opens on the right invoice (Hassan: total 1,140,000 / paid 0 / balance 1,140,000)
+- [x] A disabled action renders as a `<button>` even where it would normally be a link — an anchor has no disabled state, and `pointer-events-none` would leave it focusable and followable by keyboard
+- [x] Recorded end to end through it using an expression — `50000*2` folded to `100,000` on blur and saved as 100,000; the lease row stayed Partial with a balance still outstanding and continued to offer the action. **Test payment deleted**, back to the original three
+- [x] **Mobile carried through**: the sheet lists all four in the same order, with the unavailable one greyed at opacity 0.5 and its reason ("Fully paid") set to the right of the label — a greyed row with no explanation only raises the question. No horizontal overflow. `tsc` and lint clean
+
 ### Not done
 - [ ] **Sticky filters cover the four global list pages only** — per-entity tables (a property's units, a lease's payments, a member's leases) would need an id in the `stateKey` so one entity's filters can't surface on another's.
 - [ ] **Leases created before the billing migration have no invoice**, so they can't be paid at all — the Billing tab reads "No invoice exists for this lease yet" and there is no UI to create one. Needs either a backfill script or an "Issue invoice" action on that empty state.

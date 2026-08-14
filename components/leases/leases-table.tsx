@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { EyeIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, PencilIcon, PlusIcon, Trash2Icon, WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { LeaseCard } from "@/components/leases/lease-card";
 import { buildLeaseColumns } from "@/components/leases/lease-columns";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
+import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable, type RowAction } from "@/components/ui/data-table";
 import { INVOICE_STATUSES } from "@/lib/invoice-types";
@@ -32,31 +33,54 @@ export function LeasesTable({
   const [formOpen, setFormOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<LeaseRow | null>(null);
   const [deleting, setDeleting] = React.useState<LeaseRow | null>(null);
+  const [paying, setPaying] = React.useState<LeaseRow | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const rowActions = React.useCallback(
-    (lease: LeaseRow): RowAction[] => [
-      {
-        label: `View lease for ${lease.tenantName}`,
-        icon: EyeIcon,
-        href: `/leases/${lease.id}`,
-      },
-      {
-        label: `Edit lease for ${lease.tenantName}`,
-        icon: PencilIcon,
-        onSelect: () => setEditing(lease),
-      },
-      {
-        label: `Delete lease for ${lease.tenantName}`,
-        icon: Trash2Icon,
-        tone: "destructive",
-        onSelect: () => {
-          setError(null);
-          setDeleting(lease);
+    (lease: LeaseRow): RowAction[] => {
+      const balance = lease.invoice
+        ? lease.invoice.amount - lease.invoice.paid
+        : 0;
+
+      return [
+        /*
+         * Payment leads: it is the routine job on this page, and the actions
+         * stay in one order on every row — a lease with nothing to pay shows
+         * the control greyed rather than dropping it, because omitting it
+         * would shift View, Edit and Delete one place left and turn a familiar
+         * position into a misclick.
+         */
+        {
+          label: `Make payment for ${lease.tenantName}`,
+          icon: WalletIcon,
+          onSelect: () => setPaying(lease),
+          disabled: balance <= 0,
+          disabledReason: !lease.invoice
+            ? "No invoice yet"
+            : "Fully paid",
         },
-      },
-    ],
+        {
+          label: `View lease for ${lease.tenantName}`,
+          icon: EyeIcon,
+          href: `/leases/${lease.id}`,
+        },
+        {
+          label: `Edit lease for ${lease.tenantName}`,
+          icon: PencilIcon,
+          onSelect: () => setEditing(lease),
+        },
+        {
+          label: `Delete lease for ${lease.tenantName}`,
+          icon: Trash2Icon,
+          tone: "destructive",
+          onSelect: () => {
+            setError(null);
+            setDeleting(lease);
+          },
+        },
+      ];
+    },
     []
   );
 
@@ -170,6 +194,24 @@ export function LeasesTable({
             startDate: editing.startDate,
             durationMonths: editing.durationMonths,
             monthlyRent: editing.monthlyRent,
+          }}
+        />
+      )}
+
+      {/* The invoice is fixed by the row that opened this, so it uses the
+          lease's own dialog — the picker version would ask which invoice when
+          the answer is already known. Keyed on the lease so opening a
+          different row re-seeds the form rather than syncing in an effect. */}
+      {paying?.invoice && (
+        <RecordPaymentDialog
+          key={paying.id}
+          open
+          onOpenChange={(open) => !open && setPaying(null)}
+          invoice={{
+            id: paying.invoice.id,
+            amount: paying.invoice.amount,
+            paid: paying.invoice.paid,
+            balance: paying.invoice.amount - paying.invoice.paid,
           }}
         />
       )}
