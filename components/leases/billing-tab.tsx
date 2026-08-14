@@ -126,7 +126,6 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
       <DataTable
         columns={columns}
         data={rows}
-        searchColumnId="method"
         searchPlaceholder="Search payments…"
         facetFilters={[
           {

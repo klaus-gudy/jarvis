@@ -58,6 +58,13 @@ export type PaymentRow = {
   invoiceId: string;
   invoiceReference: string;
   invoiceAmount: number;
+  /**
+   * Total paid against the parent invoice, for the row's "Make payment"
+   * action — **not for display**. Phase 34 removed the balance *column*
+   * because, repeated on every payment of one invoice, it read as a
+   * per-payment figure; that reasoning is about showing it, not carrying it.
+   */
+  invoicePaid: number;
   /** The parent invoice's status *now*, after every payment on it. */
   invoiceStatus: InvoiceStatus;
   leaseId: string;
@@ -119,6 +126,7 @@ export async function getPayments(organizationId: string): Promise<PaymentRow[]>
       invoiceId: invoice.id,
       invoiceReference: invoiceReference(invoice.id),
       invoiceAmount: invoice.amount,
+      invoicePaid,
       invoiceStatus: deriveInvoiceStatus(invoice.amount, invoicePaid),
       leaseId: invoice.leaseId,
       tenantName: displayName(invoice.lease.membership.user),

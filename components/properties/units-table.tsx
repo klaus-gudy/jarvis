@@ -150,7 +150,6 @@ export function UnitsTable({
       <DataTable
         columns={columns}
         data={units}
-        searchColumnId="label"
         searchPlaceholder="Filter units…"
         facetFilters={[
           {

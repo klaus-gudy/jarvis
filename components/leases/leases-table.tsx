@@ -126,7 +126,6 @@ export function LeasesTable({
         stateKey="leases"
         columns={columns}
         data={leases}
-        searchColumnId="tenantName"
         searchPlaceholder="Search leases…"
         facetFilters={[
           {

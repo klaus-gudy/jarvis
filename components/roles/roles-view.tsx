@@ -92,7 +92,6 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
         stateKey="roles"
         columns={columns}
         data={roles}
-        searchColumnId="name"
         searchPlaceholder="Search roles…"
         facetFilters={[
           {

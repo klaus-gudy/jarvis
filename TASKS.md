@@ -585,6 +585,32 @@ Took three attempts, each fixing the previous one's fault.
 - [x] Recorded end to end through it using an expression — `50000*2` folded to `100,000` on blur and saved as 100,000; the lease row stayed Partial with a balance still outstanding and continued to offer the action. **Test payment deleted**, back to the original three
 - [x] **Mobile carried through**: the sheet lists all four in the same order, with the unavailable one greyed at opacity 0.5 and its reason ("Fully paid") set to the right of the label — a greyed row with no explanation only raises the question. No horizontal overflow. `tsc` and lint clean
 
+## Phase 55 — Primary row action on tenants and payments
+
+Both follow Phase 54's shape: the page's main job leads, and an unavailable
+action is greyed with a reason rather than dropped.
+
+- [x] **Tenants: "Assign lease"**, first of four (Assign lease → View → Edit → Remove). Enabled for **Prospect and Vacated**, greyed for Active and Upcoming, since a tenant already in a unit isn't the one you're placing
+- [x] Reuses `LeaseFormDialog` with **`lockedTenantId`** — the same guard the member page uses, so a lease started from someone's row can't quietly end up belonging to another tenant. Confirmed live: the Tenant field reads "Rehema Joseph" and is disabled
+- [x] `app/(app)/tenants/page.tsx` now also fetches `getLeaseOptions` — the same free-unit list the leases page builds its form from — in the existing `Promise.all`
+- [x] **Payments: "Add payment to INV-…"**, ahead of Remove. The row already names the invoice, so this opens the fixed `RecordPaymentDialog` rather than the picker the page's own button uses. Greyed once that invoice is settled
+- [x] `PaymentRow` gained **`invoicePaid`**, which `getPayments` already computed and threw away. Worth noting against Phase 34, which removed the balance *column*: that decision was about **showing** a per-invoice figure on every payment row, where it read as per-payment. Carrying it as data for a dialog is a different thing, and the type says so
+- [x] Verified on desktop — tenants: Prospect and Vacated enabled at opacity 1, all three Active rows `disabled` at **opacity 0.5** with `title="Already in a unit"`, order identical on every row. Payments: Amani's two Partial rows enabled, Neema's Paid row greyed with "Fully paid", and the dialog opens on the right invoice (600,000 / 400,000 paid / 200,000 balance) with no picker
+- [x] Verified on mobile — both sheets list the same actions in the same order with the unavailable one greyed and its reason beside the label. No horizontal overflow
+- [x] **Found and removed leftover test data**: a 200,000 Cash payment dated 14 Aug, created during an earlier verification round trip and not successfully deleted then — it had quietly settled Amani's invoice, which is why every payment row first appeared as "Fully paid". Amani is back to Partial (400,000 of 600,000) and the three seeded payments (all 10 Aug) are all that remain
+
+## Phase 56 — Table search goes global; tenants filter by property
+
+- [x] **The search box now searches every column**, via TanStack's global filter instead of one nominated column. On tenants that turns a name-only box into one that also finds by phone, unit, property and status — verified: `0754567890` → Baraka, `Z1` → Amani, `Likely` → 5 tenants, `Vacated` → Hassan, and `Rehema` still → Rehema
+- [x] **Placeholders are unchanged** ("Search tenants…", "Search leases…", "Filter units…") — they name the thing being searched, not the field, so they were already right
+- [x] `globalFilterFn` set explicitly to `includesString` rather than the `auto` default, which picks a matcher from the value's type and would rank-sort some columns while substring-matching others
+- [x] **`searchColumnId` deleted from the API and all nine call sites**, replaced by `searchable` (default true). Leaving it would have been a prop that no longer does what its name says. Columns with no accessor — the select checkbox, the actions cell — are excluded by TanStack automatically
+- [x] The search is remembered per table alongside sorting and filters (`StickyTableState` gained `globalFilter`), preserving the behaviour it had as a column filter, and it resets the mobile reveal window through its own handler now that it no longer arrives via `handleColumnFiltersChange`
+- [x] **Tenants gained a Property facet**, options drawn from the tenants on screen so it can't offer a property with nobody in it. A tenant with no unit carries `null` and is excluded once a property is chosen, which is correct — they aren't in any of them. Verified: "Likely" → 5 of 6, Reset → 6
+- [x] Mobile carried through: global search works in the card list (`Z3` → Baraka), and the filter sheet shows Property and Status as chip groups. No horizontal overflow
+- [x] **Known limitation**: the global filter matches *accessor* values, not rendered cells, so a date column stores an ISO string and won't match "10 Aug". Amounts match unformatted (`600000`, not `600,000`). Worth a `accessorFn` returning the display string on those columns if it ever matters
+- [x] `tsc` and lint clean
+
 ### Not done
 - [ ] **Sticky filters cover the four global list pages only** — per-entity tables (a property's units, a lease's payments, a member's leases) would need an id in the `stateKey` so one entity's filters can't surface on another's.
 - [ ] **Leases created before the billing migration have no invoice**, so they can't be paid at all — the Billing tab reads "No invoice exists for this lease yet" and there is no UI to create one. Needs either a backfill script or an "Issue invoice" action on that empty state.

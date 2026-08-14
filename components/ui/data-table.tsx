@@ -99,6 +99,7 @@ const MOBILE_PAGE = 8;
 type StickyTableState = {
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
+  globalFilter: string;
 };
 
 /**
@@ -118,7 +119,7 @@ const stickyTableState = new Map<string, StickyTableState>();
 export function DataTable<TData, TValue>({
   columns,
   data,
-  searchColumnId,
+  searchable = true,
   searchPlaceholder = "Search…",
   facetFilters = [],
   pageSize = 10,
@@ -130,7 +131,17 @@ export function DataTable<TData, TValue>({
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
-  searchColumnId?: string;
+  /**
+   * The box searches **every column**, not one nominated field, so a tenant can
+   * be found by phone or unit as readily as by name. Placeholders stay
+   * table-specific ("Search leases…") because they name the thing being
+   * searched, not the field.
+   *
+   * Columns with no accessor — the select checkbox, the actions cell — are
+   * excluded by TanStack automatically, as are values that aren't strings or
+   * numbers.
+   */
+  searchable?: boolean;
   searchPlaceholder?: string;
   facetFilters?: FacetFilter[];
   pageSize?: number;
@@ -173,6 +184,9 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     remembered?.columnFilters ?? []
   );
+  const [globalFilter, setGlobalFilter] = React.useState(
+    remembered?.globalFilter ?? ""
+  );
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
@@ -183,7 +197,12 @@ export function DataTable<TData, TValue>({
    */
   function remember(next: Partial<StickyTableState>) {
     if (!stateKey) return;
-    stickyTableState.set(stateKey, { sorting, columnFilters, ...next });
+    stickyTableState.set(stateKey, {
+      sorting,
+      columnFilters,
+      globalFilter,
+      ...next,
+    });
   }
 
   const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
@@ -200,8 +219,16 @@ export function DataTable<TData, TValue>({
     const next = typeof updater === "function" ? updater(columnFilters) : updater;
     setColumnFilters(next);
     remember({ columnFilters: next });
-    // Covers the search box too — it filters through `column.setFilterValue`,
-    // so every narrowing of the list arrives here.
+    setVisibleCount(MOBILE_PAGE);
+  };
+
+  const handleGlobalFilterChange: OnChangeFn<string> = (updater) => {
+    const next = typeof updater === "function" ? updater(globalFilter) : updater;
+    setGlobalFilter(next);
+    remember({ globalFilter: next });
+    // The search narrows the list too, so the mobile window resets with it —
+    // it no longer arrives through `handleColumnFiltersChange`, which is where
+    // this used to be handled when search was a column filter.
     setVisibleCount(MOBILE_PAGE);
   };
 
@@ -214,6 +241,10 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: handleSortingChange,
     onColumnFiltersChange: handleColumnFiltersChange,
+    onGlobalFilterChange: handleGlobalFilterChange,
+    // Explicit rather than the `auto` default, which picks a matcher from the
+    // value's type and would rank-sort some columns and substring-match others.
+    globalFilterFn: "includesString",
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     /**
@@ -234,10 +265,14 @@ export function DataTable<TData, TValue>({
       return typeof id === "string" ? id : String(index);
     },
     initialState: { pagination: { pageSize } },
-    state: { sorting, columnFilters, columnVisibility, rowSelection },
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      globalFilter,
+    },
   });
-
-  const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined;
   const selectedCount = table.getFilteredSelectedRowModel().rows.length;
   const filteredCount = table.getFilteredRowModel().rows.length;
 
@@ -263,10 +298,10 @@ export function DataTable<TData, TValue>({
           `-mx-4 px-4` bleeds it to the edges of the page's own p-4 gutter.
         */}
         <div className="sticky top-0 z-20 -mx-4 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
-          {searchColumn && (
+          {searchable && (
             <Input
-              value={(searchColumn.getFilterValue() as string) ?? ""}
-              onChange={(event) => searchColumn.setFilterValue(event.target.value)}
+              value={globalFilter}
+              onChange={(event) => table.setGlobalFilter(event.target.value)}
               placeholder={searchPlaceholder}
               className="h-9 flex-1 bg-card"
               aria-label={searchPlaceholder}
@@ -529,10 +564,10 @@ export function DataTable<TData, TValue>({
   return (
     <Card className="gap-4 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        {searchColumn && (
+        {searchable && (
           <Input
-            value={(searchColumn.getFilterValue() as string) ?? ""}
-            onChange={(event) => searchColumn.setFilterValue(event.target.value)}
+            value={globalFilter}
+            onChange={(event) => table.setGlobalFilter(event.target.value)}
             placeholder={searchPlaceholder}
             className="h-8 w-full max-w-3xs bg-background"
             aria-label={searchPlaceholder}

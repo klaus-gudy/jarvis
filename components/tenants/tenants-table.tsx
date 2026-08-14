@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   EyeIcon,
+  FileTextIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
@@ -12,6 +13,7 @@ import {
 import { toast } from "sonner";
 
 import { ImportDialog } from "@/components/import-dialog";
+import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
 import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { TenantCard } from "@/components/tenants/tenant-card";
 import { buildTenantColumns } from "@/components/tenants/tenant-columns";
@@ -26,15 +28,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { LeaseOptions } from "@/lib/leases";
 import type { TenantRow } from "@/lib/tenants";
 import type { CreateTenantInput } from "@/lib/tenants-schemas";
 
-export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
+/** A tenant can be given a lease only when they aren't in one already. */
+const CAN_ASSIGN_LEASE: Record<TenantRow["status"], boolean> = {
+  Prospect: true,
+  Vacated: true,
+  Active: false,
+  Upcoming: false,
+};
+
+export function TenantsTable({
+  tenants,
+  leaseOptions,
+}: {
+  tenants: TenantRow[];
+  leaseOptions: LeaseOptions;
+}) {
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<TenantRow | null>(null);
   const [editing, setEditing] = React.useState<TenantRow | null>(null);
+  const [assigning, setAssigning] = React.useState<TenantRow | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -45,6 +63,21 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
    */
   const rowActions = React.useCallback(
     (tenant: TenantRow): RowAction[] => [
+      /*
+       * Leads, because putting a tenant into a unit is the job this page
+       * exists for. Greyed rather than dropped when they are already in one,
+       * so the four actions keep the same position on every row.
+       */
+      {
+        label: `Assign lease to ${tenant.name}`,
+        icon: FileTextIcon,
+        onSelect: () => setAssigning(tenant),
+        disabled: !CAN_ASSIGN_LEASE[tenant.status],
+        disabledReason:
+          tenant.status === "Active"
+            ? "Already in a unit"
+            : "Lease already signed",
+      },
       {
         label: `View ${tenant.name}`,
         icon: EyeIcon,
@@ -119,9 +152,25 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
         stateKey="tenants"
         columns={columns}
         data={tenants}
-        searchColumnId="name"
         searchPlaceholder="Search tenants…"
         facetFilters={[
+          {
+            columnId: "propertyName",
+            placeholder: "All properties",
+            label: "Property",
+            // From the tenants on screen, so the list can't offer a property
+            // with nobody in it. Tenants with no unit yet carry null and are
+            // simply excluded once a property is chosen.
+            options: [
+              ...new Set(
+                tenants
+                  .map((tenant) => tenant.propertyName)
+                  .filter((name): name is string => name !== null)
+              ),
+            ]
+              .sort()
+              .map((name) => ({ label: name, value: name })),
+          },
           {
             columnId: "status",
             placeholder: "All statuses",
@@ -139,6 +188,19 @@ export function TenantsTable({ tenants }: { tenants: TenantRow[] }) {
         renderCard={(tenant) => <TenantCard tenant={tenant} />}
         rowActions={rowActions}
       />
+
+      {/* The tenant is fixed by the row that opened it — `lockedTenantId` is
+          the same guard the member page uses, so a lease started from someone's
+          row can't quietly end up belonging to another tenant. */}
+      {assigning && (
+        <LeaseFormDialog
+          key={assigning.membershipId}
+          open
+          onOpenChange={(open) => !open && setAssigning(null)}
+          options={leaseOptions}
+          lockedTenantId={assigning.membershipId}
+        />
+      )}
 
       <MemberEditDialog
         key={`edit-${editing?.membershipId ?? "none"}`}

@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, Trash2Icon, WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
 import { MakePaymentDialog } from "@/components/payments/make-payment-dialog";
 import { PaymentCard } from "@/components/payments/payment-card";
 import { buildPaymentColumns } from "@/components/payments/payment-columns";
@@ -33,21 +34,39 @@ export function PaymentsTable({
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<PaymentRow | null>(null);
+  const [paying, setPaying] = React.useState<PaymentRow | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const rowActions = React.useCallback(
-    (payment: PaymentRow): RowAction[] => [
-      {
-        label: `Remove payment of ${payment.amount}`,
-        icon: Trash2Icon,
-        tone: "destructive",
-        onSelect: () => {
-          setError(null);
-          setDeleting(payment);
+    (payment: PaymentRow): RowAction[] => {
+      const balance = payment.invoiceAmount - payment.invoicePaid;
+
+      return [
+        /*
+         * Adding to the same invoice is the common follow-up on this page —
+         * the row already names the invoice, so there is nothing to look up.
+         * Greyed once that invoice is settled, keeping both actions in the
+         * same position on every row.
+         */
+        {
+          label: `Add payment to ${payment.invoiceReference}`,
+          icon: WalletIcon,
+          onSelect: () => setPaying(payment),
+          disabled: balance <= 0,
+          disabledReason: "Fully paid",
         },
-      },
-    ],
+        {
+          label: `Remove payment of ${payment.amount}`,
+          icon: Trash2Icon,
+          tone: "destructive",
+          onSelect: () => {
+            setError(null);
+            setDeleting(payment);
+          },
+        },
+      ];
+    },
     []
   );
 
@@ -95,7 +114,6 @@ export function PaymentsTable({
         stateKey="payments"
         columns={columns}
         data={payments}
-        searchColumnId="tenantName"
         searchPlaceholder="Search payments…"
         facetFilters={[
           {
@@ -139,6 +157,22 @@ export function PaymentsTable({
         onOpenChange={setFormOpen}
         invoices={payableInvoices}
       />
+
+      {/* Row-level: the invoice comes from the row, so this uses the fixed
+          dialog rather than the picker the page's own button opens. */}
+      {paying && (
+        <RecordPaymentDialog
+          key={paying.id}
+          open
+          onOpenChange={(open) => !open && setPaying(null)}
+          invoice={{
+            id: paying.invoiceId,
+            amount: paying.invoiceAmount,
+            paid: paying.invoicePaid,
+            balance: paying.invoiceAmount - paying.invoicePaid,
+          }}
+        />
+      )}
 
       <Dialog
         open={deleting !== null}

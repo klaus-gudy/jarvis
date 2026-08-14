@@ -104,6 +104,10 @@ export function buildTenantColumns({
         row.original.propertyName ?? (
           <span className="text-muted-foreground">—</span>
         ),
+      // Exact match, not the default substring: a facet offering "Likely" must
+      // not also sweep in "Likely Annex". A tenant with no property is null and
+      // matches nothing, which is right — they aren't in any of them.
+      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
     },
     {
       accessorKey: "unitLabel",
