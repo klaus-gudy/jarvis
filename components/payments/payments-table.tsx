@@ -99,6 +99,16 @@ export function PaymentsTable({
         searchPlaceholder="Search payments…"
         facetFilters={[
           {
+            columnId: "propertyName",
+            placeholder: "All properties",
+            label: "Property",
+            // Derived from the rows on screen rather than a separate query, so
+            // the list can never offer a property with nothing to show.
+            options: [...new Set(payments.map((p) => p.propertyName))]
+              .sort()
+              .map((name) => ({ label: name, value: name })),
+          },
+          {
             columnId: "invoiceStatus",
             placeholder: "All invoice statuses",
             label: "Invoice status",

@@ -10,6 +10,7 @@ import { buildLeaseColumns } from "@/components/leases/lease-columns";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable, type RowAction } from "@/components/ui/data-table";
+import { INVOICE_STATUSES } from "@/lib/invoice-types";
 import {
   Dialog,
   DialogContent,
@@ -105,9 +106,29 @@ export function LeasesTable({
         searchPlaceholder="Search leases…"
         facetFilters={[
           {
+            columnId: "propertyName",
+            placeholder: "All properties",
+            label: "Property",
+            // From the rows themselves, not `options.properties`: that list
+            // includes properties with no lease yet, which would filter to an
+            // empty table.
+            options: [...new Set(leases.map((lease) => lease.propertyName))]
+              .sort()
+              .map((name) => ({ label: name, value: name })),
+          },
+          {
+            columnId: "invoiceStatus",
+            placeholder: "All invoice statuses",
+            label: "Invoice status",
+            options: INVOICE_STATUSES.map((status) => ({
+              label: status,
+              value: status,
+            })),
+          },
+          {
             columnId: "status",
             placeholder: "All statuses",
-            label: "Status",
+            label: "Lease status",
             options: [
               { label: "Active", value: "Active" },
               { label: "Upcoming", value: "Upcoming" },

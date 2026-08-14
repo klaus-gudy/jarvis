@@ -16,7 +16,14 @@ export function PaymentCard({ payment }: { payment: PaymentRow }) {
   return (
     <div className="min-w-0 space-y-2">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate font-medium">{payment.tenantName}</p>
+        <div className="min-w-0">
+          <p className="truncate font-medium">{payment.tenantName}</p>
+          {/* Now that the list can be filtered by property, the card has to
+              say which one a row belongs to. */}
+          <p className="truncate text-xs text-muted-foreground">
+            {payment.propertyName} / {payment.unitLabel}
+          </p>
+        </div>
         <span className="shrink-0 font-mono text-sm tabular-nums">
           {formatCurrencyFull(payment.amount)}
         </span>
@@ -24,6 +31,10 @@ export function PaymentCard({ payment }: { payment: PaymentRow }) {
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span className="font-mono">{payment.invoiceReference}</span>
+        <span>·</span>
+        <span className="font-mono tabular-nums">
+          {formatCurrencyFull(payment.invoiceAmount)}
+        </span>
         <Badge
           variant={INVOICE_STATUS_VARIANT[payment.invoiceStatus]}
           className="rounded-full font-normal"

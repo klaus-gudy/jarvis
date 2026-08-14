@@ -82,6 +82,9 @@ export function buildLeaseColumns({
         />
       ),
       cell: ({ row }) => row.original.propertyName,
+      // Exact match, not TanStack's default substring behaviour — a facet
+      // offering "Likely" must not also match "Likely Annex".
+      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
     },
     {
       accessorKey: "unitLabel",

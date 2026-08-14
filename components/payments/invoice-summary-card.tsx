@@ -10,28 +10,21 @@ import { formatCurrencyFull } from "@/lib/format";
  * see before typing a figure is the same either way, so the breakdown is
  * defined once rather than copied into the second dialog.
  *
- * `reference` is shown only where the invoice was chosen from a list, since on
- * a lease there is nothing to distinguish it from.
+ * Deliberately no reference row: on the payments page the picker directly
+ * above already names the invoice, and on a lease there is only one — either
+ * way it would be restating what the surrounding UI just said.
  */
 export function InvoiceSummaryCard({
-  reference,
   amount,
   paid,
   balance,
 }: {
-  reference?: string;
   amount: number;
   paid: number;
   balance: number;
 }) {
   return (
     <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
-      {reference && (
-        <div className="mb-1 flex items-center justify-between gap-3 border-b pb-1.5">
-          <span className="text-muted-foreground">Invoice</span>
-          <span className="font-mono text-xs font-medium">{reference}</span>
-        </div>
-      )}
       <div className="flex items-center justify-between gap-3">
         <span className="text-muted-foreground">Invoice total</span>
         <span className="font-mono tabular-nums">

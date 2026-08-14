@@ -62,6 +62,13 @@ export type PaymentRow = {
   invoiceStatus: InvoiceStatus;
   leaseId: string;
   tenantName: string;
+  /**
+   * Re-added after Phase 34 dropped it: the payments table filters by property,
+   * and a facet needs the value on the row. Org scoping is still done by the
+   * `where` clause, never by this include.
+   */
+  propertyName: string;
+  unitLabel: string;
 };
 
 /** Every payment recorded in the organization, newest first. */
@@ -82,6 +89,12 @@ export async function getPayments(organizationId: string): Promise<PaymentRow[]>
                 membership: {
                   include: {
                     user: { select: { name: true, email: true, phone: true } },
+                  },
+                },
+                unit: {
+                  select: {
+                    label: true,
+                    property: { select: { name: true } },
                   },
                 },
               },
@@ -109,6 +122,8 @@ export async function getPayments(organizationId: string): Promise<PaymentRow[]>
       invoiceStatus: deriveInvoiceStatus(invoice.amount, invoicePaid),
       leaseId: invoice.leaseId,
       tenantName: displayName(invoice.lease.membership.user),
+      propertyName: invoice.lease.unit.property.name,
+      unitLabel: invoice.lease.unit.label,
     };
   });
 }

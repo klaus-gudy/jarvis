@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AmountInput } from "@/components/payments/amount-input";
 import { InvoiceSummaryCard } from "@/components/payments/invoice-summary-card";
 import { evaluateAmount } from "@/lib/amount-expression";
 import { formatMoneyFull } from "@/lib/format";
@@ -65,18 +66,6 @@ export function RecordPaymentDialog({
   const amountResult = React.useMemo(() => evaluateAmount(amount), [amount]);
   const amountValue = amountResult.status === "ok" ? amountResult.value : null;
 
-  /**
-   * Folds the sum into its result when the field is left: "250000*4" becomes
-   * "1,000,000" in the box itself. The answer belongs where the question was
-   * asked — a caption underneath means reading two places to know what will be
-   * saved. Grouped, because a bare 1000000 is hard to check at a glance.
-   *
-   * On blur rather than on every keystroke, which would fight the typing.
-   */
-  function normalizeAmount() {
-    if (amountValue === null) return;
-    setAmount(formatMoneyFull(amountValue));
-  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -152,21 +141,10 @@ export function RecordPaymentDialog({
                 <FieldLabel htmlFor="payment-amount" required>
                   Amount
                 </FieldLabel>
-                {/*
-                  `text`, not `number`: a number input silently refuses every
-                  character that isn't part of a number, so "250000*5" could
-                  never be typed into one. The cost is that mobile opens a full
-                  keyboard rather than a numeric pad — which is the trade the
-                  operators are for.
-                */}
-                <Input
+                <AmountInput
                   id="payment-amount"
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  onBlur={normalizeAmount}
+                  onValueChange={setAmount}
                   placeholder={formatMoneyFull(balance)}
                   required
                 />

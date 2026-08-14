@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AmountInput } from "@/components/payments/amount-input";
 import { InvoiceSummaryCard } from "@/components/payments/invoice-summary-card";
 import { evaluateAmount } from "@/lib/amount-expression";
 import { CURRENCY, formatCurrencyFull, formatMoneyFull } from "@/lib/format";
@@ -93,15 +94,6 @@ export function MakePaymentDialog({
     amountValue !== null &&
     amountValue > selectedInvoice.balance;
 
-  /**
-   * Folds the sum into its result when the field is left: "250000*4" becomes
-   * "1,000,000" in the box itself, grouped so it can be checked at a glance.
-   * On blur rather than per keystroke, which would fight the typing.
-   */
-  function normalizeAmount() {
-    if (amountValue === null) return;
-    setAmount(formatMoneyFull(amountValue));
-  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -217,7 +209,6 @@ export function MakePaymentDialog({
 
             {selectedInvoice && (
               <InvoiceSummaryCard
-                reference={selectedInvoice.reference}
                 amount={selectedInvoice.amount}
                 paid={selectedInvoice.paid}
                 balance={selectedInvoice.balance}
@@ -229,19 +220,10 @@ export function MakePaymentDialog({
                 <FieldLabel htmlFor="payment-amount" required>
                   Amount ({CURRENCY})
                 </FieldLabel>
-                {/*
-                  `text`, not `number`: a number input silently refuses every
-                  character that isn't part of a number, so "250000*5" could
-                  never be typed into one.
-                */}
-                <Input
+                <AmountInput
                   id="payment-amount"
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  onBlur={normalizeAmount}
+                  onValueChange={setAmount}
                   placeholder={
                     selectedInvoice
                       ? formatMoneyFull(selectedInvoice.balance)

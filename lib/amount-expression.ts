@@ -180,6 +180,70 @@ function parse(tokens: Token[]): number | null {
   return result;
 }
 
+/** Groups the whole part of one number: "500000" -> "500,000". */
+function groupChunk(chunk: string): string {
+  const cleaned = chunk.replace(/,/g, "");
+  const dot = cleaned.indexOf(".");
+  const whole = dot === -1 ? cleaned : cleaned.slice(0, dot);
+  const rest = dot === -1 ? "" : cleaned.slice(dot);
+  // ".5" and "." have nothing to group; leave them for the parser to judge.
+  if (whole === "") return cleaned;
+  return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + rest;
+}
+
+/**
+ * Groups every number in the text while leaving operators alone, so an
+ * expression reads correctly *while it is being typed*: "500000*3" shows as
+ * "500,000*3" rather than staying unreadable until it is evaluated.
+ *
+ * Safe to run on each keystroke because the parser treats commas as
+ * separators — grouping never changes what the expression means.
+ */
+export function groupAmountDigits(text: string): string {
+  let out = "";
+  let index = 0;
+
+  while (index < text.length) {
+    if (/[\d.,]/.test(text[index])) {
+      let chunk = "";
+      while (index < text.length && /[\d.,]/.test(text[index])) {
+        chunk += text[index];
+        index += 1;
+      }
+      out += groupChunk(chunk);
+      continue;
+    }
+    out += text[index];
+    index += 1;
+  }
+
+  return out;
+}
+
+/**
+ * Where the caret should sit after grouping inserted or removed commas.
+ *
+ * Counts the characters that actually carry meaning (everything but commas)
+ * before the caret, then finds that same position in the grouped string —
+ * without this, typing into the middle of an amount throws the caret to the
+ * end on every keystroke.
+ */
+export function caretAfterGrouping(
+  raw: string,
+  caret: number,
+  formatted: string
+): number {
+  const significant = raw.slice(0, caret).replace(/,/g, "").length;
+  if (significant === 0) return 0;
+
+  let seen = 0;
+  for (let index = 0; index < formatted.length; index += 1) {
+    if (formatted[index] !== ",") seen += 1;
+    if (seen === significant) return index + 1;
+  }
+  return formatted.length;
+}
+
 export function evaluateAmount(input: string): AmountResult {
   const trimmed = input.trim();
   if (trimmed === "") return { status: "empty" };

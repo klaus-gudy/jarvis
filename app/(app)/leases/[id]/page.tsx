@@ -4,6 +4,7 @@ import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { BillingTab } from "@/components/leases/billing-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
+import { InvoiceProgress } from "@/components/leases/invoice-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,16 +93,31 @@ export default async function LeaseDetailPage({
           <TabsTrigger value="overview" className="flex-none px-3">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="billing" className="flex-none px-3">
+          <TabsTrigger value="billing" className="flex-none gap-2 px-3">
             Billing
+            {/* How many payments have been recorded, matching the count badges
+                the Units and Users tabs already carry. Hidden at zero — a "0"
+                beside a tab reads as a problem rather than as a total. */}
+            {invoice && invoice.payments.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {invoice.payments.length}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="contract" className="flex-none px-3">
             Contract
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-5 pt-5">
-          <div className="grid gap-5 lg:grid-cols-2">
+        {/*
+          All four cards in one 2×2 grid, rather than two side by side and two
+          stacked full-width beneath. The old shape gave Lease terms and Invoice
+          the whole width for six short rows each, which left them mostly empty
+          and pushed the invoice below the fold. Each card's `<dl>` is a single
+          column now that the card itself is half-width.
+        */}
+        <TabsContent value="overview" className="pt-5">
+          <div className="grid items-start gap-5 lg:grid-cols-2">
             <Card>
               <CardHeader className="border-b">
                 <CardTitle className="text-base">Tenant</CardTitle>
@@ -158,109 +174,101 @@ export default async function LeaseDetailPage({
                 </dl>
               </CardContent>
             </Card>
-          </div>
 
-          <Card>
-            <CardHeader className="border-b">
-              <CardTitle className="text-base">Lease terms</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {/* Two columns on wide screens. DetailRow's own `last:after:hidden`
-                  only clears the final cell, so the whole bottom row is cleared
-                  here — otherwise the second-to-last cell keeps a stray divider. */}
-              <dl className="md:grid md:grid-cols-2 md:[&>*:nth-last-child(-n+2)]:after:hidden">
-                <DetailRow label="Start date" value={formatDate(lease.startDate)} />
-                <DetailRow label="End date" value={formatDate(lease.endDate)} />
-                <DetailRow
-                  label="Duration"
-                  value={`${lease.durationMonths} months`}
-                />
-                <DetailRow label="Payment frequency" value="Monthly" />
-                {/* The rate this lease was agreed at — not `unit.rentAmount`,
-                    which is the asking price and shown on the Unit info card.
-                    They differ whenever the rent was negotiated. */}
-                <DetailRow
-                  label="Monthly rent"
-                  value={
-                    <span className="font-mono tabular-nums">
-                      {formatCurrencyFull(lease.monthlyRent)}
-                    </span>
-                  }
-                />
-                <DetailRow
-                  label="Total lease amount"
-                  value={
-                    <span className="font-mono tabular-nums">
-                      {formatCurrencyFull(lease.leaseAmount)}
-                    </span>
-                  }
-                />
-              </dl>
-            </CardContent>
-          </Card>
-
-          {/* Same shape as Lease terms — the invoice is part of what this lease
-              *is*, so it reads here; the Billing tab is only the ledger. */}
-          <Card>
-            <CardHeader className="border-b">
-              <CardTitle className="text-base">Invoice</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {invoice ? (
-                <dl className="md:grid md:grid-cols-2 md:[&>*:nth-last-child(-n+2)]:after:hidden">
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="text-base">Lease terms</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <dl>
                   <DetailRow
-                    label="Reference"
-                    value={
-                      <span className="font-mono text-xs">{invoice.reference}</span>
-                    }
+                    label="Start date"
+                    value={formatDate(lease.startDate)}
                   />
+                  <DetailRow label="End date" value={formatDate(lease.endDate)} />
                   <DetailRow
-                    label="Status"
-                    value={
-                      <Badge
-                        variant={INVOICE_STATUS_VARIANT[invoice.status]}
-                        className="rounded-full font-normal"
-                      >
-                        {invoice.status}
-                      </Badge>
-                    }
+                    label="Duration"
+                    value={`${lease.durationMonths} months`}
                   />
+                  <DetailRow label="Payment frequency" value="Monthly" />
+                  {/* The rate this lease was agreed at — not `unit.rentAmount`,
+                      which is the asking price and shown on the Unit info card.
+                      They differ whenever the rent was negotiated. */}
                   <DetailRow
-                    label="Total amount"
+                    label="Monthly rent"
                     value={
                       <span className="font-mono tabular-nums">
-                        {formatCurrencyFull(invoice.amount)}
+                        {formatCurrencyFull(lease.monthlyRent)}
                       </span>
                     }
                   />
                   <DetailRow
-                    label="Due date"
-                    value={formatDate(invoice.dueDate)}
-                  />
-                  <DetailRow
-                    label="Paid so far"
+                    label="Total lease amount"
                     value={
                       <span className="font-mono tabular-nums">
-                        {formatCurrencyFull(invoice.paid)}
-                      </span>
-                    }
-                  />
-                  <DetailRow
-                    label="Balance remaining"
-                    value={
-                      <span className="font-mono tabular-nums">
-                        {formatCurrencyFull(invoice.balance)}
+                        {formatCurrencyFull(lease.leaseAmount)}
                       </span>
                     }
                   />
                 </dl>
-              ) : (
-                <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-                  No invoice exists for this lease yet.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* The invoice is part of what this lease *is*, so it reads here;
+                the Billing tab is only the ledger. */}
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="text-base">Invoice</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {invoice ? (
+                  <>
+                    {/* The bar replaces the Total / Paid so far / Balance rows
+                        that used to sit below — same three numbers, but a
+                        reader no longer has to subtract to see where the
+                        invoice stands. What remains are the facts a bar can't
+                        carry. */}
+                    <div className="px-6 py-4">
+                      <InvoiceProgress
+                        amount={invoice.amount}
+                        paid={invoice.paid}
+                        balance={invoice.balance}
+                      />
+                    </div>
+                    <dl className="border-t">
+                      <DetailRow
+                        label="Reference"
+                        value={
+                          <span className="font-mono text-xs">
+                            {invoice.reference}
+                          </span>
+                        }
+                      />
+                      <DetailRow
+                        label="Status"
+                        value={
+                          <Badge
+                            variant={INVOICE_STATUS_VARIANT[invoice.status]}
+                            className="rounded-full font-normal"
+                          >
+                            {invoice.status}
+                          </Badge>
+                        }
+                      />
+                      <DetailRow
+                        label="Due date"
+                        value={formatDate(invoice.dueDate)}
+                      />
+                    </dl>
+                  </>
+                ) : (
+                  <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+                    No invoice exists for this lease yet.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="billing" className="pt-5">

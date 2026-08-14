@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireActiveOrg } from "@/lib/api-auth";
+import { formatCurrencyFull } from "@/lib/format";
 import { recordPaymentSchema } from "@/lib/invoices-schemas";
 import { recordPayment } from "@/lib/invoices";
 
@@ -38,7 +39,10 @@ export async function POST(
         error: "Validation failed",
         issues: {
           amount: [
-            `That's more than the remaining balance of ${result.balance}`,
+            // Formatted, not raw: this message is shown verbatim under the
+            // field, and "200000" beside a form that groups everything else
+            // reads as a different kind of number.
+            `That's more than the remaining balance of ${formatCurrencyFull(result.balance)}`,
           ],
         },
       },

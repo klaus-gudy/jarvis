@@ -37,6 +37,24 @@ export function buildPaymentColumns({
       cell: ({ row }) => <PersonCell name={row.original.tenantName} />,
     },
     {
+      accessorKey: "propertyName",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          title="Property"
+          sorted={column.getIsSorted()}
+          onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-2"
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="whitespace-nowrap">
+          {row.original.propertyName}
+          <span className="text-muted-foreground"> / {row.original.unitLabel}</span>
+        </span>
+      ),
+      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+    },
+    {
       id: "invoiceAmount",
       accessorFn: (row) => row.invoiceAmount,
       header: ({ column }) => (
@@ -44,13 +62,21 @@ export function buildPaymentColumns({
           title="Invoiced"
           sorted={column.getIsSorted()}
           onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="-mr-2 ml-auto flex"
+          className="-ml-2"
         />
       ),
+      // Reference and amount on one line, not stacked: they name the same
+      // thing, and a two-line cell made every row twice as tall for it.
       cell: ({ row }) => (
-        <div className="text-right font-mono tabular-nums">
-          {formatCurrencyFull(row.original.invoiceAmount)}
-        </div>
+        <span className="whitespace-nowrap">
+          <span className="font-mono text-xs">
+            {row.original.invoiceReference}
+          </span>
+          <span className="text-muted-foreground"> · </span>
+          <span className="font-mono tabular-nums">
+            {formatCurrencyFull(row.original.invoiceAmount)}
+          </span>
+        </span>
       ),
     },
     {
