@@ -554,13 +554,25 @@ codebase now has a card view** — nine tables across eight surfaces.
 - [x] **The server's overpayment message is formatted**: `That's more than the remaining balance of TZS 200,000`, not `200000`. It is rendered verbatim under the field, so an ungrouped number there read as a different kind of figure
 - [x] **Make payment's card no longer repeats the invoice reference** — the picker directly above already names it. `reference` was removed from `InvoiceSummaryCard` entirely rather than left unused
 - [x] **Billing tab carries a payments count badge** (`Billing 2`), matching the Units and Users tabs. Hidden at zero: a "0" beside a tab reads as a problem rather than a total
-- [x] **Lease Overview restructured into a 2×2 grid** — Tenant | Unit info, Lease terms | Invoice. The old shape gave Lease terms and Invoice the full width for six short rows each and pushed the invoice below the fold. Each `<dl>` is single-column now the card is half-width. Verified at 1440px: four cards at 566px in two rows, no overflow
+- [x] ~~**Lease Overview restructured into a 2×2 grid**~~ — corrected in Phase 53 below: a grid aligns rows, and these cards are nowhere near equal height, so it left a hole. Now two independent columns
 - [x] **`InvoiceProgress`** replaces the invoice card's Total / Paid so far / Balance rows with a bar — the same three numbers, but the reader no longer has to subtract to see where the invoice stands. Reference, Status and Due date stay as rows beneath. Verified live: 67% for 400,000 of 600,000, `aria-valuenow` matching the fill width
 - [x] **Leases page gained Property and Invoice status filters**, alongside the existing lease status (relabelled "Lease status" now that two status facets sit side by side). Property options come from the rows themselves, not `getLeaseOptions` — that list includes properties with no lease yet, which would filter to an empty table
 - [x] `propertyName` on the lease column needed an explicit equality `filterFn`: TanStack's default is substring, so a facet offering "Likely" would also have matched "Likely Annex"
 - [x] **Payments page gained a Property filter and column**, and the Invoiced cell now reads `INV-UB3QG · TZS 600,000` on **one line** instead of stacked. `PaymentRow` regained `propertyName`/`unitLabel`, dropped back in Phase 34 — a facet needs the value on the row. Org scoping is still the `where` clause, never the include
 - [x] **Mobile carried through**: the filter sheet renders all three lease facets as chip groups (Property / Invoice status / Lease status) and fits without scrolling; payment cards show property and the inline invoice reference + amount; the Record payment dialog shows the invoice card and fits the viewport. No horizontal overflow on any page checked
 - [x] `tsc` and lint clean. No test data created — the overpayment probe returned 400, and payment counts are unchanged
+
+## Phase 53 — Lease Overview: two columns of equal height
+
+Took three attempts, each fixing the previous one's fault.
+
+- [x] **A 2×2 grid was wrong**: a grid aligns its *rows*, and Tenant (217px, three rows) sat beside Unit info (409px, seven), leaving a measured **192px hole** under Tenant. `items-start` only chose which fault to have — without it the short card stretches into blank space, with it the gap is simply empty
+- [x] **Independent columns fixed the hole but staggered the two sides** — a bento look, with the cards on one side offset against the other. Not wanted
+- [x] **Settled shape: two columns, equal height, whatever they hold.** The grid keeps its default `items-stretch` so both wrappers take the taller one's height, each wrapper is a flex column, and every card carries **`grow`** so the surplus is shared between the cards in the shorter column instead of pooling as a gap at the bottom. `grow`, not `flex-1`: the cards keep their content-based proportions and only the *extra* is divided, so Tenant doesn't get inflated to match Unit info
+- [x] Measured after: **both columns exactly 693px, both bottom edges at 989** — dead level. The 47px surplus split evenly between the two left-hand cards (+23px each), which is invisible at a glance
+- [x] Pairing is by meaning as well as balance — identity and location left (Tenant, Unit info), terms and money right (Lease terms, Invoice)
+- [x] **Mobile unaffected**: below `lg` the grid is one column, each wrapper is its own row, so there is no surplus and `grow` does nothing — heights measured back at their natural 217/409/361/312, order still Tenant → Unit info → Lease terms → Invoice, no overflow
+- [x] Not reverted to the pre-Phase-52 shape (two side by side, two full-width): that gave Lease terms and Invoice the whole width for six short rows each and pushed the invoice below the fold
 
 ### Not done
 - [ ] **Sticky filters cover the four global list pages only** — per-entity tables (a property's units, a lease's payments, a member's leases) would need an id in the `stateKey` so one entity's filters can't surface on another's.

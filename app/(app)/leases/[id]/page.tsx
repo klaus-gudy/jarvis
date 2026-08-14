@@ -110,15 +110,28 @@ export default async function LeaseDetailPage({
         </TabsList>
 
         {/*
-          All four cards in one 2×2 grid, rather than two side by side and two
-          stacked full-width beneath. The old shape gave Lease terms and Invoice
-          the whole width for six short rows each, which left them mostly empty
-          and pushed the invoice below the fold. Each card's `<dl>` is a single
-          column now that the card itself is half-width.
+          Two columns of equal height, whatever they contain.
+
+          Three things are doing that. The grid keeps its default
+          `items-stretch`, so both column wrappers take the height of the taller
+          one. Each wrapper is a flex column. And every card carries `grow`,
+          which shares the leftover height between the cards in the shorter
+          column instead of leaving it as a gap at the bottom — `grow` rather
+          than `flex-1` so the cards keep their content-based proportions and
+          only the surplus is divided.
+
+          A 2×2 grid was tried first and was wrong: it aligns *rows*, and Tenant
+          (three rows) beside Unit info (seven) left a 192px hole. Independent
+          columns fixed the hole but staggered the two sides against each other.
+
+          Pairing is by meaning as well as balance: identity and location on the
+          left, terms and money on the right. Below `lg` the grid collapses to
+          one column and the wrappers stack, so reading order is unchanged.
         */}
         <TabsContent value="overview" className="pt-5">
-          <div className="grid items-start gap-5 lg:grid-cols-2">
-            <Card>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="flex flex-col gap-5">
+            <Card className="grow">
               <CardHeader className="border-b">
                 <CardTitle className="text-base">Tenant</CardTitle>
               </CardHeader>
@@ -141,7 +154,7 @@ export default async function LeaseDetailPage({
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="grow">
               <CardHeader className="border-b">
                 <CardTitle className="text-base">Unit info</CardTitle>
               </CardHeader>
@@ -174,8 +187,10 @@ export default async function LeaseDetailPage({
                 </dl>
               </CardContent>
             </Card>
+            </div>
 
-            <Card>
+            <div className="flex flex-col gap-5">
+            <Card className="grow">
               <CardHeader className="border-b">
                 <CardTitle className="text-base">Lease terms</CardTitle>
               </CardHeader>
@@ -216,7 +231,7 @@ export default async function LeaseDetailPage({
 
             {/* The invoice is part of what this lease *is*, so it reads here;
                 the Billing tab is only the ledger. */}
-            <Card>
+            <Card className="grow">
               <CardHeader className="border-b">
                 <CardTitle className="text-base">Invoice</CardTitle>
               </CardHeader>
@@ -268,6 +283,7 @@ export default async function LeaseDetailPage({
                 )}
               </CardContent>
             </Card>
+            </div>
           </div>
         </TabsContent>
 
