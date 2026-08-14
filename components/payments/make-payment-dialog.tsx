@@ -36,7 +36,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CURRENCY, formatCurrencyFull } from "@/lib/format";
+import { InvoiceSummaryCard } from "@/components/payments/invoice-summary-card";
+import { evaluateAmount } from "@/lib/amount-expression";
+import { CURRENCY, formatCurrencyFull, formatMoneyFull } from "@/lib/format";
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment-options";
 import type { PayableInvoice } from "@/lib/payments";
 
@@ -77,14 +79,29 @@ export function MakePaymentDialog({
   }));
   const selectedOption = options.find((option) => option.value === invoiceId) ?? null;
 
+  // The field takes arithmetic ("250000*5" for five months' rent), so what is
+  // typed and what is sent are no longer the same thing.
+  const amountResult = React.useMemo(() => evaluateAmount(amount), [amount]);
+  const amountValue = amountResult.status === "ok" ? amountResult.value : null;
+
   // Mirrors the server's overpayment guard so the form can say so before a
   // round trip; the server still re-checks, since this list can go stale.
-  const parsedAmount = Number(amount);
+  // Compares the *evaluated* total — checking the raw text would wave through
+  // "250000*5" against a 300,000 balance.
   const overBalance =
     selectedInvoice !== null &&
-    amount.trim() !== "" &&
-    Number.isFinite(parsedAmount) &&
-    parsedAmount > selectedInvoice.balance;
+    amountValue !== null &&
+    amountValue > selectedInvoice.balance;
+
+  /**
+   * Folds the sum into its result when the field is left: "250000*4" becomes
+   * "1,000,000" in the box itself, grouped so it can be checked at a glance.
+   * On blur rather than per keystroke, which would fight the typing.
+   */
+  function normalizeAmount() {
+    if (amountValue === null) return;
+    setAmount(formatMoneyFull(amountValue));
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,6 +110,16 @@ export function MakePaymentDialog({
 
     if (!selectedInvoice) {
       setFieldErrors({ invoiceId: ["Select an invoice"] });
+      return;
+    }
+    if (amountValue === null) {
+      setFieldErrors({
+        amount: [
+          amountResult.status === "invalid"
+            ? amountResult.message
+            : "Enter an amount",
+        ],
+      });
       return;
     }
     if (overBalance) {
@@ -110,7 +137,7 @@ export function MakePaymentDialog({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        amount: Number(amount),
+        amount: amountValue,
         paidAt,
         method: method || undefined,
         notes: notes || undefined,
@@ -189,26 +216,12 @@ export function MakePaymentDialog({
             </Field>
 
             {selectedInvoice && (
-              <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Invoice total</span>
-                  <span className="font-mono tabular-nums">
-                    {formatCurrencyFull(selectedInvoice.amount)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Paid so far</span>
-                  <span className="font-mono tabular-nums">
-                    {formatCurrencyFull(selectedInvoice.paid)}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center justify-between gap-3 border-t pt-1.5 font-medium">
-                  <span>Balance</span>
-                  <span className="font-mono tabular-nums">
-                    {formatCurrencyFull(selectedInvoice.balance)}
-                  </span>
-                </div>
-              </div>
+              <InvoiceSummaryCard
+                reference={selectedInvoice.reference}
+                amount={selectedInvoice.amount}
+                paid={selectedInvoice.paid}
+                balance={selectedInvoice.balance}
+              />
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -216,32 +229,40 @@ export function MakePaymentDialog({
                 <FieldLabel htmlFor="payment-amount" required>
                   Amount ({CURRENCY})
                 </FieldLabel>
+                {/*
+                  `text`, not `number`: a number input silently refuses every
+                  character that isn't part of a number, so "250000*5" could
+                  never be typed into one.
+                */}
                 <Input
                   id="payment-amount"
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
+                  onBlur={normalizeAmount}
                   placeholder={
-                    selectedInvoice ? String(selectedInvoice.balance) : "100000"
+                    selectedInvoice
+                      ? formatMoneyFull(selectedInvoice.balance)
+                      : "100,000"
                   }
                   required
                 />
-                {selectedInvoice && (
-                  <FieldDescription>
-                    Up to {formatCurrencyFull(selectedInvoice.balance)}.
-                  </FieldDescription>
-                )}
+                {/* No caption under the field: the sum folds into the input
+                    itself on blur, and the card above already states the
+                    balance this has to stay within. */}
                 <FieldError
                   errors={
-                    overBalance
-                      ? [
-                          {
-                            message: `That's more than the remaining balance of ${formatCurrencyFull(selectedInvoice.balance)}`,
-                          },
-                        ]
-                      : fieldErrors.amount?.map((m) => ({ message: m }))
+                    amountResult.status === "invalid"
+                      ? [{ message: amountResult.message }]
+                      : overBalance && selectedInvoice
+                        ? [
+                            {
+                              message: `That's more than the remaining balance of ${formatCurrencyFull(selectedInvoice.balance)}`,
+                            },
+                          ]
+                        : fieldErrors.amount?.map((m) => ({ message: m }))
                   }
                 />
               </Field>

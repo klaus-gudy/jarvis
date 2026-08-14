@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { InvoiceSummaryCard } from "@/components/payments/invoice-summary-card";
+import { evaluateAmount } from "@/lib/amount-expression";
 import { formatMoneyFull } from "@/lib/format";
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment-options";
 
@@ -34,14 +36,21 @@ function todayInputValue() {
 export function RecordPaymentDialog({
   open,
   onOpenChange,
-  invoiceId,
-  balance,
+  invoice,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  invoiceId: string;
-  balance: number;
+  /**
+   * Structural rather than importing `BillingInvoice` from `billing-tab`,
+   * which imports this dialog — a type-only cycle TypeScript would tolerate,
+   * but not one worth creating.
+   *
+   * The invoice is **fixed**: a lease has exactly one, so there is nothing to
+   * choose between and no picker. The card below is a read-out, not a control.
+   */
+  invoice: { id: string; amount: number; paid: number; balance: number };
 }) {
+  const { id: invoiceId, balance } = invoice;
   const router = useRouter();
   const [amount, setAmount] = React.useState("");
   const [paidAt, setPaidAt] = React.useState(todayInputValue());
@@ -51,17 +60,47 @@ export function RecordPaymentDialog({
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
 
+  // The field takes arithmetic ("250000*5" for five months' rent), so what is
+  // typed and what is sent are no longer the same thing.
+  const amountResult = React.useMemo(() => evaluateAmount(amount), [amount]);
+  const amountValue = amountResult.status === "ok" ? amountResult.value : null;
+
+  /**
+   * Folds the sum into its result when the field is left: "250000*4" becomes
+   * "1,000,000" in the box itself. The answer belongs where the question was
+   * asked — a caption underneath means reading two places to know what will be
+   * saved. Grouped, because a bare 1000000 is hard to check at a glance.
+   *
+   * On blur rather than on every keystroke, which would fight the typing.
+   */
+  function normalizeAmount() {
+    if (amountValue === null) return;
+    setAmount(formatMoneyFull(amountValue));
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setFormError(null);
     setFieldErrors({});
+
+    if (amountValue === null) {
+      setFieldErrors({
+        amount: [
+          amountResult.status === "invalid"
+            ? amountResult.message
+            : "Enter an amount",
+        ],
+      });
+      return;
+    }
+
+    setPending(true);
 
     const response = await fetch(`/api/invoices/${invoiceId}/payments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        amount: Number(amount),
+        amount: amountValue,
         paidAt,
         method: method || undefined,
         notes: notes || undefined,
@@ -90,28 +129,54 @@ export function RecordPaymentDialog({
         <form key={String(open)} onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Record payment</DialogTitle>
+            {/* The balance used to be stated here; the card below now carries
+                it along with the total and what has been paid, so repeating it
+                would be two places to read the same number from. */}
             <DialogDescription>
-              Balance remaining: {formatMoneyFull(balance)}
+              Recorded against this lease&apos;s invoice.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* Read-only: this lease has one invoice, so it is stated, not
+                chosen. Same breakdown the payments page shows above its
+                picker. */}
+            <InvoiceSummaryCard
+              amount={invoice.amount}
+              paid={invoice.paid}
+              balance={invoice.balance}
+            />
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="payment-amount" required>
                   Amount
                 </FieldLabel>
+                {/*
+                  `text`, not `number`: a number input silently refuses every
+                  character that isn't part of a number, so "250000*5" could
+                  never be typed into one. The cost is that mobile opens a full
+                  keyboard rather than a numeric pad — which is the trade the
+                  operators are for.
+                */}
                 <Input
                   id="payment-amount"
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
-                  placeholder={String(balance)}
+                  onBlur={normalizeAmount}
+                  placeholder={formatMoneyFull(balance)}
                   required
                 />
-                <FieldError errors={fieldErrors.amount?.map((m) => ({ message: m }))} />
+                <FieldError
+                  errors={
+                    amountResult.status === "invalid"
+                      ? [{ message: amountResult.message }]
+                      : fieldErrors.amount?.map((m) => ({ message: m }))
+                  }
+                />
               </Field>
 
               <Field>

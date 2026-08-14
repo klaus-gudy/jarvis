@@ -148,8 +148,7 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
         key={String(recording)}
         open={recording}
         onOpenChange={setRecording}
-        invoiceId={invoice.id}
-        balance={invoice.balance}
+        invoice={invoice}
       />
 
       <Dialog
