@@ -260,6 +260,27 @@
   }
 
   /*
+   * Smooth scrolling for the landing page's in-page nav links, and nowhere
+   * else. `scroll-behavior` only has an effect on the scrolling element, which
+   * is `<html>` — so scoping it needs a selector that reaches upward, and
+   * `:has()` is that selector. The app's own routes never render
+   * `#landing-root`, so their scrolling is untouched.
+   *
+   * Sections carry `scroll-mt-24` to clear the fixed header; that is deliberately
+   * on the targets rather than as `scroll-padding-top` here, so the two can't
+   * both apply and overshoot by their sum.
+   */
+  html:has(#landing-root) {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:has(#landing-root) {
+      scroll-behavior: auto;
+    }
+  }
+
+  /*
    * Pairs with the click-driven circle in components/theme-toggle.tsx. The
    * View Transitions API's own default is a ~250ms crossfade of the old/new
    * snapshots; left alone, that fade runs underneath our clip-path circle at
