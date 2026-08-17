@@ -562,7 +562,7 @@ export function DataTable<TData, TValue>({
   }
 
   return (
-    <Card className="gap-4 p-4">
+    <Card className="gap-4 p-4" data-tour="data-table">
       <div className="flex flex-wrap items-center gap-2">
         {searchable && (
           <Input

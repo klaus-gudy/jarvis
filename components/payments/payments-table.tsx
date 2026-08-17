@@ -104,7 +104,7 @@ export function PaymentsTable({
       {/* Totals live on the dashboard's Payments card, not here — this page is
           the ledger. */}
       <div className="flex justify-end">
-        <Button onClick={() => setFormOpen(true)}>
+        <Button data-tour="add-payment" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Make payment
         </Button>

@@ -80,7 +80,10 @@ export default async function DashboardPage() {
 
       {/* Six cards: two clean rows of three. Six across would squeeze
           "TZS 4,200,000" onto a second line at this text size. */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div
+        data-tour="dashboard-stats"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
         <MetricCard
           variant="filled"
           href="/leases"

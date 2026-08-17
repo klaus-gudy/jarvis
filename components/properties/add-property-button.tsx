@@ -11,7 +11,7 @@ export function AddPropertyButton({ ownerName }: { ownerName: string }) {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button data-tour="add-property" onClick={() => setOpen(true)}>
         <PlusIcon />
         Add property
       </Button>

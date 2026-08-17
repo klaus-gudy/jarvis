@@ -12,6 +12,7 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
     <Card
       className="gap-0 p-0 transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring"
       data-testid="property-card"
+      data-tour="property-card"
     >
       <Link href={`/properties/${property.id}`} className="block p-4 outline-none">
         <div className="flex items-start justify-between gap-3">

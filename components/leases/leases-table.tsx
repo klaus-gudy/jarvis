@@ -116,7 +116,7 @@ export function LeasesTable({
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button onClick={() => setFormOpen(true)}>
+        <Button data-tour="add-lease" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Create lease
         </Button>

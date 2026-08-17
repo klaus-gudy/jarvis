@@ -163,6 +163,7 @@ export function GlobalSearch() {
     <>
       <button
         type="button"
+        data-tour="global-search"
         onClick={() => setOpen(true)}
         // Explicit widths rather than `w-full max-w-*`: the header's trailing
         // group is content-sized, so a percentage width collapsed to the

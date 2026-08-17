@@ -50,7 +50,7 @@ export default async function PropertiesPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" data-tour="property-filters">
           {FILTERS.map((filter) => {
             const isActive = filter.value === activeType;
             return (

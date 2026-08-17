@@ -142,7 +142,7 @@ export function TenantsTable({
           <UploadIcon />
           Import tenants
         </Button>
-        <Button onClick={() => setFormOpen(true)}>
+        <Button data-tour="add-tenant" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Add tenant
         </Button>

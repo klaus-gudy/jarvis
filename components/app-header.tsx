@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 
 import { GlobalSearch } from "@/components/global-search"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { TourHelpButton } from "@/components/tour/tour-help-button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { findActiveNavItem } from "@/lib/nav"
@@ -25,6 +26,7 @@ export function AppHeader() {
       <div className="ml-auto flex items-center gap-2">
         <GlobalSearch />
         <ThemeToggle />
+        <TourHelpButton />
       </div>
     </header>
   )

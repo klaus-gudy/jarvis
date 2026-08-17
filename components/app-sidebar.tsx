@@ -52,7 +52,7 @@ export function AppSidebar({
         <SidebarGroup>
           {/* <SidebarGroupLabel>Manage</SidebarGroupLabel> */}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu data-tour="sidebar-nav">
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
