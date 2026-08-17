@@ -41,8 +41,8 @@ export default async function PropertyDetailPage({
   return (
     <div className="space-y-6">
       <Button
-        variant="ghost"
-        className="-ml-2 w-fit text-muted-foreground"
+        variant="outline"
+        className="w-fit text-muted-foreground"
         nativeButton={false}
         render={<Link href="/properties" />}
       >
@@ -71,6 +71,16 @@ export default async function PropertyDetailPage({
             propertyId={property.id}
             propertyName={property.name}
             unitCount={property.totalUnits}
+            ownerName={property.ownerName}
+            initialValues={{
+              name: property.name,
+              type: property.type,
+              category: property.category,
+              address: property.address,
+              status: property.status,
+              description: property.description ?? "",
+              amenities: property.amenities,
+            }}
           />
         </CardContent>
       </Card>

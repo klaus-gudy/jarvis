@@ -1,11 +1,14 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  PropertyFormDialog,
+  type PropertyFormValues,
+} from "@/components/properties/property-form-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,15 +25,20 @@ export function PropertyActions({
   propertyId,
   propertyName,
   unitCount,
+  ownerName,
+  initialValues,
 }: {
   propertyId: string;
   propertyName: string;
   unitCount: number;
+  ownerName: string;
+  initialValues: PropertyFormValues;
 }) {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
 
   async function handleDelete() {
     setPending(true);
@@ -57,15 +65,23 @@ export function PropertyActions({
 
   return (
     <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        nativeButton={false}
-        render={<Link href={`/properties/${propertyId}/edit`} />}
-      >
+      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
         <PencilIcon />
         Edit
       </Button>
+
+      {/* Conditionally mounted so it re-seeds from the latest `initialValues`
+          on every open, rather than keeping whatever was typed the time
+          before — the same pattern the lease and unit edit dialogs use. */}
+      {editOpen && (
+        <PropertyFormDialog
+          key={propertyId}
+          open
+          onOpenChange={(open) => !open && setEditOpen(false)}
+          ownerName={ownerName}
+          property={{ id: propertyId, ...initialValues }}
+        />
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger

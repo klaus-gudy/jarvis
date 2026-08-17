@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BuildingIcon, PlusIcon } from "lucide-react";
+import { BuildingIcon } from "lucide-react";
 
+import { AddPropertyButton } from "@/components/properties/add-property-button";
 import { EmptyState } from "@/components/empty-state";
 import { PropertyCard } from "@/components/properties/property-card";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
 import type { PropertyType } from "@/lib/generated/prisma/enums";
+import { getOrganizationOwnerName } from "@/lib/organizations";
 import { getProperties } from "@/lib/properties";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +42,10 @@ export default async function PropertiesPage({
       ? (typeParam as PropertyType)
       : undefined;
 
-  const properties = await getProperties(user.activeOrgId, { type: activeType });
+  const [properties, ownerName] = await Promise.all([
+    getProperties(user.activeOrgId, { type: activeType }),
+    getOrganizationOwnerName(user.activeOrgId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -61,10 +66,7 @@ export default async function PropertiesPage({
             );
           })}
         </div>
-        <Button nativeButton={false} render={<Link href="/properties/new" />}>
-         <PlusIcon />
-          Add property
-        </Button>
+        <AddPropertyButton ownerName={ownerName} />
       </div>
 
       {properties.length === 0 ? (

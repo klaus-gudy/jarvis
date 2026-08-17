@@ -49,8 +49,8 @@ export default async function LeaseDetailPage({
   return (
     <div className="space-y-6">
       <Button
-        variant="ghost"
-        className="-ml-2 w-fit text-muted-foreground"
+        variant="outline"
+        className="w-fit text-muted-foreground"
         nativeButton={false}
         render={<Link href="/leases" />}
       >

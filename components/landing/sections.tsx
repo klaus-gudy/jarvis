@@ -1,20 +1,19 @@
 import Link from "next/link";
 import {
   ArrowRightIcon,
-  BanknoteIcon,
   BuildingIcon,
   CalendarClockIcon,
   CheckIcon,
   DoorOpenIcon,
   FileSpreadsheetIcon,
-  LockKeyholeIcon,
+  HeadphonesIcon,
   MessageCircleIcon,
   ReceiptIcon,
-  SearchIcon,
   ShieldCheckIcon,
-  UserPlusIcon,
+  SmartphoneIcon,
   UsersIcon,
   WalletIcon,
+  WrenchIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -225,60 +224,36 @@ export function Problem() {
 
 /* ---------------------------------------------------------------- features */
 
-/**
- * `wide` is only set on the import card, and it is doing real work rather than
- * decorating the grid. "I am not retyping every tenant" is the objection that
- * stops a landlord signing up, so it gets the full row — and it also squares
- * the layout, since seven cards across three columns would otherwise leave the
- * last one stranded beside two gaps.
- */
-const FEATURES: {
-  icon: LucideIcon;
-  title: string;
-  body: string;
-  wide?: boolean;
-  proof?: string[];
-}[] = [
+const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: BuildingIcon,
-    title: "Buildings and units",
-    body: "Every property, and every unit inside it — rent, size, floor, block, minimum tenure and amenities.",
+    title: "Property management",
+    body: "Every building, and every unit inside it — rent, size, floor, block, minimum tenure and amenities, all in one record.",
   },
   {
     icon: UsersIcon,
-    title: "Tenants and leases",
-    body: "Who is in which unit, and until when. Each tenant's status works itself out: active, upcoming or moved on.",
-  },
-  {
-    icon: ReceiptIcon,
-    title: "Invoices and part-payments",
-    body: "One invoice per lease, and as many payments against it as it takes. Unpaid, partly paid or paid — kept current for you.",
-  },
-  {
-    icon: WalletIcon,
-    title: "Money, at a glance",
-    body: "Rent collected this year, what is still outstanding, and exactly what your empty units are costing you each month.",
+    title: "Tenant management",
+    body: "Add a tenant once. Rentops works out who is active, upcoming or moved on, and keeps every lease they've held on file.",
   },
   {
     icon: CalendarClockIcon,
-    title: "Nothing slips past you",
-    body: "Leases expiring, renewals due and move-ins coming up, on the dashboard. Units you choose can renew themselves.",
+    title: "Lease tracking and renewal",
+    body: "Leases expiring and renewals due, right on the dashboard. Units you choose can renew themselves when the term is up.",
   },
   {
-    icon: SearchIcon,
-    title: "Find anything, instantly",
-    body: "One search box across properties, units, tenants, leases and payments. Search a phone number, get the tenant.",
+    icon: WalletIcon,
+    title: "Rent & payment tracking",
+    body: "Rent collected this year, what is still outstanding, and exactly what your empty units are costing you each month.",
   },
   {
-    icon: FileSpreadsheetIcon,
-    title: "Bring the list you already have",
-    body: "You are not typing your tenants in one by one. Download the template, paste your existing spreadsheet into it, and upload.",
-    wide: true,
-    proof: [
-      "Every row checked before anything is saved",
-      "A bad phone number is named, with its row",
-      "Units and tenants both work this way",
-    ],
+    icon: ReceiptIcon,
+    title: "Invoice and receipt",
+    body: "One invoice per lease, and as many payments against it as it takes. Unpaid, partly paid or paid — kept current for you.",
+  },
+  {
+    icon: WrenchIcon,
+    title: "Maintenance request",
+    body: "A tenant reports a repair, you track it from open to fixed — so nothing gets lost in a phone call nobody wrote down.",
   },
 ];
 
@@ -292,54 +267,19 @@ export function Features() {
       />
 
       <Stagger className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map(({ icon: Icon, title, body, wide, proof }) => (
-          <StaggerItem
-            key={title}
-            className={cn(wide && "sm:col-span-2 lg:col-span-3")}
-          >
+        {FEATURES.map(({ icon: Icon, title, body }) => (
+          <StaggerItem key={title}>
             <HoverLift>
-              <div
-                className={cn(
-                  "h-full rounded-xl border bg-card p-6 shadow-sm",
-                  wide && "border-[var(--stat-accent)]/40 sm:p-8"
-                )}
-              >
+              <div className="h-full rounded-xl border bg-card p-6 shadow-sm">
                 <span className="flex size-11 items-center justify-center rounded-xl bg-[color-mix(in_oklch,var(--stat-accent),transparent_88%)]">
                   <Icon className="size-5 text-[var(--stat-accent)]" aria-hidden />
                 </span>
-                <h3
-                  className={cn(
-                    "font-heading mt-5 font-semibold",
-                    wide ? "text-xl" : "text-base"
-                  )}
-                >
+                <h3 className="font-heading mt-5 text-base font-semibold">
                   {title}
                 </h3>
-                <p
-                  className={cn(
-                    "mt-2 leading-relaxed text-muted-foreground",
-                    wide ? "max-w-2xl" : "text-sm"
-                  )}
-                >
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {body}
                 </p>
-
-                {proof ? (
-                  <ul className="mt-5 grid gap-2 sm:grid-cols-3">
-                    {proof.map((item) => (
-                      <li
-                        key={item}
-                        className="flex items-start gap-2 text-sm text-muted-foreground"
-                      >
-                        <CheckIcon
-                          className="mt-0.5 size-4 shrink-0 text-[var(--stat-accent)]"
-                          aria-hidden
-                        />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </div>
             </HoverLift>
           </StaggerItem>
@@ -349,60 +289,50 @@ export function Features() {
   );
 }
 
-/* ---------------------------------------------------------------- security */
+/* ------------------------------------------------------------------ why us */
 
-const ASSURANCES: { icon: LucideIcon; title: string; body: string }[] = [
+const WHY_US: { icon: LucideIcon; text: string }[] = [
+  {
+    icon: MessageCircleIcon,
+    text: "Automated reminders via SMS, WhatsApp and email",
+  },
+  {
+    icon: HeadphonesIcon,
+    text: "24/7 customer support",
+  },
+  {
+    icon: SmartphoneIcon,
+    text: "Mobile-first design, built for accessibility",
+  },
+  {
+    icon: FileSpreadsheetIcon,
+    text: "Bring your existing spreadsheet — bulk import in minutes",
+  },
   {
     icon: ShieldCheckIcon,
-    title: "Your organisation, and only yours",
-    body: "Every property, tenant, lease and payment belongs to your organisation and is filtered by it on every single request. Another landlord using Rentops cannot see your records.",
-  },
-  {
-    icon: UserPlusIcon,
-    title: "Your team, on their own logins",
-    body: "Invite a manager or caretaker by link and they get their own account under your organisation. Nobody shares a password. Revoke an invite before it is used, or remove a member later.",
-  },
-  {
-    icon: LockKeyholeIcon,
-    title: "Passwords are never stored",
-    body: "Only an irreversible hash of one. Sign-in attempts are rate limited per account as well as per address, so guessing at your password is slow going, and sessions expire on their own.",
-  },
-  {
-    icon: BanknoteIcon,
-    title: "We never touch your money",
-    body: "Rentops records the rent you have received; it does not collect it. There is no bank account to connect and no card to hand over — so there is nothing of that kind here to lose.",
+    text: "Your organisation's data stays isolated, on every request",
   },
 ];
 
-export function Security() {
+export function WhyUs() {
   return (
     /*
      * Picked up the shaded band that the removed "How it works" section used to
      * carry. The page alternates plain and shaded sections so each one reads as
-     * a separate idea; without this, Features and Security would run together
-     * as one long stretch of page background.
+     * a separate idea; without this, Features and Why us would run together as
+     * one long stretch of page background.
      */
-    <Section id="security" className="border-y bg-card/40">
-      <SectionHeading
-        eyebrow="Your data"
-        title="Your tenants' details stay yours."
-        blurb="Asking a landlord to type in other people's names and phone numbers is asking for trust. Here is precisely what happens to them."
-      />
+    <Section id="why-us" className="border-y bg-card/40">
+      <SectionHeading eyebrow="Why us" title="What makes Rentops different." />
 
-      <Stagger className="mt-14 grid gap-5 sm:grid-cols-2">
-        {ASSURANCES.map(({ icon: Icon, title, body }) => (
-          <StaggerItem key={title}>
-            <div className="flex h-full gap-4 rounded-xl border bg-card p-6">
-              <Icon
-                className="mt-0.5 size-5 shrink-0 text-[var(--stat-accent)]"
-                aria-hidden
-              />
-              <div>
-                <h3 className="font-heading text-base font-semibold">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {body}
-                </p>
-              </div>
+      <Stagger className="mx-auto mt-14 grid max-w-3xl gap-x-10 gap-y-6 sm:grid-cols-2">
+        {WHY_US.map(({ icon: Icon, text }) => (
+          <StaggerItem key={text}>
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--stat-accent),transparent_88%)]">
+                <Icon className="size-4.5 text-[var(--stat-accent)]" aria-hidden />
+              </span>
+              <p className="pt-1.5 leading-snug font-medium text-pretty">{text}</p>
             </div>
           </StaggerItem>
         ))}

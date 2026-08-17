@@ -10,7 +10,7 @@ import {
   Hero,
   Pricing,
   Problem,
-  Security,
+  WhyUs,
 } from "@/components/landing/sections";
 import { FAQS, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
@@ -99,13 +99,14 @@ function structuredData() {
           priceCurrency: "TZS",
         },
         featureList: [
-          "Property and unit management",
-          "Tenant and lease tracking",
-          "Rent invoicing and part-payments",
-          "Mobile money and cash payment records",
-          "Bulk import from Excel",
-          "Automatic lease renewal",
-          "Occupancy and vacancy reporting",
+          "Property management",
+          "Tenant management",
+          "Lease tracking and renewal",
+          "Rent and payment tracking",
+          "Invoicing and receipts",
+          "Maintenance request tracking",
+          "Automated SMS, WhatsApp and email reminders",
+          "Mobile-first design",
         ],
       },
       {
@@ -143,7 +144,7 @@ export default function LandingPage() {
           <Hero />
           <Problem />
           <Features />
-          <Security />
+          <WhyUs />
           <Pricing />
           <Faq />
           <FinalCta />

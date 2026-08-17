@@ -32,7 +32,7 @@ export const SITE_TAGLINE =
 /** Sections the top navigation scroll-spies between, in page order. */
 export const NAV_SECTIONS = [
   { id: "features", label: "Features" },
-  { id: "security", label: "Your data" },
+  { id: "why-us", label: "Why us" },
   { id: "pricing", label: "Pricing" },
   { id: "faq", label: "FAQ" },
 ] as const;
