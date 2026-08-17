@@ -102,32 +102,34 @@ export function HeroContrast({ className }: { className?: string }) {
             </p>
           </Scrap>
 
-          {/* The notebook. */}
-          <Scrap index={1} className="w-[40%] max-w-[10rem]">
+          {/* The notebook: a maintenance complaint written down and then
+              lost in it — a different failure than the chat's unpaid rent,
+              and than the spreadsheet's stale occupancy. */}
+          <Scrap index={1} className="w-[42%] max-w-[10.5rem]">
             <p className="text-[10px] font-semibold text-muted-foreground">
-              Agosti — kodi
+              Kumbukumbu
             </p>
-            <div className="mt-2 space-y-1.5">
-              {[85, 60, 72].map((width, index) => (
-                <div
-                  key={index}
-                  className="h-1.5 rounded-full bg-muted-foreground/25"
-                  style={{ width: `${width}%` }}
-                />
-              ))}
+            <div className="mt-2 space-y-1 text-[10.5px] leading-snug text-muted-foreground">
+              <p>Bomba B1 linavuja</p>
+              <p className="pl-2 italic">Niliandika wapi?</p>
             </div>
           </Scrap>
 
-          {/* The spreadsheet nobody has opened since March. */}
-          <Scrap index={2} className="w-[38%] max-w-[9rem]">
-            <div className="grid grid-cols-3 gap-px overflow-hidden rounded bg-border">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-4 bg-background/90"
-                  aria-hidden
-                />
+          {/* The spreadsheet nobody has opened since March — still claiming
+              what it said back then, which the "After" panel later corrects
+              for this same unit. */}
+          <Scrap index={2} className="w-[40%] max-w-[9.5rem]">
+            <p className="text-[10px] font-semibold text-muted-foreground">
+              Machi
+            </p>
+            <div className="mt-1.5 grid grid-cols-3 gap-px overflow-hidden rounded bg-border">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="h-2.5 bg-background/90" aria-hidden />
               ))}
+            </div>
+            <div className="mt-2 space-y-1 text-[10.5px] leading-snug text-muted-foreground">
+              <p>C2 — Kupangwa</p>
+              <p className="pl-2 italic">...au?</p>
             </div>
           </Scrap>
         </div>

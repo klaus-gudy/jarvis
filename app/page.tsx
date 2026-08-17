@@ -9,7 +9,6 @@ import {
   Footer,
   Hero,
   Pricing,
-  Problem,
   WhyUs,
 } from "@/components/landing/sections";
 import { FAQS, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
@@ -142,7 +141,6 @@ export default function LandingPage() {
         {/* `#landing-root` is also the hook globals.css uses to scope smooth scrolling to this page. */}
         <main id="landing-root">
           <Hero />
-          <Problem />
           <Features />
           <WhyUs />
           <Pricing />

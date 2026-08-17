@@ -4,7 +4,6 @@ import {
   BuildingIcon,
   CalendarClockIcon,
   CheckIcon,
-  DoorOpenIcon,
   FileSpreadsheetIcon,
   HeadphonesIcon,
   MessageCircleIcon,
@@ -169,59 +168,6 @@ export function Hero() {
   );
 }
 
-/* ----------------------------------------------------------------- problem */
-
-const PROBLEMS: { icon: LucideIcon; title: string; body: string }[] = [
-  {
-    icon: MessageCircleIcon,
-    title: "Rent chased on WhatsApp",
-    body: "You remember who paid last month. Probably. And the month before that?",
-  },
-  {
-    icon: CalendarClockIcon,
-    title: "A lease ended and nobody noticed",
-    body: "The tenant is still in the unit. The agreement ran out in March.",
-  },
-  {
-    icon: DoorOpenIcon,
-    title: "Which units are empty right now?",
-    body: "You have to count them. Every time somebody asks. Including you.",
-  },
-];
-
-export function Problem() {
-  return (
-    <Section className="border-y bg-card/40">
-      <SectionHeading
-        eyebrow="Sound familiar?"
-        title="Managing buildings shouldn't mean managing notebooks."
-      />
-
-      <Stagger className="mt-14 grid gap-5 sm:grid-cols-3">
-        {PROBLEMS.map(({ icon: Icon, title, body }) => (
-          <StaggerItem key={title}>
-            <div className="h-full rounded-xl border bg-card p-6">
-              <Icon className="size-6 text-muted-foreground" aria-hidden />
-              <h3 className="font-heading mt-4 text-base font-semibold">
-                {title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {body}
-              </p>
-            </div>
-          </StaggerItem>
-        ))}
-      </Stagger>
-
-      <Reveal delay={0.15}>
-        <p className="mt-12 text-center text-lg font-medium text-balance">
-          Rentops answers all three on one screen.
-        </p>
-      </Reveal>
-    </Section>
-  );
-}
-
 /* ---------------------------------------------------------------- features */
 
 const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
@@ -259,7 +205,12 @@ const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
 
 export function Features() {
   return (
-    <Section id="features">
+    /*
+     * Shaded, so the page keeps alternating plain/shaded bands after the
+     * "Sound familiar?" section (which used to carry this one) was removed —
+     * without it, Hero and Features would run together with no break.
+     */
+    <Section id="features" className="border-y bg-card/40">
       <SectionHeading
         eyebrow="What you get"
         title="Everything a landlord needs. Nothing else."
@@ -316,13 +267,7 @@ const WHY_US: { icon: LucideIcon; text: string }[] = [
 
 export function WhyUs() {
   return (
-    /*
-     * Picked up the shaded band that the removed "How it works" section used to
-     * carry. The page alternates plain and shaded sections so each one reads as
-     * a separate idea; without this, Features and Why us would run together as
-     * one long stretch of page background.
-     */
-    <Section id="why-us" className="border-y bg-card/40">
+    <Section id="why-us">
       <SectionHeading eyebrow="Why us" title="What makes Rentops different." />
 
       <Stagger className="mx-auto mt-14 grid max-w-3xl gap-x-10 gap-y-6 sm:grid-cols-2">
@@ -345,8 +290,8 @@ export function WhyUs() {
 
 export function Pricing() {
   return (
-    /* No band of its own — the navy slab inside is already its own surface. */
-    <Section id="pricing">
+    // Shaded, alternating with the plain Why-us and Faq sections either side.
+    <Section id="pricing" className="border-y bg-card/40">
       <Reveal className="mx-auto max-w-3xl">
         <div className="overflow-hidden rounded-2xl border bg-[var(--stat)] p-8 text-center text-[var(--stat-foreground)] shadow-xl sm:p-12">
           <p className="text-xs font-semibold tracking-[0.14em] text-[var(--stat-accent)] uppercase">
@@ -418,7 +363,8 @@ export function Faq() {
 
 export function FinalCta() {
   return (
-    <Section className="border-t">
+    // Shaded, continuing the alternation from the plain Faq section above it.
+    <Section className="border-t bg-card/40">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
           Start with one building.
