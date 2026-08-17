@@ -111,7 +111,7 @@ export function UsersView({
               </Button>
             )}
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon-sm"
               onClick={() => setEditing(row.original)}
               aria-label={`Edit ${row.original.name}`}
@@ -119,8 +119,9 @@ export function UsersView({
               <PencilIcon />
             </Button>
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon-sm"
+              className="text-destructive"
               onClick={() => {
                 setError(null);
                 setRemoving(row.original);

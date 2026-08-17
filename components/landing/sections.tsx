@@ -133,7 +133,7 @@ export function Hero() {
                 variant="outline"
                 render={<Link href="#features" />}
                 nativeButton={false}
-                className="h-12 px-6 text-base"
+                className="h-12 border-primary/40 px-6 text-base text-primary hover:border-primary hover:text-primary dark:border-primary/50"
               >
                 See what you get
               </Button>
@@ -450,7 +450,7 @@ export function Pricing() {
             <Button
               render={<Link href="/register" />}
               nativeButton={false}
-              className="h-12 gap-2 bg-[var(--stat-accent)] px-6 text-base text-white hover:bg-[var(--stat-accent)]/85"
+              className="h-12 gap-2 bg-[var(--stat-accent)] px-6 text-base text-white"
             >
               Create your free account
               <ArrowRightIcon />
@@ -511,7 +511,7 @@ export function FinalCta() {
             variant="outline"
             render={<Link href="/login" />}
             nativeButton={false}
-            className="h-12 px-6 text-base"
+            className="h-12 border-primary/40 px-6 text-base text-primary hover:border-primary hover:text-primary dark:border-primary/50"
           >
             I already have an account
           </Button>

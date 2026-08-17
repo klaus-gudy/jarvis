@@ -148,6 +148,17 @@
   --shadow-lg: 0px 1px 3px 0px hsl(0 0% 0% / 0.10), 0px 4px 6px -1px hsl(0 0% 0% / 0.10);
   --shadow-xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.10), 0px 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.25);
+  /*
+   * The button hover shadow, off-gold instead of the neutral --shadow-xl —
+   * only worth it in light mode, where a shadow actually shows up against the
+   * pale background. Same hue as --stat-accent, at higher alpha than the
+   * neutral shadows: a tinted shadow needs more opacity than a black one to
+   * read as coloured rather than just slightly darker. Dark mode keeps the
+   * plain --shadow-xl below, since a shadow barely shows against a dark
+   * surface regardless of its hue.
+   */
+  --shadow-hover-accent: 0px 1px 3px 0px oklch(0.6325 0.0904 80.9413 / 0.18),
+    0px 8px 10px -1px oklch(0.6325 0.0904 80.9413 / 0.32);
   --tracking-normal: 0em;
   /*
    * The dashboard's lead card is a filled slab that must stay dark in both
@@ -245,6 +256,8 @@
   --shadow-lg: 0px 1px 3px 0px hsl(0 0% 0% / 0.10), 0px 4px 6px -1px hsl(0 0% 0% / 0.10);
   --shadow-xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.10), 0px 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.25);
+  /* Off in the sense of "turned off": stays the plain neutral shadow here. */
+  --shadow-hover-accent: var(--shadow-xl);
 }
 
 @layer base {

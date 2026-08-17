@@ -163,10 +163,10 @@ export function LandingNav() {
           <ThemeToggle />
 
           <Button
-            variant="ghost"
+            variant="outline"
             render={<Link href="/login" />}
             nativeButton={false}
-            className="hidden sm:inline-flex"
+            className="hidden border-primary/40 text-primary hover:border-primary hover:text-primary dark:border-primary/50 sm:inline-flex"
           >
             Sign in
           </Button>
@@ -227,7 +227,7 @@ export function LandingNav() {
                   variant="outline"
                   render={<Link href="/login" />}
                   nativeButton={false}
-                  className="h-10 w-full"
+                  className="h-10 w-full border-primary/40 text-primary hover:border-primary hover:text-primary dark:border-primary/50"
                   onClick={() => setOpen(false)}
                 >
                   Sign in

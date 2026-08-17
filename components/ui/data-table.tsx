@@ -807,10 +807,14 @@ export function RowActionButtons({ actions }: { actions: RowAction[] }) {
       {actions.map((action) => {
         const Icon = action.icon;
         const shared = {
-          variant: "ghost" as const,
+          variant: "outline" as const,
           size: "icon-sm" as const,
           "aria-label": action.label,
           title: action.disabled ? action.disabledReason : undefined,
+          // Border stays neutral like its neighbours; only the glyph goes red,
+          // so danger reads from the icon rather than the frame. No hover fill
+          // — the hover shadow is the button's only hover feedback.
+          className: cn(action.tone === "destructive" && "text-destructive"),
         };
 
         // A disabled action renders as a button even when it would normally be
