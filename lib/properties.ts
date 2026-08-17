@@ -30,6 +30,14 @@ export type PropertySummary = {
   category: string;
   address: string;
   ownerName: string;
+  /**
+   * The three below are not shown on the card — they are what its Edit dialog
+   * seeds from, so opening it needs no second fetch and the form can't flash
+   * empty fields before the real values land.
+   */
+  status: PropertyStatus;
+  description: string | null;
+  amenities: string[];
   totalUnits: number;
   occupiedUnits: number;
   vacantUnits: number;
@@ -88,6 +96,9 @@ export async function getProperties(
       category: property.category,
       address: property.address,
       ownerName,
+      status: property.status,
+      description: property.description,
+      amenities: property.amenities,
       totalUnits,
       occupiedUnits,
       vacantUnits: totalUnits - occupiedUnits,

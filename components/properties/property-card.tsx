@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PropertyCardActions } from "@/components/properties/property-card-actions";
 import { PropertyIcon } from "@/components/properties/property-icon";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -58,21 +59,32 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
           </div>
         </div>
 
-        <div className="mt-3 flex items-end justify-between border-t pt-3">
+      </Link>
+
+      {/*
+       * The stats sit here rather than inside the link above, alongside the
+       * actions — a <button> inside an <a> is invalid markup, and nesting them
+       * would make every action click navigate. Keeping all three in one row
+       * is what the card gains by moving the stats out.
+       */}
+      <div className="flex items-end justify-between gap-3 border-t px-4 py-3">
+        <div className="flex items-end gap-4">
           <div>
             <p className="font-mono text-lg font-semibold tabular-nums">
               {formatCurrency(property.monthlyRentRoll)}
             </p>
             <p className="text-xs text-muted-foreground">Monthly rent roll</p>
           </div>
-          <div className="text-right">
+          <div>
             <p className="font-mono text-lg font-semibold tabular-nums">
               {property.vacantUnits}
             </p>
             <p className="text-xs text-muted-foreground">Vacant</p>
           </div>
         </div>
-      </Link>
+
+        <PropertyCardActions property={property} />
+      </div>
     </Card>
   );
 }

@@ -4,6 +4,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -129,6 +135,30 @@ export function PropertyFormDialog({
     setPending(false);
   }
 
+  /*
+   * What's inside the collapsed panel, so it can be read without opening it.
+   * Only values that differ from the default are named — a summary that always
+   * says "Active" is noise, and would also stop "Optional" ever showing.
+   */
+  const extrasSummary = [
+    values.status !== "ACTIVE"
+      ? (PROPERTY_STATUS_OPTIONS.find((o) => o.value === values.status)?.label ??
+        values.status)
+      : null,
+    values.description.trim() ? "Description" : null,
+    values.amenities.length > 0
+      ? `${values.amenities.length} ${values.amenities.length === 1 ? "amenity" : "amenities"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  // Opens the panel when the server rejected something inside it — otherwise
+  // the error sits in a collapsed section and the form looks stuck.
+  const extrasHaveError = Boolean(
+    fieldErrors.status || fieldErrors.description || fieldErrors.amenities
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-lg">
@@ -140,8 +170,8 @@ export function PropertyFormDialog({
             <DialogTitle>{editing ? "Edit property" : "New property"}</DialogTitle>
             <DialogDescription>
               {editing
-                ? "Update this property's details."
-                : "Add a building to start tracking its units and leases."}
+                ? "Update this property's details. Everything below the name and location is optional."
+                : "Name and location are the essentials. Everything else is optional."}
             </DialogDescription>
           </DialogHeader>
 
@@ -228,77 +258,108 @@ export function PropertyFormDialog({
               </Field>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="property-status">Status</FieldLabel>
-                <Select
-                  value={values.status}
-                  onValueChange={(next) => next && set("status", next)}
-                >
-                  <SelectTrigger id="property-status" className="w-full">
-                    <SelectValue>
-                      {(selected: string) =>
-                        PROPERTY_STATUS_OPTIONS.find((o) => o.value === selected)
-                          ?.label ?? selected
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROPERTY_STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError
-                  errors={fieldErrors.status?.map((m) => ({ message: m }))}
-                />
-              </Field>
+            <Accordion
+              className="rounded-lg border px-4"
+              defaultValue={extrasHaveError ? ["extras"] : []}
+            >
+              <AccordionItem value="extras">
+                <AccordionTrigger>
+                  <span className="flex flex-1 items-center justify-between gap-3 pr-2">
+                    Other property details
+                    <span className="truncate text-xs font-normal text-muted-foreground">
+                      {extrasSummary || "Optional"}
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 px-1 pt-1 pb-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="property-status">Status</FieldLabel>
+                        <Select
+                          value={values.status}
+                          onValueChange={(next) => next && set("status", next)}
+                        >
+                          <SelectTrigger id="property-status" className="w-full">
+                            <SelectValue>
+                              {(selected: string) =>
+                                PROPERTY_STATUS_OPTIONS.find(
+                                  (o) => o.value === selected
+                                )?.label ?? selected
+                              }
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PROPERTY_STATUS_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FieldError
+                          errors={fieldErrors.status?.map((m) => ({ message: m }))}
+                        />
+                      </Field>
 
-              <Field>
-                <FieldLabel htmlFor="property-owner">Ownership</FieldLabel>
-                <Input id="property-owner" value={ownerName} readOnly disabled />
-                <FieldDescription>
-                  Taken from your organization&apos;s owner.
-                </FieldDescription>
-              </Field>
-            </div>
+                      <Field>
+                        <FieldLabel htmlFor="property-owner">Ownership</FieldLabel>
+                        <Input
+                          id="property-owner"
+                          value={ownerName}
+                          readOnly
+                          disabled
+                        />
+                        <FieldDescription>
+                          From your organization&apos;s owner.
+                        </FieldDescription>
+                      </Field>
+                    </div>
 
-            <Field>
-              <FieldLabel htmlFor="property-description">Description</FieldLabel>
-              <Textarea
-                id="property-description"
-                value={values.description}
-                onChange={(event) => set("description", event.target.value)}
-                rows={3}
-                placeholder="Secure, serviced units with reliable water and backup power."
-              />
-              <FieldError
-                errors={fieldErrors.description?.map((m) => ({ message: m }))}
-              />
-            </Field>
+                    <Field>
+                      <FieldLabel htmlFor="property-description">
+                        Description
+                      </FieldLabel>
+                      <Textarea
+                        id="property-description"
+                        value={values.description}
+                        onChange={(event) => set("description", event.target.value)}
+                        rows={3}
+                        placeholder="Secure, serviced units with reliable water and backup power."
+                      />
+                      <FieldError
+                        errors={fieldErrors.description?.map((m) => ({
+                          message: m,
+                        }))}
+                      />
+                    </Field>
 
-            <Field>
-              <FieldLabel>General facility amenities</FieldLabel>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {AMENITY_OPTIONS.map((amenity) => (
-                  <label
-                    key={amenity}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      checked={values.amenities.includes(amenity)}
-                      onCheckedChange={(checked) => toggleAmenity(amenity, checked)}
-                    />
-                    {amenity}
-                  </label>
-                ))}
-              </div>
-              <FieldError
-                errors={fieldErrors.amenities?.map((m) => ({ message: m }))}
-              />
-            </Field>
+                    <Field>
+                      <FieldLabel>General facility amenities</FieldLabel>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {AMENITY_OPTIONS.map((amenity) => (
+                          <label
+                            key={amenity}
+                            className="flex cursor-pointer items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              checked={values.amenities.includes(amenity)}
+                              onCheckedChange={(checked) =>
+                                toggleAmenity(amenity, checked)
+                              }
+                            />
+                            {amenity}
+                          </label>
+                        ))}
+                      </div>
+                      <FieldError
+                        errors={fieldErrors.amenities?.map((m) => ({ message: m }))}
+                      />
+                    </Field>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
             {formError && <FieldError>{formError}</FieldError>}
           </div>
