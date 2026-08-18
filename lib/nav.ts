@@ -61,9 +61,30 @@ export const navItems: NavItem[] = [
   },
 ];
 
+/**
+ * Pages reachable from somewhere other than the sidebar — the user menu, for
+ * now. They are not `navItems` (nothing should highlight in the sidebar when
+ * you are on one), but the header still needs a title for them, which would
+ * otherwise fall back to the bare app name.
+ */
+const secondaryPageTitles: Record<string, string> = {
+  "/profile": "Profile",
+};
+
 /** Longest-prefix match so nested routes (e.g. /properties/123) stay highlighted. */
 export function findActiveNavItem(pathname: string) {
   return navItems
     .filter((item) => pathname === item.url || pathname.startsWith(`${item.url}/`))
     .sort((a, b) => b.url.length - a.url.length)[0];
+}
+
+/** Header title for any route, sidebar item or not. */
+export function findPageTitle(pathname: string) {
+  const match = Object.keys(secondaryPageTitles)
+    .filter((url) => pathname === url || pathname.startsWith(`${url}/`))
+    .sort((a, b) => b.length - a.length)[0];
+
+  return match
+    ? secondaryPageTitles[match]
+    : findActiveNavItem(pathname)?.title ?? "Jarvis";
 }

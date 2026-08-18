@@ -95,10 +95,42 @@ model Membership {
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
 
-  leases  Lease[]
-  profile MemberProfile?
+  leases          Lease[]
+  profile         MemberProfile?
+  paymentAccounts PaymentAccount[]
 
   @@unique([userId, organizationId])
+}
+
+enum PaymentAccountType {
+  MOBILE_MONEY
+  BANK
+  LIPA
+}
+
+/**
+ * Where a member asks tenants to send rent. Hung off Membership, not User or
+ * Organization: an owner's accounts are their own, and someone who belongs to
+ * two organizations should not have one org's accounts shown in the other.
+ *
+ * Deleting the membership takes the accounts with it — they describe that
+ * relationship, and an orphaned account is a payment destination nobody owns.
+ */
+model PaymentAccount {
+  id            String             @id @default(cuid())
+  type          PaymentAccountType
+  provider      String
+  accountNumber String
+  accountName   String?
+  /** At most one per membership; enforced in lib/payment-accounts.ts writes. */
+  isDefault     Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId])
 }
 
 model MemberProfile {

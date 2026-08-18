@@ -10,5 +10,12 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"],
+    // Optional, and normally unset. Needed by `prisma migrate diff
+    // --from-migrations`, which is how a migration gets authored here without
+    // `migrate dev`: the dev database carries the `documents` branch's
+    // attachment migrations, which main's history doesn't have, so `migrate
+    // dev` reads that as drift and offers a full reset. See the 2026-08-18
+    // decision log entry.
+    shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
   },
 });

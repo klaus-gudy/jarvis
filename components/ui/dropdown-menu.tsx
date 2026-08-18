@@ -73,6 +73,10 @@ function DropdownMenuLabel({
   )
 }
 
+/** Shared by Item and LinkItem so a navigating row is visually identical. */
+const dropdownMenuItemClassName =
+  "group/dropdown-menu-item relative flex cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive"
+
 function DropdownMenuItem({
   className,
   inset,
@@ -87,10 +91,39 @@ function DropdownMenuItem({
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
-      className={cn(
-        "group/dropdown-menu-item relative flex cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive",
-        className
-      )}
+      className={cn(dropdownMenuItemClassName, className)}
+      {...props}
+    />
+  )
+}
+
+/**
+ * A menu item that navigates. `Item` is typed and rendered as a div, so making
+ * it a link means overriding its element via `render` and losing the anchor
+ * prop types; `LinkItem` is the part base-ui ships for this and renders an <a>
+ * natively.
+ *
+ * `closeOnClick` defaults to false upstream, on the assumption a link is about
+ * to unload the page. Client-side navigation doesn't unload anything, so
+ * without this override the menu stays open over the page it just moved to.
+ */
+function DropdownMenuLinkItem({
+  className,
+  inset,
+  variant = "default",
+  closeOnClick = true,
+  ...props
+}: MenuPrimitive.LinkItem.Props & {
+  inset?: boolean
+  variant?: "default" | "destructive"
+}) {
+  return (
+    <MenuPrimitive.LinkItem
+      data-slot="dropdown-menu-link-item"
+      data-inset={inset}
+      data-variant={variant}
+      closeOnClick={closeOnClick}
+      className={cn(dropdownMenuItemClassName, className)}
       {...props}
     />
   )
@@ -257,6 +290,7 @@ export {
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuItem,
+  DropdownMenuLinkItem,
   DropdownMenuCheckboxItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,

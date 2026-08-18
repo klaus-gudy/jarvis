@@ -644,6 +644,53 @@ action is greyed with a reason rather than dropped.
 - [x] **It is inlined at build time, not read at runtime** (`NEXT_PUBLIC_*`), so on Railway it must be a service variable present when `next build` runs — `.env.production` is gitignored and will not be on the deploy target
 - [x] Verified: four sections and four nav links remain (`features`, `security`, `pricing`, `faq`), deep link to `#features` lands with the spy pill correct, no horizontal overflow at 375px, `/` still prerenders static, `tsc` and lint clean
 
+## Phase 59 — Revert the big-bang changeset; profile menu + `/profile`
+
+Restarting the payment-accounts / account-settings work incrementally, at the user's request. This phase is steps 1–2 of that: the menu entry, and the page that groups what it will hold.
+
+- [x] **Reverted to `git stash@{0}`, not `checkout`** — 22 modified files plus 9 new paths (`app/(app)/settings/`, the payment-account APIs, `lib/payment-accounts*.ts`, `components/settings/`) are preserved, since the incremental rebuild covers the same ground and the stash is the reference for it
+- [x] **Rolled the stashed migration back in Postgres by hand.** `20260817203612_payment_accounts_and_org_profile` was applied to the dev DB, and stashing its folder left the row in `_prisma_migrations` with no file — the drift that makes the next `migrate dev` offer a full `migrate reset`, wiping the dev data. Dropped the two FKs, the index, `PaymentAccount`, the `PaymentAccountType` enum, `Payment.receivedIntoId`/`reference` and the six `Organization` profile columns, then deleted the row. Checked first that the columns held only the reverted work's own test data (2 payment accounts, 1 payment reference, 0 org profiles). `migrate status` → 14 migrations, "Database schema is up to date"
+- [x] **The dev server had to be restarted, not just `prisma generate`d** — Turbopack held the pre-revert client and every page 500'd with `Organization.tin does not exist`. Same trap as the 2026-08-02 note; it now has a second occurrence
+- [x] **Profile entry in the user menu**, above Sign out and separated from it, in `components/nav-user.tsx`
+- [x] `DropdownMenuLinkItem` added to `components/ui/dropdown-menu.tsx` wrapping base-ui's `Menu.LinkItem` — `Menu.Item` renders a `div`, so a link through `render` loses the anchor typing. **`closeOnClick` is overridden to `true`**: it defaults to `false` upstream on the assumption a link unloads the page, which client-side navigation doesn't, so the menu would stay open over `/profile`. Both parts now share `dropdownMenuItemClassName`
+- [x] **`findPageTitle` in `lib/nav.ts`** — `/profile` is deliberately not a `navItem` (it would light up a sidebar row that doesn't exist), but `AppHeader` read titles only off `findActiveNavItem`, so it would have shown the bare app name. A `secondaryPageTitles` map resolves first, nav items second
+- [x] `lib/profile.ts` — `getProfile(userId, activeOrgId)`, one `Promise.all`. The user and the membership are **separate queries on purpose**: the membership half is conditional on there being an active org, and a conditional `select` collapses Prisma's inferred type back to the bare scalar row (caught by `tsc`, not at runtime)
+- [x] `app/(app)/profile/page.tsx` + `components/profile/profile-section.tsx` — four groups, one section wrapper so the icon tile and title/description rhythm are defined once
+- [x] **Personal info** (name, phone, email) and **Organization info** (org, your role, owner, joined, created, member and property counts) render live data
+- [x] **Account settings** and **Payment accounts** are structured but inert — a `PendingAction` marker rather than disabled buttons, since a button that can never be pressed reads as broken. Both are the next increments; payment accounts needs the model back, delete-account needs its cascade decided
+- [x] Verified live: menu item navigates and the menu closes; header reads "Profile"; all four groups render against the real org (7 members, 1 property); dark mode and 375px checked with no horizontal overflow; server log clean (`GET /profile 200`); `tsc` and lint clean
+
+## Phase 60 — Profile page rebuilt to the supplied design; payment accounts
+
+Replicating a reference layout the user supplied, in this app's palette. Increment 3.
+
+- [x] **`migrate dev` had to be abandoned — it offered to reset the whole dev database.** Two migrations from the **`documents` branch** (`attachment_slots`, `attachments`) are in this DB's ledger but have no folder or model on main, which `migrate dev` reads as drift. `migrate status` reports "up to date" and gives no warning. Authored the migration with `migrate diff --from-migrations` + `migrate deploy` instead (the Phase 1 technique) and added `datasource.shadowDatabaseUrl` to `prisma.config.ts`. Confirmed afterwards that all 10 properties / 9 leases / 79 users **and the `documents` branch's 1 attachment row** survived
+- [x] Migration `20260818090000_payment_accounts`: `PaymentAccountType` enum (`MOBILE_MONEY | BANK | LIPA`) and `PaymentAccount`, hung off `Membership` — see the decision log for why not `User` or `Organization`
+- [x] `lib/payment-accounts.ts` (scoped by `{userId, organizationId}`, never by account id alone), `-schemas.ts`, and `payment-account-options.ts` — the last dependency-free so the client bundle doesn't pull in Prisma, same split as `search-types.ts`
+- [x] `GET|POST /api/payment-accounts`, `PATCH|DELETE /api/payment-accounts/[id]` — **404, not 403, for another member's id**, so the response can't be used to probe for account ids
+- [x] **Concurrency bug found and fixed mid-test.** Seeding two accounts from one `Promise.all` produced two rows both showing `Default` — the `count === 0` check inside `$transaction` does not serialize at READ COMMITTED, contrary to the comment that was on it. Writes now open with `SELECT … FOR UPDATE` on the parent Membership; update and delete re-read the account inside the lock. Re-tested with **three** concurrent POSTs → exactly one default
+- [x] Default handling: the first account is default whether or not it was ticked; deleting the default promotes the next-oldest; the default's own tick is disabled, so it can only be moved by promoting another — a member with accounts always has exactly one
+- [x] `POST /api/account/password` + `ChangePasswordDialog` — verifies the current password, rejects a match with the old one, **409s for a passwordless (staff-onboarded) account** rather than letting a session set a first password without proving anything. Session deliberately not rotated; other devices stay signed in, which needs a token version on the JWT
+- [x] "Edit profile" and "Change phone number" both reuse `PATCH /api/members/[membershipId]` — it already writes exactly these three fields with the same validation, so a second endpoint would only be a copy that drifts
+- [x] Layout matched to the reference: card header with a right-aligned action, two-column field grid, account settings as two outline buttons, payment accounts as a table with type badges and row actions. Colour is ours — `--primary` and the existing `--kind-*` tokens, not the reference's red
+- [x] **Fields the schema cannot hold were dropped, not faked**: name stays one field (Phase 29 settled that a first/last split is never persisted), and Address / Gender / Date of Birth are absent pending a schema decision
+- [x] Read-only rows are a `<dl>` via `components/profile/profile-field.tsx`, **not disabled inputs** — a disabled control is skipped by keyboard nav and announced as unavailable, which misdescribes a display value
+- [x] Removed a redundant `overflow-x-auto` wrapper around `Table` — it ships its own `data-slot="table-container"`, and the outer one was a scroller that could never scroll
+- [x] Verified live: created Lipa + mobile-money + bank accounts, default moved correctly on add and on delete, blank account name stored as **NULL not `""`**, delete confirm names the account, empty state renders. Change-password rejected a wrong current password and a mismatch, each on the right field. Dark mode and 375px checked — table scrolls in-container, page does not (592px table in a 343px container). `tsc` and lint clean
+- [x] **All test payment accounts deleted afterwards** — a leftover row here is a payment destination a tenant could be told to send rent to
+- [ ] **The successful password change is untested** — completing it would have altered the real account's credentials. Both failure paths are verified; the success path is not
+
+## Phase 61 — Profile page edits
+
+- [x] **Organization info: the members / properties / created badges removed.** The two counts belong to the dashboard, not to a page about you
+- [x] **"Change phone number" removed.** It opened the same form on the same field, writing the same column through the same endpoint as Edit profile — one control per thing that changes. `EditProfileDialog`'s `focusPhone` prop went with it, since that was its only caller
+- [x] **Payment accounts: the Type cell is plain text**, not a badge. `PAYMENT_ACCOUNT_TYPE_BADGE` deleted from `payment-account-options.ts` rather than left as an unused export
+- [x] **`components/profile/profile-card-header.tsx` — every card header is now 39px, with or without an action button.** Measured before touching anything: 45px with, 39px without. Two separate causes, and fixing only one leaves 43px
+- [x] `-my-1` on the action: `CardHeader` is a grid whose row takes its tallest item, and a `size="sm"` button is 28px against a 22px title line. The negative margin pulls the button's *layout* height under the title's; it still renders and hit-tests at 28px
+- [x] `row-span-1` on the action: `CardAction` ships `row-span-2` for the title-plus-description case. With no description that invents an implicit second row and the grid's `gap-1` adds 4px of nothing — the residual 43px
+- [x] Deleted `profile-section.tsx`, left unused by the Phase 60 rewrite
+- [x] Verified live: all four headers measure 39px in both themes, buttons still 28px, no page overflow at 375px, table still scrolls in-container. `tsc` and lint clean
+
 ### Not done
 - [ ] **Sticky filters cover the four global list pages only** — per-entity tables (a property's units, a lease's payments, a member's leases) would need an id in the `stateKey` so one entity's filters can't surface on another's.
 - [ ] **Leases created before the billing migration have no invoice**, so they can't be paid at all — the Billing tab reads "No invoice exists for this lease yet" and there is no UI to create one. Needs either a backfill script or an "Issue invoice" action on that empty state.
