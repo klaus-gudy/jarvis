@@ -1,7 +1,9 @@
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser, createSession } from "@/lib/auth/session";
+import { sendOrganizationCreatedEmail } from "@/lib/mail/auth";
 import { createOrganizationForUser } from "@/lib/organizations";
 
 const createOrganizationSchema = z.object({
@@ -51,6 +53,14 @@ export async function POST(request: Request) {
   await createSession(user.id, organization.id);
 
   revalidatePath("/", "layout");
+
+  after(() =>
+    sendOrganizationCreatedEmail({
+      to: user.email,
+      name: user.name,
+      organizationName: organization.name,
+    })
+  );
 
   return Response.json(
     { organization: { id: organization.id, name: organization.name } },

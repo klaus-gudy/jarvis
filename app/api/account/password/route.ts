@@ -1,6 +1,9 @@
+import { after } from "next/server";
+
 import { changePasswordSchema } from "@/lib/account-schemas";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/hash";
+import { sendPasswordChangedEmail } from "@/lib/mail/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -60,6 +63,17 @@ export async function POST(request: Request) {
     where: { id: user.id },
     data: { passwordHash: await hashPassword(parsed.data.newPassword) },
   });
+
+  // A password change is the one account event worth telling someone about
+  // even when they made it themselves — it is how an unauthorised change gets
+  // noticed at all.
+  after(() =>
+    sendPasswordChangedEmail({
+      to: user.email,
+      name: user.name,
+      changedAt: new Date(),
+    })
+  );
 
   // The session cookie is deliberately left alone: signing the user out of the
   // tab they just used would look like the change failed. Sessions elsewhere

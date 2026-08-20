@@ -708,6 +708,33 @@ Replicating a reference layout the user supplied, in this app's palette. Increme
 - [ ] Tenants/leases still have no UI; deleting the seed means new orgs have no tenant data.
 - [ ] Global search and notifications in the mockup header are not implemented.
 
+## Phase 62 — RabbitMQ, and the section-A (auth) emails
+
+Catalogue of all 38 email scenarios lives in the plan file; this phase builds the
+transport and wires **section A only** — the emails addressed to the account holder.
+
+- [x] `docker compose up -d rabbitmq` — `rabbitmq:4-management`, host ports **5682** (AMQP) and **15682** (management UI, guest/guest), shifted off the defaults the same way Postgres sits on 5439
+- [x] `npm install amqplib` (v2, ships its own types — `@types/amqplib` is for 0.10 and was removed after npm pulled it in)
+- [x] `serverExternalPackages: ["amqplib"]` in `next.config.ts` — it opens raw sockets and isn't on Next's auto-external list
+- [x] `lib/mail/config.ts` — the `MailMessage` wire format (`email` / `subject` / `content` / `service_name`, snake_case per the consumer's contract), routing keys, env
+- [x] `lib/mail/queue.ts` — one recovering connection per process, confirm channel, `publishMail()` that **never throws**
+- [x] `lib/mail/layout.ts` — inline-styled HTML *fragment* shell + `escapeHtml` (names and org names are free text and go straight into markup)
+- [x] `lib/mail/auth.ts` — all seven section-A templates
+- [x] Wired with `after()` from `next/server`: `auth.user.registered` (register), `auth.password.changed` (account/password), `auth.login.locked_out` (login), `org.created` (organizations)
+- [x] **Lockout notices are separately rate-limited** (`LOCKOUT_NOTICE`, 1 per 15 min per identifier). Every request during a lockout is rejected, not just the one that crossed the line — notifying on each would turn the defence into a mail bomb aimed at the victim
+- [x] Verified end-to-end against a live broker: all four routing keys arrive on `emails.outbound`, payload keys exactly `["email","subject","content","service_name"]`, `deliveryMode: 2`. Three consecutive 429s produced exactly one lockout email
+- [x] Verified with the broker **stopped**: registration still returns 201, and the buffered message was delivered once RabbitMQ came back
+- [x] `npx tsc --noEmit`, `npm run lint` and `npm run build` all clean
+
+### Not done
+- [ ] **Three section-A emails are written but unwired, because their endpoints don't exist**: `auth.email.verification_requested`, `auth.password.reset_requested`, `auth.password.reset_completed`. `/forgot-password`, `/verify-otp` and `/reset-password` are built but stubbed (`router.push` with TODOs) and there is no token/OTP model. The templates take the code or URL as an argument, so wiring is a one-line call once those land
+- [ ] **`auth.login.new_device` was dropped** — no device or session tracking exists to compare against, so there is nothing to call "new"
+- [ ] **No transactional outbox.** `publishMail` runs after the database transaction commits, so a process death in between loses the event. Acceptable for auth mail (nothing downstream depends on it); **not** acceptable for `lease.created`/`invoice.issued`, which are written in one `$transaction` — decide before wiring section C/D
+- [ ] **A publish during a broker outage waits on its confirm** inside `after()`, capped only by the route's max duration. Observed to recover cleanly; worth a timeout if outages get long
+- [ ] The in-memory limiter backing `LOCKOUT_NOTICE` is per process, so N instances means up to N notices per window — same caveat `lib/rate-limit.ts` already documents
+- [ ] Sections B–E of the catalogue (invitations, leases, billing, digests) are unwired. Everything time-based in them still needs the scheduler that auto-renewal is also waiting on
+- [ ] `service_name` is `"Jarvis"` (the consumer's contract) while the emails themselves say **Rentops** (`SITE_NAME` in `lib/site.ts`). Deliberate — one is a routing label, one is the product's name — but worth a look if the two should converge
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

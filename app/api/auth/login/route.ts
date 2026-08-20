@@ -1,3 +1,6 @@
+import { after } from "next/server";
+
+import { sendAccountLockedEmail } from "@/lib/mail/auth";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/hash";
 import { loginSchema } from "@/lib/auth/schemas";
@@ -12,6 +15,16 @@ const PER_IP = { limit: 10, windowMs: 60_000 };
  * could keep every IP under the limit while still hammering one login.
  */
 const PER_ACCOUNT = { limit: 5, windowMs: 60_000 };
+/**
+ * A second limiter, used purely to cap the lockout *email*.
+ *
+ * Every request made while an account is locked out is rejected, not just the
+ * one that crossed the threshold — so notifying on each rejection would hand
+ * an attacker a mail bomb aimed at the victim, triggered by the very defence
+ * meant to protect them. `limit: 1` over a long window means at most four
+ * notices an hour no matter how hard the account is hammered.
+ */
+const LOCKOUT_NOTICE = { limit: 1, windowMs: 15 * 60_000 };
 
 export async function POST(request: Request) {
   const ip = clientIp(request);
@@ -42,13 +55,51 @@ export async function POST(request: Request) {
     `login:id:${identifier.trim().toLowerCase()}`,
     PER_ACCOUNT
   );
-  if (!byAccount.ok) return tooManyRequests(byAccount.retryAfterSeconds);
+
   const isEmail = identifier.includes("@");
   // Stored phones are always the normalized 10-digit local form, so a phone
   // identifier has to be normalized the same way before it can match one. An
   // unnormalizable phone just means no user will match — treated as unknown
   // below rather than rejected here, so response timing stays uniform.
   const normalizedPhone = isEmail ? null : normalizeTzPhone(identifier);
+
+  if (!byAccount.ok) {
+    const noticeAllowed = rateLimit(
+      `lockout-notice:${identifier.trim().toLowerCase()}`,
+      LOCKOUT_NOTICE
+    );
+
+    // Resolved and sent after the response, so the extra lookup costs the
+    // caller nothing and can't make a locked-out identifier that exists take
+    // measurably longer than one that doesn't.
+    if (noticeAllowed.ok) {
+      after(async () => {
+        const target =
+          isEmail || normalizedPhone
+            ? await prisma.user.findUnique({
+                where: isEmail
+                  ? { email: identifier.toLowerCase() }
+                  : { phone: normalizedPhone! },
+                select: { email: true, name: true, passwordHash: true },
+              })
+            : null;
+
+        // No account, or one that can't sign in anyway: nothing was locked
+        // out, so there is nothing to warn anyone about.
+        if (!target?.passwordHash) return;
+
+        await sendAccountLockedEmail({
+          to: target.email,
+          name: target.name,
+          retryAfterSeconds: byAccount.retryAfterSeconds,
+          ip,
+          at: new Date(),
+        });
+      });
+    }
+
+    return tooManyRequests(byAccount.retryAfterSeconds);
+  }
 
   const user =
     isEmail || normalizedPhone

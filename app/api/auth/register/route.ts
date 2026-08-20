@@ -1,8 +1,11 @@
+import { after } from "next/server";
+
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/hash";
 import { registerSchema } from "@/lib/auth/schemas";
 import { createSession } from "@/lib/auth/session";
+import { sendWelcomeEmail } from "@/lib/mail/auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/roles";
 
@@ -91,6 +94,16 @@ export async function POST(request: Request) {
     const { user, organization, membership } = result;
 
     await createSession(user.id, organization.id);
+
+    // Queued after the response: the account exists either way, and a broker
+    // that is slow or down must not hold up the redirect into the app.
+    after(() =>
+      sendWelcomeEmail({
+        to: user.email,
+        name: user.name,
+        organizationName: organization.name,
+      })
+    );
 
     return Response.json(
       {

@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * `amqplib` opens raw TCP sockets and resolves its own frame codecs at
+   * runtime — bundling it into the server build breaks both. Next auto-externals
+   * a list of known packages (`pg` and `@prisma/client` among them); amqplib
+   * isn't on it, so it has to be named here.
+   */
+  serverExternalPackages: ["amqplib"],
+
   experimental: {
     /**
      * Every page here is dynamic — they all read the session cookie — and
