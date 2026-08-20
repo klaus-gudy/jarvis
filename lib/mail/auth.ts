@@ -81,8 +81,8 @@ export async function sendWelcomeEmail(input: {
 
 /* ------------------------------------------------------------------ *
  * 2. auth.email.verification_requested
- *    Not wired: there is no verification-token model yet. Ready for the
- *    endpoint that adds one.
+ *    Still unwired: address verification is a separate feature from password
+ *    reset and has no token model of its own yet.
  * ------------------------------------------------------------------ */
 
 export async function sendEmailVerificationEmail(input: {
@@ -105,9 +105,7 @@ export async function sendEmailVerificationEmail(input: {
 }
 
 /* ------------------------------------------------------------------ *
- * 3. auth.password.reset_requested
- *    Not wired: POST /api/auth/forgot-password does not exist yet. The
- *    /verify-otp page is already built and expects a 6-digit code.
+ * 3. auth.password.reset_requested — POST /api/auth/forgot-password
  * ------------------------------------------------------------------ */
 
 export async function sendPasswordResetCodeEmail(input: {
@@ -129,12 +127,11 @@ export async function sendPasswordResetCodeEmail(input: {
 }
 
 /* ------------------------------------------------------------------ *
- * 4. auth.password.reset_completed
- *    Not wired: the reset endpoint does not exist yet.
+ * 4. auth.password.reset_completed — POST /api/auth/reset-password
  * ------------------------------------------------------------------ */
 
 export async function sendPasswordResetCompletedEmail(input: {
-  to: string;
+  to: string | null;
   name: string | null;
   resetAt: Date;
 }) {
@@ -142,7 +139,7 @@ export async function sendPasswordResetCompletedEmail(input: {
     heading: "Your password has been reset",
     body: [
       greeting(input.name),
-      `The password for <strong>${escapeHtml(input.to)}</strong> was reset on ${escapeHtml(formatMoment(input.resetAt))}. You can sign in with it now.`,
+      `The password on your account was reset on ${escapeHtml(formatMoment(input.resetAt))}. You can sign in with it now.`,
     ],
     action: { label: "Sign in", href: appUrl("/login") },
     footnote: "If this wasn't you, someone else has access to this inbox — reset the password again and change your email password too.",

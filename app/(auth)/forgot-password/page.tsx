@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 import { AuthHeader } from "@/components/auth/auth-header"
 import { Button } from "@/components/ui/button"
@@ -14,13 +15,27 @@ export default function ForgotPasswordPage() {
   const [identifier, setIdentifier] = React.useState("")
   const [pending, setPending] = React.useState(false)
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPending(true)
-    // TODO: POST /api/auth/forgot-password once a delivery channel (SMS or
-    // email) exists to actually send the code. For now the flow moves straight
-    // to the verification step so the whole journey can be exercised.
-    router.push(`/verify-otp?identifier=${encodeURIComponent(identifier)}`)
+
+    const response = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier }),
+    })
+
+    if (response.ok) {
+      // The endpoint answers the same way whether or not the account exists,
+      // so this step always advances — anything else would tell a stranger
+      // which addresses are registered here.
+      router.push(`/verify-otp?identifier=${encodeURIComponent(identifier)}`)
+      return
+    }
+
+    const data = await response.json().catch(() => null)
+    toast.error(data?.error ?? "Something went wrong")
+    setPending(false)
   }
 
   return (

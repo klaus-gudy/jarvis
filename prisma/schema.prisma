@@ -43,15 +43,38 @@ model Role {
 }
 
 model User {
-  id String @id @default(cuid())
-  email String? @unique
-  phone String? @unique
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  phone        String?  @unique
   passwordHash String?
   name         String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships Membership[]
+  memberships         Membership[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+/**
+ * A pending password reset. Only the bcrypt hash of the 6-digit code is
+ * stored — the code itself exists in the email and nowhere else.
+ * Six digits is a million possibilities, which is not much: `attempts` is what
+ * actually stops an online guess, since a code that survives the TTL is still
+ * only one of a million. Rows are deleted once used, and every earlier one for
+ * the same user is deleted when a new code is issued, so a user has at most
+ * one live code at a time.
+ */
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum InvitationStatus {
@@ -61,7 +84,7 @@ enum InvitationStatus {
 }
 
 model Invitation {
-  id String @id @default(cuid())
+  id         String           @id @default(cuid())
   tokenHash  String           @unique
   email      String?
   phone      String?
@@ -112,7 +135,6 @@ enum PaymentAccountType {
  * Where a member asks tenants to send rent. Hung off Membership, not User or
  * Organization: an owner's accounts are their own, and someone who belongs to
  * two organizations should not have one org's accounts shown in the other.
- *
  * Deleting the membership takes the accounts with it — they describe that
  * relationship, and an orphaned account is a payment destination nobody owns.
  */
@@ -122,7 +144,9 @@ model PaymentAccount {
   provider      String
   accountNumber String
   accountName   String?
-  /** At most one per membership; enforced in lib/payment-accounts.ts writes. */
+  /**
+   * At most one per membership; enforced in lib/payment-accounts.ts writes.
+   */
   isDefault     Boolean            @default(false)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
@@ -159,16 +183,16 @@ enum PropertyStatus {
 }
 
 model Property {
-  id   String       @id @default(cuid())
-  name String
-  type PropertyType
-  category String
-  address  String
-  status PropertyStatus @default(ACTIVE)
+  id          String         @id @default(cuid())
+  name        String
+  type        PropertyType
+  category    String
+  address     String
+  status      PropertyStatus @default(ACTIVE)
   description String?
-  amenities String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  amenities   String[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -179,20 +203,22 @@ model Property {
 }
 
 model Unit {
-  id    String @id @default(cuid())
-  label String
-  rentAmount Int
+  id              String   @id @default(cuid())
+  label           String
+  rentAmount      Int
   minTenureMonths Int?
-  /** When true, a lease on this unit gets a successor created automatically
-   * at term end, for minTenureMonths at the unit's current rentAmount. */
-  autoRenew Boolean @default(false)
-  unitType String?
-  floor   String?
-  block   String?
-  sizeSqm Float?
-  amenities String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  /**
+   * When true, a lease on this unit gets a successor created automatically
+   * at term end, for minTenureMonths at the unit's current rentAmount.
+   */
+  autoRenew       Boolean  @default(false)
+  unitType        String?
+  floor           String?
+  block           String?
+  sizeSqm         Float?
+  amenities       String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -204,18 +230,22 @@ model Unit {
 }
 
 model Lease {
-  id        String   @id @default(cuid())
-  startDate DateTime
-  endDate   DateTime
+  id             String   @id @default(cuid())
+  startDate      DateTime
+  endDate        DateTime
   durationMonths Int
-  /** The rate actually agreed for this lease, per month. Defaults to the
+  /**
+   * The rate actually agreed for this lease, per month. Defaults to the
    * unit's asking `rentAmount` but may be negotiated away from it, so it is
-   * stored rather than inferred from `leaseAmount / durationMonths`. */
+   * stored rather than inferred from `leaseAmount / durationMonths`.
+   */
   monthlyRent    Int
-  /** The whole term's value: `monthlyRent * durationMonths`. */
+  /**
+   * The whole term's value: `monthlyRent * durationMonths`.
+   */
   leaseAmount    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   unitId String
   unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
@@ -225,8 +255,10 @@ model Lease {
 
   invoice Invoice?
 
-  /** Renewal lineage: the auto-renewal job links a new lease back to the one
-   * it succeeded, so it can be skipped on the next pass. */
+  /**
+   * Renewal lineage: the auto-renewal job links a new lease back to the one
+   * it succeeded, so it can be skipped on the next pass.
+   */
   renewedFromId String? @unique
   renewedFrom   Lease?  @relation("LeaseRenewal", fields: [renewedFromId], references: [id])
   renewedTo     Lease?  @relation("LeaseRenewal")

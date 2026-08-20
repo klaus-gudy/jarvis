@@ -727,13 +727,33 @@ transport and wires **section A only** — the emails addressed to the account h
 - [x] `npx tsc --noEmit`, `npm run lint` and `npm run build` all clean
 
 ### Not done
-- [ ] **Three section-A emails are written but unwired, because their endpoints don't exist**: `auth.email.verification_requested`, `auth.password.reset_requested`, `auth.password.reset_completed`. `/forgot-password`, `/verify-otp` and `/reset-password` are built but stubbed (`router.push` with TODOs) and there is no token/OTP model. The templates take the code or URL as an argument, so wiring is a one-line call once those land
+- [x] ~~Three section-A emails unwired~~ — `auth.password.reset_requested` and `auth.password.reset_completed` landed in Phase 63. `auth.email.verification_requested` is still unwired: address verification is its own feature with its own token model
 - [ ] **`auth.login.new_device` was dropped** — no device or session tracking exists to compare against, so there is nothing to call "new"
 - [ ] **No transactional outbox.** `publishMail` runs after the database transaction commits, so a process death in between loses the event. Acceptable for auth mail (nothing downstream depends on it); **not** acceptable for `lease.created`/`invoice.issued`, which are written in one `$transaction` — decide before wiring section C/D
 - [ ] **A publish during a broker outage waits on its confirm** inside `after()`, capped only by the route's max duration. Observed to recover cleanly; worth a timeout if outages get long
 - [ ] The in-memory limiter backing `LOCKOUT_NOTICE` is per process, so N instances means up to N notices per window — same caveat `lib/rate-limit.ts` already documents
 - [ ] Sections B–E of the catalogue (invitations, leases, billing, digests) are unwired. Everything time-based in them still needs the scheduler that auto-renewal is also waiting on
 - [ ] `service_name` is `"Jarvis"` (the consumer's contract) while the emails themselves say **Rentops** (`SITE_NAME` in `lib/site.ts`). Deliberate — one is a routing label, one is the product's name — but worth a look if the two should converge
+
+## Phase 63 — Password reset: forgot → code → new password
+
+- [x] Migration `20260820193000_password_reset_tokens` — `PasswordResetToken` (`codeHash`, `expiresAt`, `attempts`, `userId`). Authored with `migrate diff --from-migrations` + `migrate deploy` against a throwaway `jarvis_shadow` database, per the 2026-08-18 decision-log procedure; the generated SQL touched nothing but the new table
+- [x] `lib/auth/reset.ts` — `requestPasswordReset` / `verifyResetCode` / `completePasswordReset`. Six-digit CSPRNG code, **bcrypt**-hashed (not SHA-256 — see the decision log), 10-minute TTL, 5 attempts, one live code per user
+- [x] `POST /api/auth/forgot-password` — issues and emails the code. **Always answers `{ ok: true }`**, including for unknown accounts, accounts with no password, and accounts with no email
+- [x] `POST /api/auth/verify-otp` — checks the code *without spending it* and sets the reset ticket cookie
+- [x] `POST /api/auth/reset-password` — authorised by the ticket alone; sets the password, deletes every token for that user, emails the confirmation
+- [x] `RESET_TICKET_COOKIE` in `lib/auth/constants.ts`, `signResetTicket`/`verifyResetTicket` in `lib/auth/jwt.ts` (with a `kind: "reset"` claim so a session cookie can't be replayed as a ticket), cookie helpers in `lib/auth/reset-ticket.ts`
+- [x] `/forgot-password`, `verify-otp-form.tsx` and `reset-password-form.tsx` now call the endpoints. `ResetPasswordForm` **takes no props** — the identifier and code no longer travel in the URL
+- [x] `auth.password.reset_requested` and `auth.password.reset_completed` are live on the queue
+- [x] Verified end-to-end with curl and in the browser: full happy path; wrong code rejected; 5 wrong guesses burn the code and the correct one then fails; reset without a ticket 401s; a spent ticket 401s; a used code can't be reverified; old password rejected after reset; unknown identifier returns the same 200 and queues nothing; `/reset-password` URL carries no query string and `document.cookie` is empty (ticket is httpOnly)
+- [x] `tsc`, lint and `npm run build` clean; test users and orgs deleted afterwards
+
+### Not done
+- [ ] **Existing sessions survive a reset.** Someone who reset their password because it was stolen does not boot the thief — revoking needs a token version on the JWT, the same gap `POST /api/account/password` already documents
+- [ ] **A phone-only account can't reset.** Delivery is email-only, so `requestPasswordReset` returns null when `User.email` is null and nothing is sent — the user sees the same "check your messages" screen and no code ever arrives. Honest fix is SMS; interim fix is a distinct message, which would leak whether the account has an email
+- [ ] **Expired tokens are only deleted when touched.** A code nobody returns for sits in the table until the next request from that user. Harmless (every read checks `expiresAt`) but it accumulates — a sweep belongs with the scheduler everything else is waiting on
+- [ ] The `attempts` counter is per code, so requesting a new one resets it. Bounded by the per-identifier limit on `forgot-password` (3 per 15 min), i.e. at most 15 guesses per quarter hour
+- [ ] Reset does not verify the email address — it proves control of the inbox, which is the same evidence, but the account is still formally unverified afterwards
 
 ## Done
 
