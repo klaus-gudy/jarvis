@@ -24,5 +24,36 @@ services:
       timeout: 5s
       retries: 5
 
+  # Carries rendered emails to the standalone mail service. Host ports are
+  # shifted off the AMQP defaults for the same reason Postgres sits on 5439:
+  # a broker someone already runs locally must not collide with this one.
+  #
+  #   amqp://localhost:5682   — what the app publishes to
+  #   http://localhost:15682  — management UI, guest/guest
+  rabbitmq:
+    image: rabbitmq:4-management
+
+    container_name: jarvis-mq
+
+    restart: always
+
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+    ports:
+      - "5682:5672"
+      - "15682:15672"
+
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
 volumes:
   postgres_data:
+  rabbitmq_data:
