@@ -51,6 +51,11 @@ export const getCurrentUser = cache(async () => {
       email: true,
       phone: true,
       name: true,
+      // Read live, never from the token — same reasoning as `orgId` below.
+      // A claim baked into a 7-day cookie would let a user who has since been
+      // required to verify keep walking past the gate until it expired.
+      emailVerifiedAt: true,
+      emailVerificationRequired: true,
       memberships: {
         orderBy: { createdAt: "asc" },
         select: { organizationId: true },

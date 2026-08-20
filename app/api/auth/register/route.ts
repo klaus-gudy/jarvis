@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/hash";
 import { registerSchema } from "@/lib/auth/schemas";
 import { createSession } from "@/lib/auth/session";
-import { sendWelcomeEmail } from "@/lib/mail/auth";
+import { issueEmailVerification } from "@/lib/auth/email-verification";
+import { sendEmailVerificationEmail, sendWelcomeEmail } from "@/lib/mail/auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/roles";
 
@@ -53,7 +54,17 @@ export async function POST(request: Request) {
       if (nameTaken) return { error: "duplicate-org-name" as const };
 
       const user = await tx.user.create({
-        data: { name, email, phone: phone ?? null, passwordHash },
+        data: {
+          name,
+          email,
+          phone: phone ?? null,
+          passwordHash,
+          // Set here and nowhere else: self-service signup is the only route
+          // into the app where nobody has vouched for the address. Someone who
+          // joins by invitation, and every account predating this column,
+          // keeps the `false` default.
+          emailVerificationRequired: true,
+        },
       });
       const organization = await tx.organization.create({
         data: { name: organizationName },
@@ -95,15 +106,30 @@ export async function POST(request: Request) {
 
     await createSession(user.id, organization.id);
 
-    // Queued after the response: the account exists either way, and a broker
-    // that is slow or down must not hold up the redirect into the app.
-    after(() =>
-      sendWelcomeEmail({
+    // Both queued after the response: the account exists either way, and a
+    // broker that is slow or down must not hold up the redirect into the app.
+    //
+    // Two separate emails rather than one combined message, because they
+    // answer different questions and have different lifetimes — the welcome
+    // is a keeper, the code is dead in half an hour and gets replaced every
+    // time they ask for another.
+    after(async () => {
+      await sendWelcomeEmail({
         to: user.email,
         name: user.name,
         organizationName: organization.name,
-      })
-    );
+      });
+
+      const issued = await issueEmailVerification(user.id);
+      if (!issued) return;
+
+      await sendEmailVerificationEmail({
+        to: issued.email,
+        name: issued.name,
+        code: issued.code,
+        expiresInMinutes: issued.expiresInMinutes,
+      });
+    });
 
     return Response.json(
       {

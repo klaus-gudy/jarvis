@@ -7,6 +7,7 @@ import { CreateOrganizationDialog } from "@/components/create-organization-dialo
 import { AppSidebar } from "@/components/app-sidebar"
 import { TourProvider } from "@/components/tour/tour-provider"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { needsEmailVerification } from "@/lib/auth/email-verification"
 import { getCurrentUser } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
 import { displayName, primaryContact } from "@/lib/user-display"
@@ -18,6 +19,12 @@ export default async function AppLayout({
 }) {
   const user = await getCurrentUser()
   if (!user) redirect("/login")
+
+  // Before anything is queried or rendered: a self-registered account that
+  // hasn't proved its address gets no further than the verification screen.
+  // `proxy.ts` can't do this — it reads the session token and nothing else,
+  // and this state deliberately isn't in the token.
+  if (needsEmailVerification(user)) redirect("/verify-email")
 
   // getCurrentUser has already validated activeOrgId against live memberships;
   // this query re-fetches them with org + role names for the switcher.

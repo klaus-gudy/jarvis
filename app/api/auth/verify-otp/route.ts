@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { codeErrorMessage } from "@/lib/auth/one-time-code";
 import { setResetTicket } from "@/lib/auth/reset-ticket";
 import { RESET_CODE_LENGTH, verifyResetCode } from "@/lib/auth/reset";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
@@ -55,14 +56,10 @@ export async function POST(request: Request) {
     // happened, because both are dead ends the user has to act on and neither
     // reveals whether the account exists — you only reach them by having had
     // a code issued.
-    const message =
-      result.reason === "expired"
-        ? "That code has expired. Request a new one."
-        : result.reason === "too-many-attempts"
-          ? "Too many incorrect attempts. Request a new code."
-          : "That code isn't right.";
-
-    return Response.json({ error: message, reason: result.reason }, { status: 400 });
+    return Response.json(
+      { error: codeErrorMessage(result.reason), reason: result.reason },
+      { status: 400 }
+    );
   }
 
   await setResetTicket({ sub: result.userId, tokenId: result.tokenId });

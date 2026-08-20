@@ -727,7 +727,7 @@ transport and wires **section A only** — the emails addressed to the account h
 - [x] `npx tsc --noEmit`, `npm run lint` and `npm run build` all clean
 
 ### Not done
-- [x] ~~Three section-A emails unwired~~ — `auth.password.reset_requested` and `auth.password.reset_completed` landed in Phase 63. `auth.email.verification_requested` is still unwired: address verification is its own feature with its own token model
+- [x] ~~Three section-A emails unwired~~ — reset landed in Phase 63, verification in Phase 64. **All seven section-A emails now publish**, except `auth.login.new_device`, which was dropped for want of device tracking
 - [ ] **`auth.login.new_device` was dropped** — no device or session tracking exists to compare against, so there is nothing to call "new"
 - [ ] **No transactional outbox.** `publishMail` runs after the database transaction commits, so a process death in between loses the event. Acceptable for auth mail (nothing downstream depends on it); **not** acceptable for `lease.created`/`invoice.issued`, which are written in one `$transaction` — decide before wiring section C/D
 - [ ] **A publish during a broker outage waits on its confirm** inside `after()`, capped only by the route's max duration. Observed to recover cleanly; worth a timeout if outages get long
@@ -754,6 +754,29 @@ transport and wires **section A only** — the emails addressed to the account h
 - [ ] **Expired tokens are only deleted when touched.** A code nobody returns for sits in the table until the next request from that user. Harmless (every read checks `expiresAt`) but it accumulates — a sweep belongs with the scheduler everything else is waiting on
 - [ ] The `attempts` counter is per code, so requesting a new one resets it. Bounded by the per-identifier limit on `forgot-password` (3 per 15 min), i.e. at most 15 guesses per quarter hour
 - [ ] Reset does not verify the email address — it proves control of the inbox, which is the same evidence, but the account is still formally unverified afterwards
+
+## Phase 64 — Email verification, and the gate behind it
+
+Registration now sends **two** emails — the welcome and a 6-digit code — and a
+self-registered account can't use the app until that code is entered.
+
+- [x] Migration `20260821090000_email_verification` — `User.emailVerifiedAt`, `User.emailVerificationRequired` (default **false**), and an `EmailVerificationToken` table
+- [x] **Grandfathering needs no backfill**: all 81 existing users keep the `false` default, so nobody was locked out. `emailVerifiedAt` is left null for them rather than stamped with `now()` — they were never verified, they are simply not required to be
+- [x] `lib/auth/one-time-code.ts` — the code policy (6 digits, CSPRNG, bcrypt, 5 attempts, shared error messages) extracted from `lib/auth/reset.ts`, which was **refactored onto it** rather than copied. Separate tables per purpose on purpose: one table with a `purpose` column puts an account takeover one forgotten `where` clause away
+- [x] `lib/auth/email-verification.ts` — `needsEmailVerification` / `issueEmailVerification` / `confirmEmailVerification`. 30-minute TTL (longer than a reset's 10 — nobody is standing at the keyboard waiting)
+- [x] `POST /api/auth/verify-email` and `POST /api/auth/verify-email/resend` (3 per 10 min, keyed on the **account**, since it's a mailbox being flooded, not a network)
+- [x] `/verify-email` page in the `(auth)` group — signed-in, outside the app shell, with a **Sign out** escape hatch so a typo'd address isn't a dead end
+- [x] The gate bites in two places: `app/(app)/layout.tsx` redirects, and **`requireActiveOrg` returns 403 `email-unverified`** — a gate that only covers pages is theatre, since the API is reachable directly
+- [x] `emailVerifiedAt`/`emailVerificationRequired` are read live in `getCurrentUser`, never from the session token — same reasoning already applied to `orgId`
+- [x] Verified: registration queues both emails and sets the flag; org API 403s then 200s; wrong code rejected; resend kills the previous code; the gate redirects `/dashboard` → `/verify-email` with no loop; a grandfathered account reaches `/dashboard` untouched
+- [x] `tsc`, lint and `npm run build` clean; test users deleted
+
+### Not done
+- [ ] **Invited members are never asked to verify** — your call, and it means an invited member's address is unproven. If invites start being *emailed* (section B of the catalogue), accepting one proves the address anyway and the distinction stops mattering
+- [ ] **Nothing re-verifies after an email change.** `PATCH /api/members/[membershipId]` and the profile editor can change `User.email` without clearing `emailVerifiedAt` — so a verified account can end up with an unverified address. The fix is one `emailVerifiedAt: null` on any write that changes the column, plus a fresh code
+- [ ] **Expired verification tokens are only deleted when touched**, same as reset tokens — a sweep belongs with the scheduler
+- [ ] `POST /api/account/password` and the auth routes stay open to unverified users, deliberately: locking them out of their own account controls would leave a typo'd signup with nowhere to go
+- [ ] The dev server **must be restarted after `prisma generate`** — the client is cached on `globalThis` across hot reloads, so a regenerated schema doesn't reach a running server. It fails as `Unknown field ... for select statement`, which reads like a code bug and isn't
 
 ## Done
 

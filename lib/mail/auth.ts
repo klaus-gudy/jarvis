@@ -80,27 +80,26 @@ export async function sendWelcomeEmail(input: {
 }
 
 /* ------------------------------------------------------------------ *
- * 2. auth.email.verification_requested
- *    Still unwired: address verification is a separate feature from password
- *    reset and has no token model of its own yet.
+ * 2. auth.email.verification_requested — POST /api/auth/register, and
+ *    POST /api/auth/verify-email/resend
  * ------------------------------------------------------------------ */
 
 export async function sendEmailVerificationEmail(input: {
   to: string;
   name: string | null;
-  /** Absolute URL carrying the single-use token. */
-  verifyUrl: string;
-  expiresAt: Date;
+  /** The 6-digit code `/verify-email` will ask for. */
+  code: string;
+  expiresInMinutes: number;
 }) {
-  await deliver("auth.email.verification_requested", input.to, "Confirm your email address", {
+  await deliver("auth.email.verification_requested", input.to, `Your ${SITE_NAME} verification code: ${input.code}`, {
     heading: "Confirm your email address",
     body: [
       greeting(input.name),
-      `Confirm <strong>${escapeHtml(input.to)}</strong> so we can send you rent alerts, overdue notices and lease reminders.`,
-      `This link works once and expires on ${escapeHtml(formatMoment(input.expiresAt))}.`,
+      `Enter this code to confirm <strong>${escapeHtml(input.to)}</strong>. Until it is confirmed, your account can't be used.`,
     ],
-    action: { label: "Confirm email", href: input.verifyUrl },
-    footnote: "Didn't create this account? Ignore this email and nothing happens.",
+    code: input.code,
+    action: { label: "Enter the code", href: appUrl("/verify-email") },
+    footnote: `The code expires in ${input.expiresInMinutes} minutes. Didn't create this account? Ignore this email and nothing happens.`,
   });
 }
 

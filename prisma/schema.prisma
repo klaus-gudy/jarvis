@@ -51,8 +51,44 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships         Membership[]
-  passwordResetTokens PasswordResetToken[]
+  /**
+   * When the address on this account was proven, by entering a code sent to
+   * it. Null on a grandfathered account too — those were never verified, they
+   * are simply not required to be.
+   */
+  emailVerifiedAt DateTime?
+
+  /**
+   * Whether this account is *blocked* until its address is verified. True only
+   * for self-service registrations: someone who joined by invitation was
+   * vouched for by a member of their organization, and every account that
+   * existed before verification shipped keeps the `false` default, which is
+   * what grandfathers them in without a data backfill.
+   */
+  emailVerificationRequired Boolean @default(false)
+
+  memberships             Membership[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+/**
+ * A pending email verification. Same shape and same rules as
+ * `PasswordResetToken` — six digits, bcrypt-hashed, attempt-capped — but a
+ * separate table on purpose: one table with a `purpose` column would mean a
+ * single forgotten filter lets a verification code reset a password.
+ */
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 /**

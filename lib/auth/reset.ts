@@ -1,37 +1,23 @@
-import { randomInt } from "node:crypto";
-
-import { hashPassword, verifyPassword } from "@/lib/auth/hash";
+import { hashPassword } from "@/lib/auth/hash";
+import {
+  CODE_LENGTH,
+  checkCode,
+  generateCode,
+  hashCode,
+} from "@/lib/auth/one-time-code";
 import { normalizeTzPhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 
 /**
  * Password reset by one-time code.
  *
- * The code is six digits because `/verify-otp` asks for six and a person has
- * to retype it from an email — which also makes it only a million
- * possibilities, so the guessing defence is `attempts`, not entropy. Three
- * separate limits apply: five wrong guesses burns the code, the code expires
- * in ten minutes, and the endpoints are IP rate-limited on top.
- *
- * Only the bcrypt hash is stored. SHA-256 would be wrong here for the reason
- * it is *right* in `lib/invitations.ts`: an invite token is 256 random bits, a
- * six-digit code is not, and a fast hash of a million-value space is a lookup
- * table.
+ * The code's shape and guessing defences live in `lib/auth/one-time-code.ts`,
+ * shared with email verification. What is specific to a reset is here: who a
+ * code may be issued to, and what spending one is allowed to do.
  */
 
-export const RESET_CODE_LENGTH = 6;
+export const RESET_CODE_LENGTH = CODE_LENGTH;
 export const RESET_TTL_MINUTES = 10;
-/** Wrong guesses before the code is destroyed and a new one must be requested. */
-const MAX_ATTEMPTS = 5;
-
-function generateCode() {
-  // `randomInt` is CSPRNG-backed; `Math.random` is not, and a predictable
-  // reset code is a full account takeover.
-  return String(randomInt(0, 10 ** RESET_CODE_LENGTH)).padStart(
-    RESET_CODE_LENGTH,
-    "0"
-  );
-}
 
 /**
  * Resolves "email or phone, as typed" to an account, the same way
@@ -90,7 +76,7 @@ export async function requestPasswordReset(
     // first, so "send it again" can't leave two working codes behind.
     prisma.passwordResetToken.deleteMany({ where: { userId: user.id } }),
     prisma.passwordResetToken.create({
-      data: { userId: user.id, codeHash: await hashPassword(code), expiresAt },
+      data: { userId: user.id, codeHash: await hashCode(code), expiresAt },
     }),
   ]);
 
@@ -125,30 +111,18 @@ export async function verifyResetCode(
   });
   if (!token) return { ok: false, reason: "invalid" };
 
-  if (token.expiresAt < new Date()) {
-    await prisma.passwordResetToken.delete({ where: { id: token.id } });
-    return { ok: false, reason: "expired" };
-  }
-
-  if (token.attempts >= MAX_ATTEMPTS) {
-    await prisma.passwordResetToken.delete({ where: { id: token.id } });
-    return { ok: false, reason: "too-many-attempts" };
-  }
-
-  if (!(await verifyPassword(code, token.codeHash))) {
-    const { attempts } = await prisma.passwordResetToken.update({
-      where: { id: token.id },
-      data: { attempts: { increment: 1 } },
-      select: { attempts: true },
-    });
-    // Burned on the last allowed guess rather than on the next request, so an
-    // attacker gets exactly MAX_ATTEMPTS tries and not one more.
-    if (attempts >= MAX_ATTEMPTS) {
-      await prisma.passwordResetToken.delete({ where: { id: token.id } });
-      return { ok: false, reason: "too-many-attempts" };
-    }
-    return { ok: false, reason: "invalid" };
-  }
+  const check = await checkCode(token, code, {
+    incrementAttempts: async () =>
+      (
+        await prisma.passwordResetToken.update({
+          where: { id: token.id },
+          data: { attempts: { increment: 1 } },
+          select: { attempts: true },
+        })
+      ).attempts,
+    destroy: () => prisma.passwordResetToken.delete({ where: { id: token.id } }),
+  });
+  if (!check.ok) return check;
 
   return { ok: true, userId: user.id, tokenId: token.id };
 }
