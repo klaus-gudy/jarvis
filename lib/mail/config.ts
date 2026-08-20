@@ -20,9 +20,9 @@ export type MailMessage = {
 };
 
 /**
- * Routing keys for the section-A (auth) emails. A topic exchange carries them,
- * so the mail service can bind `#` today and split `auth.password.*` onto its
- * own queue later without this app changing.
+ * Every routing key this app publishes. A topic exchange carries them, so the
+ * mail service can bind `#` today and split `auth.password.*` or `invoice.*`
+ * onto their own queues later without this app changing.
  */
 export const MAIL_ROUTING_KEYS = [
   "auth.user.registered",
@@ -32,6 +32,11 @@ export const MAIL_ROUTING_KEYS = [
   "auth.password.changed",
   "auth.login.locked_out",
   "org.created",
+  // Section C — leases
+  "lease.expiring",
+  // Section D — billing
+  "invoice.paid_in_full",
+  "invoice.overdue",
 ] as const;
 
 export type MailRoutingKey = (typeof MAIL_ROUTING_KEYS)[number];

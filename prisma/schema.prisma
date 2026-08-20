@@ -23,10 +23,35 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships Membership[]
-  properties  Property[]
-  roles       Role[]
-  invitations Invitation[]
+  memberships   Membership[]
+  properties    Property[]
+  roles         Role[]
+  invitations   Invitation[]
+  notifications NotificationLog[]
+}
+
+/**
+ * What the notification sweep has already sent.
+ * Only *scheduled* notifications are recorded. An event-driven one fires on
+ * the event and can't repeat; a scheduled one is found by a query that will
+ * find it again on the next run, so without this a cron every hour would mail
+ * the same landlord every hour.
+ * `dedupeKey` carries the occasion as well as the subject — `…:60` and `…:30`
+ * for the two lease-expiry tiers, a week index for the overdue reminder — so
+ * one row can't suppress a later, legitimately different notice. It is unique
+ * rather than merely indexed: that makes a double send impossible even if two
+ * cron hits overlap, which is the one failure a person actually notices.
+ */
+model NotificationLog {
+  id        String   @id @default(cuid())
+  dedupeKey String   @unique
+  type      String
+  sentAt    DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model Role {

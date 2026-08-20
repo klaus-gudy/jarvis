@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import type { RecordPaymentInput } from "@/lib/invoices-schemas";
 import {
+  sendInvoicePaidToOwner,
+  sendInvoicePaidToTenant,
+  type InvoiceFacts,
+} from "@/lib/mail/billing";
+import { getOwnerRecipients } from "@/lib/notifications/recipients";
+import { displayName } from "@/lib/user-display";
+import {
   deriveInvoiceStatus,
   invoiceReference,
   type InvoiceStatus,
@@ -79,7 +86,18 @@ export async function recordPayment(
 ) {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, ...orgInvoiceFilter(organizationId) },
-    include: { payments: { select: { amount: true } } },
+    include: {
+      payments: { select: { amount: true } },
+      lease: {
+        select: {
+          id: true,
+          unit: { select: { label: true, property: { select: { name: true } } } },
+          membership: {
+            select: { user: { select: { name: true, email: true, phone: true } } },
+          },
+        },
+      },
+    },
   });
   if (!invoice) return { error: "not-found" as const };
 
@@ -99,7 +117,58 @@ export async function recordPayment(
     },
   });
 
-  return { payment };
+  // The *crossing*, not the state: `balance` above is what was owed before
+  // this payment, so this is true only for the payment that actually clears
+  // the invoice. Recording another payment on a settled invoice is impossible
+  // anyway — the overpayment guard rejects it — so this cannot repeat.
+  const settled = input.amount >= balance;
+
+  return { payment, settled, facts: settled ? invoiceFacts(invoice, paid + input.amount) : null };
+}
+
+/** Everything the two paid-in-full emails render, assembled once. */
+function invoiceFacts(
+  invoice: {
+    id: string;
+    amount: number;
+    dueDate: Date;
+    lease: {
+      id: string;
+      unit: { label: string; property: { name: string } };
+      membership: { user: { name: string | null; email: string | null; phone: string | null } };
+    };
+  },
+  paid: number
+): InvoiceFacts {
+  return {
+    invoiceId: invoice.id,
+    reference: invoiceReference(invoice.id),
+    leaseId: invoice.lease.id,
+    amount: invoice.amount,
+    paid,
+    balance: invoice.amount - paid,
+    dueDate: invoice.dueDate,
+    tenantName: displayName(invoice.lease.membership.user),
+    tenantEmail: invoice.lease.membership.user.email,
+    tenantPhone: invoice.lease.membership.user.phone,
+    propertyName: invoice.lease.unit.property.name,
+    unitLabel: invoice.lease.unit.label,
+  };
+}
+
+/**
+ * Fans the paid-in-full notice out to the tenant and every owner. Separate
+ * from `recordPayment` so the caller decides when it runs — the route wraps it
+ * in `after()`, keeping a broker round trip off the response.
+ */
+export async function announceInvoiceSettled(
+  organizationId: string,
+  facts: InvoiceFacts
+) {
+  await sendInvoicePaidToTenant(facts);
+  for (const owner of await getOwnerRecipients(organizationId)) {
+    await sendInvoicePaidToOwner(facts, owner);
+  }
 }
 
 export async function deletePayment(

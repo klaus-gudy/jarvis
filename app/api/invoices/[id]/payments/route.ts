@@ -1,9 +1,10 @@
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { requireActiveOrg } from "@/lib/api-auth";
 import { formatCurrencyFull } from "@/lib/format";
 import { recordPaymentSchema } from "@/lib/invoices-schemas";
-import { recordPayment } from "@/lib/invoices";
+import { announceInvoiceSettled, recordPayment } from "@/lib/invoices";
 
 export async function POST(
   request: Request,
@@ -48,6 +49,13 @@ export async function POST(
       },
       { status: 400 }
     );
+  }
+
+  // Only on the payment that actually cleared the invoice — `recordPayment`
+  // compares against the balance as it stood before this one landed.
+  if (result.facts) {
+    const { facts } = result;
+    after(() => announceInvoiceSettled(auth.context.organizationId, facts));
   }
 
   revalidatePath("/leases");

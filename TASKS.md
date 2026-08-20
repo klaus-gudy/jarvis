@@ -778,6 +778,30 @@ self-registered account can't use the app until that code is entered.
 - [ ] `POST /api/account/password` and the auth routes stay open to unverified users, deliberately: locking them out of their own account controls would leave a typo'd signup with nowhere to go
 - [ ] The dev server **must be restarted after `prisma generate`** — the client is cached on `globalThis` across hot reloads, so a regenerated schema doesn't reach a running server. It fails as `Unknown field ... for select statement`, which reads like a code bug and isn't
 
+## Phase 65 — Cherry-picked notifications: lease expiry, paid in full, overdue
+
+Three from sections C and D, and the scheduler two of them needed.
+
+- [x] Migration `20260821110000_notification_log` — `NotificationLog(dedupeKey @unique, type, sentAt, organizationId)`
+- [x] `lib/mail/leases.ts` — `lease.expiring`, **two templates**: the landlord is told to decide, the tenant is told what happens if nobody does
+- [x] `lib/mail/billing.ts` — `invoice.paid_in_full` and `invoice.overdue`, likewise two audiences each
+- [x] `lib/notifications/recipients.ts` — `getOwnerRecipients()` returns **every** Owner, unlike `getOrganizationOwnerName` which picks the oldest to label a property
+- [x] `lib/notifications/sweep.ts` — `runNotificationSweep()`, the first thing here that runs across all organizations at once
+- [x] `POST /api/cron/notifications`, `Authorization: Bearer $CRON_SECRET`. Refuses to run (503) when the secret is unset rather than running open
+- [x] `invoice.paid_in_full` fires from `recordPayment` on the **crossing**, not the state — `balance` is what was owed *before* the payment, so only the one that clears it announces
+- [x] Lease expiry uses the same 60/30 boundaries as `leaseExpiry()` in `lib/leases.ts`, so email and UI can't disagree. **Auto-renewing units are excluded**: telling someone to act on what the app is about to do for them is worse than silence
+- [x] Overdue chases weekly (`floor(daysLate / 7)` in the key) and **stops after 8 notices**
+- [x] Verified against real seed data: 16 emails on the first sweep, correctly split across two organizations; **0 on the second and third runs**; three *concurrent* sweeps produced exactly 16, not 48 — the unique key held the race; a partial payment announced nothing and the settling one announced to tenant and owner; cron 401s without the secret
+- [x] `tsc`, lint and `npm run build` clean; test org and log rows deleted
+
+### Not done
+- [ ] **Nothing is scheduled yet.** The endpoint exists; something still has to call it hourly (Railway cron, GitHub Actions, `cron` + `curl`). Until then these three send nothing
+- [ ] **Auto-renewal still isn't on this hook.** `runAutoRenewals` is already written to be called from a job and this is now the obvious place — it stayed out because it wasn't asked for
+- [ ] **`NotificationLog` grows forever.** One row per notice, never pruned. Harmless for a long time, but it is the same "needs a sweep" note the token tables carry
+- [ ] Sends are sequential — one `await` per recipient per notice. Fine at this size; a few thousand overdue invoices would want batching
+- [ ] Only 3 of the catalogue's 38 are wired. The rest of C and D (`lease.created`, `lease.renewal_failed`, `payment.recorded`, `payment.reversed`, `payment_account.changed`) fire from code paths that already exist and need no scheduler
+- [ ] `invoice.overdue` does not re-check whether the tenant paid between the sweep finding it and the email going out. The window is milliseconds and the copy says "if you have already paid, ignore this"
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
