@@ -23,7 +23,7 @@ export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3347"
 ).replace(/\/$/, "");
 
-export const SITE_NAME = "Rentops";
+export const SITE_NAME = "Rentoo";
 
 /** The one-line answer to "what is this?", reused as the meta description. */
 export const SITE_TAGLINE =
