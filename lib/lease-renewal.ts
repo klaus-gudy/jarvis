@@ -1,11 +1,21 @@
 import { prisma } from "@/lib/prisma";
-import { insertLease } from "@/lib/leases";
+import { insertLease, type RenewalAnnouncement } from "@/lib/leases";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type AutoRenewalResult = {
   renewed: string[];
   skipped: { leaseId: string; reason: string }[];
+  /**
+   * The renewals this call actually performed, for `announceLeaseRenewals`.
+   *
+   * Returned rather than emailed from in here: this runs at the top of a page
+   * render, and `publishMail` waits on a broker round trip. Handing the work
+   * back lets the caller put it in `after()`, so an unreachable RabbitMQ
+   * delays nothing a person is looking at. Empty on a throttled call, which is
+   * most of them.
+   */
+  renewals: RenewalAnnouncement[];
   /** True when the sweep was skipped because one ran recently. */
   throttled?: true;
 };
@@ -40,7 +50,7 @@ export async function runAutoRenewals(
 
   const since = now.getTime() - (lastSweptAt.get(organizationId) ?? 0);
   if (!force && since < SWEEP_INTERVAL_MS) {
-    return { renewed: [], skipped: [], throttled: true };
+    return { renewed: [], skipped: [], renewals: [], throttled: true };
   }
   // Stamped before the work, not after: a failed sweep shouldn't be retried by
   // every concurrent request, and the next one will pick the lease up anyway.
@@ -58,6 +68,7 @@ export async function runAutoRenewals(
 
   const renewed: string[] = [];
   const skipped: { leaseId: string; reason: string }[] = [];
+  const renewals: RenewalAnnouncement[] = [];
 
   for (const lease of candidates) {
     if (lease.unit.minTenureMonths == null) {
@@ -81,9 +92,18 @@ export async function runAutoRenewals(
       renewedFromId: lease.id,
     });
 
-    if (result.error) skipped.push({ leaseId: lease.id, reason: result.error });
-    else renewed.push(lease.id);
+    if (result.error) {
+      skipped.push({ leaseId: lease.id, reason: result.error });
+    } else {
+      renewed.push(lease.id);
+      // The *new* lease's id, plus the date the old term ended — the email
+      // leads with "your lease ended on X and has renewed".
+      renewals.push({
+        leaseId: result.lease.id,
+        previousEndDate: lease.endDate,
+      });
+    }
   }
 
-  return { renewed, skipped };
+  return { renewed, skipped, renewals };
 }

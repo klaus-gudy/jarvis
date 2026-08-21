@@ -802,6 +802,24 @@ Three from sections C and D, and the scheduler two of them needed.
 - [ ] Only 3 of the catalogue's 38 are wired. The rest of C and D (`lease.created`, `lease.renewal_failed`, `payment.recorded`, `payment.reversed`, `payment_account.changed`) fire from code paths that already exist and need no scheduler
 - [ ] `invoice.overdue` does not re-check whether the tenant paid between the sweep finding it and the email going out. The window is milliseconds and the copy says "if you have already paid, ignore this"
 
+## Phase 66 — `lease.created` and `lease.renewed`
+
+**No schema change** — both events come from code paths that already existed.
+
+- [x] `lib/mail/leases.ts` — four more templates. Owner and tenant differ in what they're *for*: the owner is reading a record of their portfolio, the tenant is reading about the roof over their head. The terms block (`termsLines`) is shared so the two can't state different rent
+- [x] **Neither event is emitted from `insertLease`.** It is the shared write for both a manual lease and an auto-renewal and cannot tell them apart, so announcing from inside it would send "new lease" for every renewal too. Each caller announces its own event
+- [x] `insertLease` now returns the invoice it raises, so both emails can name it without a second query
+- [x] `announceLeaseCreated` / `announceLeaseRenewals` in `lib/leases.ts`, next to `announceInvoiceSettled` in `lib/invoices.ts` — same arrangement
+- [x] `runAutoRenewals` returns `renewals[]` instead of emailing directly: it runs at the top of a **page render**, and `publishMail` waits on a broker round trip. The two page call sites put it in `after()`, so an unreachable RabbitMQ delays nothing anyone is looking at
+- [x] Verified: creating a lease sends `lease.created` to tenant + owner; **an auto-renewal sends `lease.renewed` and no `lease.created`**, through the same `insertLease`; reloading `/leases` and `/dashboard` re-announces nothing; a lease negotiated at 700k on a unit asking 900k renewed at 700k, and the email says so
+- [x] `tsc`, lint and `npm run build` clean; test org deleted
+
+### Not done
+- [ ] **`lease.renewed` is only as timely as the renewal it announces** — both wait for someone to load `/leases` or `/dashboard`. Moving `runAutoRenewals` onto `POST /api/cron/notifications` fixes both at once; still not done, still not asked for
+- [ ] **A third caller of `runAutoRenewals` would have to remember the `after(...)` line.** The alternative — announcing inside it — was rejected because it would block a page render on the broker
+- [ ] **`publishMail` has no timeout.** With RabbitMQ unreachable the publish waits on amqplib's recovery, bounded only by the route's max duration. Harmless everywhere it is currently called (all inside `after()`), and the reason renewals announce from the call site rather than mid-render — but a deadline on the publish would remove the hazard rather than route around it
+- [ ] `lease.amended` and `lease.cancelled` (`updateLease`, `deleteLease`) are still unwired, as is `lease.renewal_failed` — the one that tells an owner a unit silently stopped earning
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

@@ -1,4 +1,14 @@
+import {
+  sendLeaseCreatedToOwner,
+  sendLeaseCreatedToTenant,
+  sendLeaseRenewedToOwner,
+  sendLeaseRenewedToTenant,
+  type LeaseFacts,
+} from "@/lib/mail/leases";
+import { getOwnerRecipients } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
+import { invoiceReference } from "@/lib/invoice-types";
+import { displayName } from "@/lib/user-display";
 import {
   addMonths,
   type CreateLeaseInput,
@@ -360,14 +370,18 @@ export async function insertLease(params: {
       },
       select: { id: true, leaseAmount: true, startDate: true },
     });
-    await tx.invoice.create({
+    // Returned, not discarded: both the new-lease and the renewal email name
+    // the invoice this raises, and re-reading it afterwards would be a second
+    // query for a row we are holding.
+    const invoice = await tx.invoice.create({
       data: {
         leaseId: created.id,
         amount: created.leaseAmount,
         dueDate: created.startDate,
       },
+      select: { id: true, amount: true, dueDate: true },
     });
-    return created;
+    return { ...created, endDate, invoice };
   });
 
   return { lease };
@@ -546,4 +560,93 @@ export async function deleteLease(organizationId: string, leaseId: string) {
 
   await prisma.lease.delete({ where: { id: lease.id } });
   return { ok: true as const };
+}
+
+/* ------------------------------------------------------------------ *
+ * Notifications
+ *
+ * Deliberately *not* emitted from `insertLease`, which cannot tell the two
+ * apart: it is the shared write for both a manual lease and an auto-renewal,
+ * so announcing from inside it would send "new lease" for every renewal as
+ * well. Each caller announces its own event instead.
+ * ------------------------------------------------------------------ */
+
+/** Everything either lease email renders, in one read. */
+export async function leaseFacts(leaseId: string): Promise<LeaseFacts | null> {
+  const lease = await prisma.lease.findUnique({
+    where: { id: leaseId },
+    select: {
+      id: true,
+      startDate: true,
+      endDate: true,
+      durationMonths: true,
+      monthlyRent: true,
+      leaseAmount: true,
+      invoice: { select: { id: true, dueDate: true } },
+      unit: { select: { label: true, property: { select: { name: true } } } },
+      membership: { select: { user: { select: { name: true, email: true, phone: true } } } },
+    },
+  });
+  // No invoice means the lease predates billing — nothing here can name one,
+  // and inventing a reference would be worse than sending nothing.
+  if (!lease?.invoice) return null;
+
+  return {
+    leaseId: lease.id,
+    reference: leaseReference(lease.id),
+    tenantName: displayName(lease.membership.user),
+    tenantEmail: lease.membership.user.email,
+    propertyName: lease.unit.property.name,
+    unitLabel: lease.unit.label,
+    startDate: lease.startDate,
+    endDate: lease.endDate,
+    durationMonths: lease.durationMonths,
+    monthlyRent: lease.monthlyRent,
+    leaseAmount: lease.leaseAmount,
+    invoiceReference: invoiceReference(lease.invoice.id),
+    invoiceDueDate: lease.invoice.dueDate,
+  };
+}
+
+/** `lease.created` — to the tenant and every owner. Never throws. */
+export async function announceLeaseCreated(
+  organizationId: string,
+  leaseId: string
+) {
+  const facts = await leaseFacts(leaseId);
+  if (!facts) return;
+
+  await sendLeaseCreatedToTenant(facts);
+  for (const owner of await getOwnerRecipients(organizationId)) {
+    await sendLeaseCreatedToOwner(facts, owner);
+  }
+}
+
+/** One renewal the sweep performed, as much of it as an email needs. */
+export type RenewalAnnouncement = {
+  /** The lease that was *created*, not the one that ended. */
+  leaseId: string;
+  previousEndDate: Date;
+};
+
+/** `lease.renewed` — to the tenant and every owner, for each renewal. */
+export async function announceLeaseRenewals(
+  organizationId: string,
+  renewals: RenewalAnnouncement[]
+) {
+  if (renewals.length === 0) return;
+
+  // Read once for the whole batch: a sweep that renews eight leases in one
+  // organization should not fetch the same owner list eight times.
+  const owners = await getOwnerRecipients(organizationId);
+
+  for (const renewal of renewals) {
+    const facts = await leaseFacts(renewal.leaseId);
+    if (!facts) continue;
+
+    await sendLeaseRenewedToTenant(facts, renewal.previousEndDate);
+    for (const owner of owners) {
+      await sendLeaseRenewedToOwner(facts, renewal.previousEndDate, owner);
+    }
+  }
 }

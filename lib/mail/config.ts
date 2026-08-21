@@ -33,6 +33,8 @@ export const MAIL_ROUTING_KEYS = [
   "auth.login.locked_out",
   "org.created",
   // Section C — leases
+  "lease.created",
+  "lease.renewed",
   "lease.expiring",
   // Section D — billing
   "invoice.paid_in_full",

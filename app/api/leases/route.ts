@@ -1,7 +1,8 @@
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { requireActiveOrg } from "@/lib/api-auth";
-import { createLease, getLeases } from "@/lib/leases";
+import { announceLeaseCreated, createLease, getLeases } from "@/lib/leases";
 import { createLeaseSchema } from "@/lib/leases-schemas";
 
 export async function GET() {
@@ -58,6 +59,12 @@ export async function POST(request: Request) {
       { status: 409 }
     );
   }
+
+  // After the response: the lease and its invoice are committed either way,
+  // and a broker round trip has no business delaying the redirect.
+  const { organizationId } = auth.context;
+  const leaseId = result.lease.id;
+  after(() => announceLeaseCreated(organizationId, leaseId));
 
   revalidatePath("/leases");
   revalidatePath("/properties");

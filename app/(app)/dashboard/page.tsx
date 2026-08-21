@@ -1,3 +1,4 @@
+import { after } from "next/server"
 import { redirect } from "next/navigation"
 import {
   BuildingIcon,
@@ -21,6 +22,7 @@ import { getCurrentUser } from "@/lib/auth/session"
 import { getDashboardStats, getDashboardPanels } from "@/lib/dashboard"
 import { formatCurrency, formatCurrencyFull } from "@/lib/format"
 import { runAutoRenewals } from "@/lib/lease-renewal"
+import { announceLeaseRenewals } from "@/lib/leases"
 import { getProperties } from "@/lib/properties"
 
 /** "Good morning" until noon, "Good afternoon" until 17:00, then "Good evening". */
@@ -37,7 +39,12 @@ export default async function DashboardPage() {
   const orgId = user.activeOrgId ?? null
   // Second regularly-loaded page that checks for leases due to auto-renew —
   // see the leases page for why this runs lazily rather than on a schedule.
-  if (orgId) await runAutoRenewals(orgId)
+  if (orgId) {
+    const { renewals } = await runAutoRenewals(orgId)
+    // Same reasoning as the leases page: publishing waits on the broker, so it
+    // happens after the render rather than inside it.
+    if (renewals.length > 0) after(() => announceLeaseRenewals(orgId, renewals))
+  }
 
   const [stats, panels, properties] = await Promise.all([
     getDashboardStats(orgId),
