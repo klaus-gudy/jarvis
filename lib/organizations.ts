@@ -92,3 +92,91 @@ export async function createOrganizationForUser(userId: string, name: string) {
     return { organization };
   });
 }
+
+export type OrganizationDeletionSummary = {
+  name: string;
+  members: number;
+  properties: number;
+  units: number;
+  leases: number;
+  payments: number;
+};
+
+/**
+ * What deleting the organization would destroy. Shown in the confirm dialog so
+ * the decision is made against real numbers rather than the word "everything".
+ *
+ * Leases are counted through *either* side, matching how they are deleted: a
+ * lease dies with its membership and again with its unit's property, and the
+ * schema does not stop those two pointing at different organizations (see the
+ * 2026-08-03 entry), so counting one side alone could under-report.
+ */
+export async function getOrganizationDeletionSummary(
+  organizationId: string
+): Promise<OrganizationDeletionSummary | null> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+  if (!organization) return null;
+
+  const leaseFilter = {
+    OR: [
+      { membership: { organizationId } },
+      { unit: { property: { organizationId } } },
+    ],
+  };
+
+  const [members, properties, units, leases, payments] = await Promise.all([
+    prisma.membership.count({ where: { organizationId } }),
+    prisma.property.count({ where: { organizationId } }),
+    prisma.unit.count({ where: { property: { organizationId } } }),
+    prisma.lease.count({ where: leaseFilter }),
+    prisma.payment.count({ where: { invoice: { lease: leaseFilter } } }),
+  ]);
+
+  return { name: organization.name, members, properties, units, leases, payments };
+}
+
+/**
+ * Deletes an organization and everything hanging off it. Irreversible.
+ *
+ * Only an Owner of *this* organization may do it, and the check runs inside
+ * the transaction so it can't race a concurrent role change or removal.
+ *
+ * The three deletes are explicit and ordered rather than one `organization
+ * .delete()` relying on the database to unwind everything. `Membership.roleId`
+ * and `Invitation.roleId` are ON DELETE RESTRICT, so a single delete only
+ * succeeds if Postgres happens to clear those rows before it clears `Role` —
+ * true in testing, but an ordering the schema does not promise. Removing both
+ * referrers first makes it deterministic; the organization delete then cascades
+ * roles, properties → units → leases → invoices → payments, notification logs,
+ * and the `documents` branch's attachments (a table this schema does not model,
+ * reached by its own database-level cascade).
+ *
+ * Users are deliberately untouched: a User is not org-scoped, so a member of
+ * another organization keeps that, and anyone left with none lands on the
+ * create-organization prompt rather than a broken session.
+ */
+export async function deleteOrganization(
+  userId: string,
+  organizationId: string
+) {
+  return prisma.$transaction(async (tx) => {
+    const membership = await tx.membership.findUnique({
+      where: { userId_organizationId: { userId, organizationId } },
+      select: { role: { select: { name: true } } },
+    });
+    if (!membership) return { error: "not-found" as const };
+
+    const isOwner =
+      membership.role.name.toLowerCase() === OWNER_ROLE_NAME.toLowerCase();
+    if (!isOwner) return { error: "not-owner" as const };
+
+    await tx.membership.deleteMany({ where: { organizationId } });
+    await tx.invitation.deleteMany({ where: { organizationId } });
+    await tx.organization.delete({ where: { id: organizationId } });
+
+    return { ok: true as const };
+  });
+}

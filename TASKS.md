@@ -691,6 +691,21 @@ Replicating a reference layout the user supplied, in this app's palette. Increme
 - [x] Deleted `profile-section.tsx`, left unused by the Phase 60 rewrite
 - [x] Verified live: all four headers measure 39px in both themes, buttons still 28px, no page overflow at 375px, table still scrolls in-container. `tsc` and lint clean
 
+## Phase 62 — Delete organization
+
+Owner-only, cascading, from Account settings.
+
+- [x] **Checked the FK graph before writing anything.** `pg_constraint` shows every org-rooted FK as `c` (cascade) except `Membership_roleId_fkey` and `Invitation_roleId_fkey`, which are `r` (**restrict**)
+- [x] **A plain `DELETE FROM "Organization"` did succeed** in a rolled-back transaction — Postgres happened to clear memberships before roles. That ordering is emergent, not guaranteed, so it is not relied on: `deleteOrganization` deletes memberships, then invitations, then the organization. Verified the ordered version in a rolled-back transaction too (6 memberships, 8 invitations, 1 org; 0 properties and 0 roles left), then confirmed the real data was untouched
+- [x] `getOrganizationDeletionSummary` — counts shown in the dialog so the decision is made against real numbers. Leases counted through **either** membership or unit→property, since the schema still permits a lease to straddle two orgs (2026-08-03 entry) and one side alone could under-report
+- [x] `DELETE /api/organizations/[id]` — 403 for a non-owner, and **404 unless the id is the caller's active organization**, so owning a second org can't turn this into a cross-org destructive write driven by a URL. `GET …/deletion-summary` is a separate route, fetched on dialog open rather than folded into `getProfile` — five COUNTs on every profile load, for something almost nobody does
+- [x] The ownership check runs **inside the transaction**, so it can't race a concurrent role change
+- [x] `DeleteOrganizationDialog` — type the exact organization name to enable the button. Match is case-sensitive and trims only stray whitespace; a loose match defeats the point of asking. The control is **hidden from non-owners rather than disabled**
+- [x] On success: `router.push("/dashboard")`, not `refresh()` alone — every page under the layout is scoped to an organization that no longer exists, and `/dashboard` is the route that handles having none by showing the create prompt
+- [x] **Tested against a throwaway org, not the real data**: built one with 2 members, a role pair, member profile, payment account, pending invitation, property, unit, lease, invoice and payment. Non-owner → `not-owner`; unknown org → `not-found`; owner → `ok`, with **all 11 leftover counts 0**. Global counts fell by exactly that org's data, and **`User` rows were unchanged (84 → 84)**, proving members are not collateral. Throwaway users removed; baseline confirmed back at 11 orgs / 10 properties / 9 leases
+- [x] Verified in the browser: danger zone renders under a separator with the org name inline, dialog shows the live count, `jack` leaves the button disabled while `Jack` enables it. **Cancelled rather than confirmed** — the real organization was not deleted
+- [x] `tsc` and lint clean
+
 ### Not done
 - [ ] **Sticky filters cover the four global list pages only** — per-entity tables (a property's units, a lease's payments, a member's leases) would need an id in the `stateKey` so one entity's filters can't surface on another's.
 - [ ] **Leases created before the billing migration have no invoice**, so they can't be paid at all — the Billing tab reads "No invoice exists for this lease yet" and there is no UI to create one. Needs either a backfill script or an "Issue invoice" action on that empty state.

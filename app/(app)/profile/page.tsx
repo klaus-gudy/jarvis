@@ -86,7 +86,17 @@ export default async function ProfilePage() {
         </CardContent>
       </Card>
 
-      <AccountSettingsCard canSignIn={profile.canSignIn} />
+      <AccountSettingsCard
+        canSignIn={profile.canSignIn}
+        // Owner-only, and resolved here rather than in the card: `isOwner`
+        // already comes from the profile query, so the card never has to ask
+        // who may delete.
+        organization={
+          profile.isOwner && organization
+            ? { id: organization.id, name: organization.name }
+            : null
+        }
+      />
 
       <PaymentAccountsCard accounts={profile.paymentAccounts} />
     </div>
