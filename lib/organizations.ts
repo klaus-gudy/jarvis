@@ -93,51 +93,6 @@ export async function createOrganizationForUser(userId: string, name: string) {
   });
 }
 
-export type OrganizationDeletionSummary = {
-  name: string;
-  members: number;
-  properties: number;
-  units: number;
-  leases: number;
-  payments: number;
-};
-
-/**
- * What deleting the organization would destroy. Shown in the confirm dialog so
- * the decision is made against real numbers rather than the word "everything".
- *
- * Leases are counted through *either* side, matching how they are deleted: a
- * lease dies with its membership and again with its unit's property, and the
- * schema does not stop those two pointing at different organizations (see the
- * 2026-08-03 entry), so counting one side alone could under-report.
- */
-export async function getOrganizationDeletionSummary(
-  organizationId: string
-): Promise<OrganizationDeletionSummary | null> {
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { name: true },
-  });
-  if (!organization) return null;
-
-  const leaseFilter = {
-    OR: [
-      { membership: { organizationId } },
-      { unit: { property: { organizationId } } },
-    ],
-  };
-
-  const [members, properties, units, leases, payments] = await Promise.all([
-    prisma.membership.count({ where: { organizationId } }),
-    prisma.property.count({ where: { organizationId } }),
-    prisma.unit.count({ where: { property: { organizationId } } }),
-    prisma.lease.count({ where: leaseFilter }),
-    prisma.payment.count({ where: { invoice: { lease: leaseFilter } } }),
-  ]);
-
-  return { name: organization.name, members, properties, units, leases, payments };
-}
-
 /**
  * Deletes an organization and everything hanging off it. Irreversible.
  *

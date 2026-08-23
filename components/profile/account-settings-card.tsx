@@ -68,7 +68,7 @@ export function AccountSettingsCard({
                 </div>
                 <Button
                   variant="outline"
-                  className="shrink-0 border-destructive/40 bg-card text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="shrink-0 bg-card"
                   onClick={() => setDeletingOrganization(true)}
                 >
                   <Trash2Icon />
