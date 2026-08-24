@@ -106,8 +106,13 @@ export async function createOrganizationForUser(userId: string, name: string) {
  * true in testing, but an ordering the schema does not promise. Removing both
  * referrers first makes it deterministic; the organization delete then cascades
  * roles, properties → units → leases → invoices → payments, notification logs,
- * and the `documents` branch's attachments (a table this schema does not model,
- * reached by its own database-level cascade).
+ * file assets, and the `documents` branch's `Attachment` table (still in the
+ * dev database, modelled nowhere, reached by its own database-level cascade).
+ *
+ * **The bucket is not touched.** `FileAsset` rows go, the objects they name do
+ * not — deleting `organizations/<id>/` needs a storage call this transaction
+ * cannot make and could not roll back. Until that exists, an organization
+ * delete leaves its files behind, unreferenced and unreachable.
  *
  * Users are deliberately untouched: a User is not org-scoped, so a member of
  * another organization keeps that, and anyone left with none lands on the

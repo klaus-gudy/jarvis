@@ -50,6 +50,13 @@ services:
       timeout: 10s
       retries: 10
 
+  # The object store for FileAsset. One bucket serves every organization; keys
+  # are namespaced `organizations/<orgId>/...`, so tenancy is a prefix, not a
+  # bucket per customer. Production is Cloudflare R2 — same S3 API, so only the
+  # four STORAGE_* values change.
+  #
+  #   http://localhost:9000  - S3 API, what STORAGE_ENDPOINT points at
+  #   http://localhost:9001  - console, minioadmin/minioadmin123
   minio:
     image: minio/minio:latest
     container_name: jarvis-minio
@@ -63,6 +70,31 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Creates the bucket, then exits. Without this, a fresh clone comes up with a
+  # running MinIO and no bucket, and the first upload fails with NoSuchBucket —
+  # a setup step nobody remembers is a setup step that gets skipped. `mb
+  # --ignore-existing` makes it safe on every subsequent `docker compose up`.
+  minio-init:
+    image: minio/mc:latest
+    container_name: jarvis-minio-init
+
+    depends_on:
+      minio:
+        condition: service_healthy
+
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin123 &&
+      mc mb --ignore-existing local/jarvis-files &&
+      echo 'bucket jarvis-files ready'
+      "
 
 volumes:
   postgres_data:

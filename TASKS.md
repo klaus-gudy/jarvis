@@ -837,6 +837,33 @@ Three from sections C and D, and the scheduler two of them needed.
 - [ ] **`publishMail` has no timeout.** With RabbitMQ unreachable the publish waits on amqplib's recovery, bounded only by the route's max duration. Harmless everywhere it is currently called (all inside `after()`), and the reason renewals announce from the call site rather than mid-render — but a deadline on the publish would remove the hazard rather than route around it
 - [ ] `lease.amended` and `lease.cancelled` (`updateLease`, `deleteLease`) are still unwired, as is `lease.renewal_failed` — the one that tells an owner a unit silently stopped earning
 
+## Phase 67 — `FileAsset`: one table for every stored file, and a bucket to put them in
+
+Schema and infrastructure only. Nothing uploads or reads a file yet — that is the next phase.
+
+- [x] Migration `20260824100000_file_assets` — `FileAsset(objectKey @unique, fileName, fileType, sizeBytes, assetType, organizationId, uploadedById?, + six nullable subject FKs)` and the `FileAssetType` enum
+- [x] Authored with **`migrate diff --from-migrations` + `migrate deploy`**, not `migrate dev` — the procedure the 2026-08-18 decision-log entry describes, because the dev database still carries the `documents` branch's two attachment migrations as ledger rows with no folder. Generated to the scratchpad first (an empty folder under `prisma/migrations` makes `--from-migrations` fail), created `jarvis_shadow` for the diff to build in, dropped it afterwards. The generated SQL mentions nothing but `FileAsset`
+- [x] `assetType` covers all six subjects. `INVOICE_DOCUMENT`, `PAYMENT_RECEIPT` and `PAYMENT_PROOF` were added to the original list — invoices and payments were named as document owners but had no type, which would have parked two whole entities under `OTHER`
+- [x] **`organizationId` is `NOT NULL` on every row**, including org-level ones where all six subject columns are null. It is the tenancy boundary and the first path segment of the object key
+- [x] Hand-written `FileAsset_at_most_one_owner` CHECK appended under the generated SQL — `<= 1`, not the `documents` branch's `= 1`, since zero subjects is the organization-level case
+- [x] Object keys are `organizations/<orgId>/<scope>/<scopeId>/<id><ext>`, with `<scope>/<scopeId>` replaced by `organization` for org-level rows. The row's cuid is the stored file name so two `scan.pdf` uploads can't collide; the uploaded name lives in `fileName`
+- [x] `uploadedBy → Membership` is **`SET NULL`**, the six subjects are **cascade** — removing a member must not take the title deed they uploaded, but deleting a lease should take its agreement
+- [x] `deleteOrganization`'s doc comment updated: file assets now cascade with the org, and it says plainly that **the bucket is not touched**
+- [x] `docker-compose.yml` gains a healthcheck on `minio` and a **`minio-init`** service that runs `mc mb --ignore-existing local/jarvis-files` and exits, so `docker compose up -d` yields a bucket rather than a `NoSuchBucket` on the first upload
+- [x] `.env` STORAGE_* corrected to what compose actually runs (9000, `minioadmin`) — the two had never agreed, and nothing read them yet so nothing had noticed
+- [x] **`.env.example` added and un-gitignored** (`!.env.example` under the blanket `.env*`), documenting every variable the code reads, with the two secrets left blank and the command to generate each
+- [x] Verified against the dev database: 10 properties / 9 leases / 82 users **and the `documents` branch's 1 attachment row** all survived. In a rolled-back transaction — zero subjects accepted, one accepted, two rejected by the CHECK, a duplicate `objectKey` rejected by the unique index, deleting a `Membership` nulled `uploadedById` while the row survived, deleting a `Lease` took its file assets with it
+- [x] `prisma validate`, `prisma generate`, `tsc`, lint and `npm run build` clean
+
+### Not done
+- [ ] **Nothing uploads yet.** No `lib/storage.ts`, no S3 client in `package.json`, no route. The four `STORAGE_*` values are read by nothing on `main` — they are staged for the next phase, which is why a wrong endpoint sat in `.env` unnoticed
+- [ ] **Deletes orphan objects.** Every subject FK cascades, so the rows go and the bytes stay. An organization delete leaves its whole `organizations/<id>/` prefix behind. Needs either a delete path that calls storage after the transaction commits, or a reaper that lists the bucket and drops keys with no row — the second is the honest one, because the first still loses a race with a crash
+- [ ] **Cross-organization is enforced by nobody yet**, since there is no write path to enforce it in. When one exists it must resolve the subject and compare its organization; the database-level alternative is written up in the decision log and needs `organizationId` denormalized onto `Unit`, `Lease`, `Invoice` and `Payment`
+- [ ] **`assetType` and the subject column are independent.** Nothing stops a `TITLE_DEED` hanging off an invoice, or a `NIDA` off a property. A CHECK could pair them, but it would need rewriting for every enum value added; a zod schema at the write path is the cheaper place
+- [ ] **`sizeBytes` is `Int`** — 2 GB per file. Fine for scans and photos, wrong the day someone uploads video
+- [ ] `.env.production` has no `STORAGE_*` block yet. Production is Cloudflare R2 and needs its own four values, none of which exist
+- [ ] The `documents` branch's `Attachment` table and `AttachmentKind` enum are **still in the dev database**, still modelled nowhere, still the reason `migrate dev` is unusable here. `FileAsset` replaces what they were for — dropping them (and merging or deleting the branch) is now a real cleanup rather than a hypothetical one
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
