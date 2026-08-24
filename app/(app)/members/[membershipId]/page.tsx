@@ -4,12 +4,14 @@ import { ArrowLeftIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
 import { MemberLeasesTab } from "@/components/members/member-leases-tab";
+import { MemberDocumentsTab } from "@/components/tenants/member-documents-tab";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { listDocuments } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { getLeaseOptions } from "@/lib/leases";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
@@ -60,6 +62,14 @@ export default async function MemberDetailPage({
 
   // Only tenants can hold a lease, so only they need the create form's data.
   const leaseOptions = isTenant ? await getLeaseOptions(user.activeOrgId) : null;
+
+  // Every member can hold documents, tenant or not — a caretaker's contract is
+  // as much a record as a tenant's NIDA.
+  const documents = await listDocuments(
+    user.activeOrgId,
+    "membership",
+    member.membershipId
+  );
 
   return (
     <div className="space-y-6">
@@ -122,6 +132,12 @@ export default async function MemberDetailPage({
             Lease
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
               {member.leases.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex-none gap-2 px-3">
+            Documents
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+              {documents.length}
             </span>
           </TabsTrigger>
         </TabsList>
@@ -215,6 +231,18 @@ export default async function MemberDetailPage({
             isTenant={isTenant}
             roleName={member.roleName}
             options={leaseOptions}
+          />
+        </TabsContent>
+
+        <TabsContent value="documents" className="pt-5">
+          <MemberDocumentsTab
+            membershipId={member.membershipId}
+            memberName={member.name}
+            documents={documents.map((document) => ({
+              ...document,
+              // Dates must be serialisable to cross the server/client boundary.
+              createdAt: document.createdAt.toISOString(),
+            }))}
           />
         </TabsContent>
       </Tabs>

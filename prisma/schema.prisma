@@ -424,11 +424,13 @@ enum FileAssetType {
  * the `<scope>/<scopeId>` pair replaced by `organization` for org-level rows:
  * organizations/clx1.../leases/clx4.../clx9abc.pdf
  * organizations/clx1.../organization/clx7def.pdf
- * The row's own id is the file name in the bucket, not the uploaded one: two
- * tenants both uploading `scan.pdf` must not overwrite each other, and the
- * name they chose survives in `fileName` for the download header. `objectKey`
- * is unique because two rows pointing at one object means deleting either one
- * either strands an object or destroys the other row's file.
+ * The file is named in the bucket by a fresh uuid, never by what the browser
+ * sent: two tenants both uploading `scan.pdf` must not overwrite each other,
+ * and an uploaded name can contain anything at all, `../` included. The name
+ * the person chose survives in `fileName` for the download header, and the
+ * extension comes from the verified MIME type. `objectKey` is unique because
+ * two rows pointing at one object means deleting either one either strands an
+ * object or destroys the other row's file.
  * **A file never crosses an organization.** That is not expressible as a
  * foreign key here: Unit, Lease, Invoice and Payment carry no `organizationId`
  * of their own, so the composite-FK trick would need a denormalized column and

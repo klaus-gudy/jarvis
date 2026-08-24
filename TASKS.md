@@ -870,6 +870,36 @@ Schema and infrastructure only. Nothing uploads or reads a file yet — that is 
 - [ ] `.env.production` has no `STORAGE_*` block yet. Production is Cloudflare R2 and needs its own four values, none of which exist
 - [ ] The `documents` branch's `Attachment` table and `AttachmentKind` enum are **still in the dev database**, still modelled nowhere, still the reason `migrate dev` is unusable here. `FileAsset` replaces what they were for — dropping them (and merging or deleting the branch) is now a real cleanup rather than a hypothetical one
 
+## Phase 68 — Tenant documents: `/api/documents`, and a Documents tab on the member page
+
+The first thing to actually put a file in the bucket. Membership is the only subject wired to a UI; the route already serves all seven.
+
+- [x] `lib/storage.ts` — `putObject` / `getObjectStream` / `deleteObject` over `@aws-sdk/client-s3`, one client on `globalThis` for the same reason `lib/prisma.ts` keeps one. `forcePathStyle` because MinIO serves buckets as a path, `region: "auto"` because R2 ignores it and the SDK insists
+- [x] `StorageNotConfiguredError` names the *individual* missing `STORAGE_*` variables and becomes a **503**, not a 500 — the request would succeed unchanged once the deploy is fixed
+- [x] `lib/document-options.ts` — the MIME allowlist, the 10 MB cap, `ASSET_TYPE_LABELS`, and `SUBJECT_FOR_ASSET_TYPE`. A plain constants module like `lib/property-options.ts`, so the upload dialog can import it without dragging the server in
+- [x] `lib/documents-schemas.ts` — `z.enum(FileAssetType)` reads the generated Prisma enum rather than re-listing seventeen strings, and a `superRefine` rejects a type filed under the wrong subject
+- [x] `lib/documents.ts` — the single door. `buildObjectKey`, `createDocument`, `listDocuments`, `getDocument`, `deleteDocument`
+- [x] `POST /api/documents` does the five steps in order: **authenticate** (`requireActiveOrg`), **validate the file** (size from the header, then from the bytes that actually arrived; MIME against the allowlist), **build the key**, **upload**, **write the row** — with the cross-organization check before any of it
+- [x] `GET /api/documents?subjectType=&subjectId=` lists; `GET /api/documents/[id]` streams the bytes back with `Content-Disposition: inline`, `?download` for `attachment`; `DELETE /api/documents/[id]` removes both
+- [x] Reads are **streamed through the route**, so the bucket stays private and every read passes the same organization check as every other route. `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff` on the way out
+- [x] `getDocument` filters on `id` **and** `organizationId` in one query — never `findUnique` then an `if`, which is the check someone eventually forgets
+- [x] **Documents tab** on `/members/[membershipId]`, beside Overview and Lease, with a count in the trigger. Every member gets one, tenant or not — a caretaker's contract is as much a record as a tenant's NIDA
+- [x] `DocumentUploadDialog` is generic over the subject, so a lease or a property tab is props rather than a second dialog. Its type dropdown is **derived** from `SUBJECT_FOR_ASSET_TYPE`, so a new membership-scoped type appears by existing
+- [x] Client-side size and type checks are a courtesy — they save a round trip; the route re-runs both on what arrives, which is where they count
+- [x] Verified end-to-end over real HTTP against a real MinIO: PDF and PNG uploaded (201), keys landed as `organizations/<org>/members/<membership>/<uuid>.pdf` with `membershipId` set and every other subject column null, the object present in the bucket, download **byte-identical** to what went up, `?download` flipping the disposition, list newest-first, delete removing row *and* object, second delete 404
+- [x] Every rejection verified, and **none of them wrote anything**: `image/svg+xml` 415, `TITLE_DEED` on a membership 400, a membership from another organization 404, a missing `subjectId` 400, 11 MB 413, no session 401 — and another organization's session reading the document by id gets **404**, not 403
+- [x] Verified in the browser: upload through the dialog, toast, list and tab count refreshing, delete behind a confirm. No console errors
+- [x] `tsc`, lint and `npm run build` clean
+
+### Not done
+- [ ] **Only membership has a UI.** The route serves organization, property, unit, lease, invoice and payment already — nothing renders them. A lease's signed agreement is the obvious next tab and needs no new API
+- [ ] **Orphaned objects are still orphaned.** The Phase 67 note stands: cascade deletes take rows and leave bytes, and an organization delete leaves its whole prefix. `deleteDocument` is the only path that removes both, and only when called directly
+- [ ] **No virus scanning, and the MIME type is the client's word.** The allowlist checks what the browser *claims*; nothing reads the magic bytes, so a PDF-labelled executable is stored as a PDF. `nosniff` and the fixed extension mean a browser will not run it — but a person downloading it is on their own
+- [ ] **10 MB, buffered in the route handler.** A phone photo is fine, a video is not. The fix is a presigned upload, which also removes this process from the byte path entirely
+- [ ] **No permission model.** Any member of the organization can upload, read and delete any document in it — a tenant could read another tenant's passport if they had the membership id. This is the same shape as the rest of the app today (roles exist; nothing enforces them), but documents are where it starts to matter
+- [ ] `uploadedById` is null when the uploader has no `Membership` in the organization, which cannot happen through the UI but is not impossible through the API — it is `SET NULL` anyway, so the row is fine
+- [ ] Nothing is paginated. A member with two hundred documents renders two hundred rows
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
