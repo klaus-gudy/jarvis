@@ -51,12 +51,17 @@ export function DeleteOrganizationDialog({
       return;
     }
 
-    toast.success(`${organizationName} deleted`);
+    toast.success(`${organizationName} deleted — you've been signed out`);
     onOpenChange(false);
-    // Not router.refresh() alone: every page under this layout is scoped to an
-    // organization that no longer exists. /dashboard is the one route that
-    // handles having no organization, by showing the create prompt.
-    router.push("/dashboard");
+    // The DELETE call already cleared the session cookie server-side, in the
+    // same request as the delete, so by the time this runs there is no valid
+    // session left to fall back into. `/`, not `/dashboard`: everything under
+    // `(app)` requires a session and would just bounce to `/login`, and `/` is
+    // the public landing page proxy.ts serves once it sees none. Same
+    // push-then-refresh pairing `handleSignOut` uses in nav-user.tsx, so the
+    // freshly rendered `/` reflects the cleared session rather than a cached
+    // payload from before the delete.
+    router.push("/");
     router.refresh();
   }
 
