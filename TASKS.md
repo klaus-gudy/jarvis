@@ -891,7 +891,29 @@ The first thing to actually put a file in the bucket. Membership is the only sub
 - [x] Verified in the browser: upload through the dialog, toast, list and tab count refreshing, delete behind a confirm. No console errors
 - [x] `tsc`, lint and `npm run build` clean
 
+### The list, second pass
+
+- [x] **The card header is gone.** The tab it sits in is already called Documents; a heading repeating the word only pushed the first row further down. The upload button takes the toolbar row instead, where `MemberLeasesTab` puts "Create lease" on the tab beside this one
+- [x] A real table with headers — **File name · Type · Date added · Uploaded by · Actions** — using the `Table` primitives directly rather than `DataTable`. Search, pagination and column visibility are not worth their weight on a list that is usually three rows, and the four columns are fixed
+- [x] `DocumentViewerDialog` — **View opens the file in the app**, not a new tab. `<iframe>` for PDFs, `<img>` for images, from the same `GET /api/documents/[id]` the download link uses: it already answers `Content-Disposition: inline`, so there is no blob URL and nothing held in memory, and closing the dialog unmounts the frame rather than leaving a PDF viewer running behind it
+- [x] The **file name opens the viewer too** — a row actionable only from a 28px icon at the far right reads as inert
+- [x] The dialog's height is **definite** (`h-[85svh]`), not a max: `max-h-full` on the image resolves against nothing in an auto-height flex column, and a 600×600 test image spilled past the frame until it did. Verified before and after
+- [x] `loadedId`, not a `loaded` boolean — reopening the viewer on a *different* file would otherwise inherit the last one's state and skip the spinner
+- [x] Verified: PDF frames and returns 200 for the right key, image renders fully contained, name and eye icon both open it, Escape and Close dismiss it. On mobile the table scrolls inside its own `overflow-x: auto` container and **the page body does not** — the rule the codebase already holds itself to
+
+### Feedback pass — caption, action colour, duplicates
+
+- [x] **The upload dialog's caption is gone.** "Kept against X and visible to this organization only" repeated what the tab and the org boundary already say; `DocumentUploadDialog`'s `description` is now optional and the `DialogDescription` simply doesn't render without one
+- [x] **Delete is red at rest**, not just on hover — `text-destructive hover:bg-destructive/10 hover:text-destructive` on `size="icon-sm"`, matching `PaymentAccountsCard`'s row actions exactly rather than inventing a second convention
+- [x] **One document per (subject, type) for anything that isn't a declared collection.** `lib/document-options.ts` gains `allowsMultiple()` — true for `PROPERTY_PHOTO`, `LEASE_AMENDMENT`, `LEASE_RENEWAL`, permits, business and unit documents, and the two catch-alls (`OTHER`, `TENANT_DOCUMENT`); false for everything with a definite article, `NIDA`, *the* signed agreement, *the* invoice. `createDocument` checks before the upload and returns `duplicate-asset-type`; the route turns that into **409**, naming the file already on record
+- [x] The upload dialog's type dropdown **disables** an already-taken type rather than hiding it — "NIDA · On file", same as a disabled `RowAction` elsewhere in the app — and the initial selection skips straight past it
+- [x] Verified over HTTP: a second NIDA upload for the same member 409s and writes nothing; `TENANT_DOCUMENT` (a declared collection) accepts a second upload without complaint. Verified in the browser: the dropdown opens on Passport, not NIDA, with NIDA shown and greyed
+- [x] `tsc`, lint and `npm run build` clean
+
 ### Not done
+- [ ] **The duplicate check is a read then a write, not one atomic operation.** Two uploads of the same type landing in the same instant could both pass the check before either inserts — no unique index backs it, because one would need to be a partial index over a `COALESCE` of six nullable subject columns, keyed on which types are restricted, which is more migration than this pass earned. Uploads are not concurrent enough per subject for this to matter in practice, but it is not actually impossible
+- [ ] **Mobile pushes the actions off-screen.** The table scrolls sideways to reach View/Download/Delete — same as `payment-accounts-card.tsx`, so it is at least a familiar behaviour, and tapping the file name still opens the viewer without any scrolling. A sticky right-hand actions column, or the card treatment Phases 46–47 gave every other table, would both fix it properly
+- [ ] **The viewer is whatever the browser does with the file.** No zoom, no page controls, no rotation — a PDF gets Chrome's built-in viewer and an image gets `object-contain`. Fine for checking a NIDA card; not a document reader
 - [ ] **Only membership has a UI.** The route serves organization, property, unit, lease, invoice and payment already — nothing renders them. A lease's signed agreement is the obvious next tab and needs no new API
 - [ ] **Orphaned objects are still orphaned.** The Phase 67 note stands: cascade deletes take rows and leave bytes, and an organization delete leaves its whole prefix. `deleteDocument` is the only path that removes both, and only when called directly
 - [ ] **No virus scanning, and the MIME type is the client's word.** The allowlist checks what the browser *claims*; nothing reads the magic bytes, so a PDF-labelled executable is stored as a PDF. `nosniff` and the fixed extension mean a browser will not run it — but a person downloading it is on their own

@@ -100,6 +100,35 @@ export const TENANT_ASSET_TYPES = (
 ).filter((type) => SUBJECT_FOR_ASSET_TYPE[type] === "membership");
 
 /**
+ * Types that are legitimately a collection rather than a single document —
+ * a property has many photos, a lease picks up amendments over its life. Every
+ * other type is a canonical "the" document for its subject: *the* NIDA, *the*
+ * signed agreement, *the* invoice. `createDocument` refuses a second upload of
+ * a non-collection type for the same subject rather than silently
+ * accumulating NIDA cards nobody asked for; uploading a replacement means
+ * deleting the old one first, which keeps "the current NIDA on file"
+ * unambiguous without a separate archiving concept.
+ *
+ * `OTHER` and `TENANT_DOCUMENT` are here for the same reason — both are the
+ * declared catch-all for a subject that doesn't fit the named types, and a
+ * catch-all that only holds one file isn't one.
+ */
+const MULTIPLE_ALLOWED: ReadonlySet<FileAssetType> = new Set([
+  "BUSINESS_DOCUMENT",
+  "PROPERTY_PERMIT",
+  "PROPERTY_PHOTO",
+  "UNIT_DOCUMENT",
+  "TENANT_DOCUMENT",
+  "LEASE_AMENDMENT",
+  "LEASE_RENEWAL",
+  "OTHER",
+]);
+
+export function allowsMultiple(assetType: FileAssetType) {
+  return MULTIPLE_ALLOWED.has(assetType);
+}
+
+/**
  * An **allowlist**, not a blocklist, and matched on the MIME type rather than
  * the file extension. Both matter: `image/svg+xml` and `text/html` are images
  * and documents in the everyday sense but are scripts as far as a browser is

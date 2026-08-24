@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import { ACCEPTED_FILE_TYPES, type DocumentSubject } from "@/lib/document-options";
+import {
+  ACCEPTED_FILE_TYPES,
+  allowsMultiple,
+  type DocumentSubject,
+} from "@/lib/document-options";
 import type { UploadDocumentInput } from "@/lib/documents-schemas";
 import type { FileAssetType } from "@/lib/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
@@ -112,6 +116,42 @@ async function subjectBelongsToOrg(
   }
 }
 
+/**
+ * The one already on file for this subject and type, if `allowsMultiple`
+ * forbids a second. Scoped by `organizationId` in the same query as the
+ * subject column for the same reason `getDocument` is: a check split across
+ * two queries is a check someone can forget to keep in sync.
+ */
+async function findExisting(
+  organizationId: string,
+  subjectType: DocumentSubject,
+  subjectId: string | null,
+  assetType: FileAssetType
+) {
+  const column =
+    subjectType === "organization" || !subjectId
+      ? null
+      : SUBJECT_COLUMN[subjectType as keyof typeof SUBJECT_COLUMN];
+
+  return prisma.fileAsset.findFirst({
+    where: {
+      organizationId,
+      assetType,
+      ...(column
+        ? { [column]: subjectId }
+        : {
+            propertyId: null,
+            unitId: null,
+            membershipId: null,
+            leaseId: null,
+            invoiceId: null,
+            paymentId: null,
+          }),
+    },
+    select: { id: true, fileName: true },
+  });
+}
+
 export type DocumentRow = {
   id: string;
   fileName: string;
@@ -180,6 +220,24 @@ export async function createDocument(
       input.subjectId
     );
     if (!belongs) return { error: "subject-not-found" as const };
+  }
+
+  // One canonical document per (subject, type) for anything that isn't a
+  // declared collection — replacing it means deleting the old one first,
+  // rather than the two silently piling up as "which NIDA is current?".
+  if (!allowsMultiple(input.assetType)) {
+    const existing = await findExisting(
+      organizationId,
+      input.subjectType,
+      input.subjectId,
+      input.assetType
+    );
+    if (existing) {
+      return {
+        error: "duplicate-asset-type" as const,
+        existing,
+      };
+    }
   }
 
   // Who is uploading, as a Membership rather than a User — `FileAsset` records

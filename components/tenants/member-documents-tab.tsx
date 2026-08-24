@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   DownloadIcon,
+  EyeIcon,
   FileIcon,
   FileTextIcon,
   ImageIcon,
@@ -13,9 +14,10 @@ import {
 import { toast } from "sonner";
 
 import { DocumentUploadDialog } from "@/components/tenants/document-upload-dialog";
+import { DocumentViewerDialog } from "@/components/tenants/document-viewer-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +27,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ASSET_TYPE_LABELS,
-  formatFileSize,
   TENANT_ASSET_TYPES,
 } from "@/lib/document-options";
 import { formatDate } from "@/lib/format";
@@ -50,25 +59,30 @@ export type MemberDocument = {
 
 function DocumentIcon({ fileType }: { fileType: string }) {
   if (fileType.startsWith("image/")) {
-    return <ImageIcon className="size-4.5 text-muted-foreground" />;
+    return <ImageIcon className="size-4 shrink-0 text-muted-foreground" />;
   }
   if (fileType === "application/pdf") {
-    return <FileTextIcon className="size-4.5 text-muted-foreground" />;
+    return <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />;
   }
-  return <FileIcon className="size-4.5 text-muted-foreground" />;
+  return <FileIcon className="size-4 shrink-0 text-muted-foreground" />;
 }
 
+/**
+ * No card header: the tab this sits in is already called Documents, and a
+ * heading repeating it would push the first row further down for nothing. The
+ * upload button gets the toolbar row instead, where `MemberLeasesTab` puts
+ * "Create lease" on the tab beside this one.
+ */
 export function MemberDocumentsTab({
   membershipId,
   documents,
-  memberName,
 }: {
   membershipId: string;
   documents: MemberDocument[];
-  memberName: string;
 }) {
   const router = useRouter();
   const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [viewing, setViewing] = React.useState<MemberDocument | null>(null);
   const [deleting, setDeleting] = React.useState<MemberDocument | null>(null);
   const [pending, setPending] = React.useState(false);
 
@@ -93,95 +107,115 @@ export function MemberDocumentsTab({
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
-          <div className="min-w-0">
-            <CardTitle className="text-base">Documents</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Identification and supporting files held for this member.
-            </p>
-          </div>
-          <Button size="sm" onClick={() => setUploadOpen(true)}>
-            <PlusIcon />
-            Upload
-          </Button>
-        </CardHeader>
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button onClick={() => setUploadOpen(true)}>
+          <PlusIcon />
+          Upload document
+        </Button>
+      </div>
 
-        <CardContent className={documents.length > 0 ? "p-0" : undefined}>
+      <Card>
+        <CardContent className={documents.length > 0 ? "px-0" : undefined}>
           {documents.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-sm text-muted-foreground">
               No documents yet. Upload a NIDA card, passport or employment
               letter to keep it on file.
             </p>
           ) : (
-            <ul className="divide-y">
-              {documents.map((document) => (
-                <li
-                  key={document.id}
-                  className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6"
-                >
-                  <DocumentIcon fileType={document.fileType} />
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Opens in a new tab rather than navigating: the
-                          response is a PDF or an image, and replacing the page
-                          with it loses the member you were looking at. */}
-                      <a
-                        href={`/api/documents/${document.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate font-medium hover:underline"
+            // No scroll wrapper here: `Table` already renders its own
+            // `data-slot="table-container"` with `overflow-x-auto`, and nesting
+            // a second one just creates a scroller that never scrolls.
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>File name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Date added</TableHead>
+                  <TableHead>Uploaded by</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {documents.map((document) => (
+                  <TableRow key={document.id}>
+                    <TableCell className="font-medium">
+                      {/* The name opens the viewer too — a row you can only
+                          act on from a 28px icon at the far right reads as
+                          inert. */}
+                      <button
+                        type="button"
+                        onClick={() => setViewing(document)}
+                        className="flex max-w-[22rem] items-center gap-2 text-left hover:underline"
                       >
-                        {document.fileName}
-                      </a>
-                      <Badge variant="outline" className="shrink-0">
+                        <DocumentIcon fileType={document.fileType} />
+                        <span className="truncate">{document.fileName}</span>
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal">
                         {ASSET_TYPE_LABELS[document.assetType]}
                       </Badge>
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {formatFileSize(document.sizeBytes)} ·{" "}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
                       {formatDate(new Date(document.createdAt))}
-                      {document.uploadedByName
-                        ? ` · ${document.uploadedByName}`
-                        : ""}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Download ${document.fileName}`}
-                      nativeButton={false}
-                      render={
-                        <a
-                          href={`/api/documents/${document.id}?download`}
-                          // The route sets Content-Disposition: attachment, so
-                          // this needs no `download` attribute — and must not
-                          // have one, since it is a cross-route link.
-                        />
-                      }
-                    >
-                      <DownloadIcon />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Delete ${document.fileName}`}
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleting(document)}
-                    >
-                      <Trash2Icon />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {document.uploadedByName ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`View ${document.fileName}`}
+                          onClick={() => setViewing(document)}
+                        >
+                          <EyeIcon />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Download ${document.fileName}`}
+                          nativeButton={false}
+                          render={
+                            <a
+                              href={`/api/documents/${document.id}?download`}
+                              // The route sets Content-Disposition: attachment,
+                              // so this needs no `download` attribute — and must
+                              // not have one, since it is a cross-route link.
+                            />
+                          }
+                        >
+                          <DownloadIcon />
+                        </Button>
+                        {/* Always red, not just on hover — matches the delete
+                            action on every other table in the app (e.g.
+                            PaymentAccountsCard): danger reads from the icon at
+                            rest, not as a hover surprise. */}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${document.fileName}`}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeleting(document)}
+                        >
+                          <Trash2Icon />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
+
+      <DocumentViewerDialog
+        document={viewing}
+        onClose={() => setViewing(null)}
+      />
 
       <DocumentUploadDialog
         key={String(uploadOpen)}
@@ -190,8 +224,8 @@ export function MemberDocumentsTab({
         subjectType="membership"
         subjectId={membershipId}
         assetTypes={TENANT_ASSET_TYPES}
+        existingTypes={documents.map((document) => document.assetType)}
         title="Upload document"
-        description={`Kept against ${memberName} and visible to this organization only.`}
       />
 
       <Dialog
@@ -226,6 +260,6 @@ export function MemberDocumentsTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

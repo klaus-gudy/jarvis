@@ -237,7 +237,6 @@ export default async function MemberDetailPage({
         <TabsContent value="documents" className="pt-5">
           <MemberDocumentsTab
             membershipId={member.membershipId}
-            memberName={member.name}
             documents={documents.map((document) => ({
               ...document,
               // Dates must be serialisable to cross the server/client boundary.

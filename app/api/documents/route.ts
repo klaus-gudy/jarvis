@@ -4,6 +4,7 @@ import { requireActiveOrg } from "@/lib/api-auth";
 import {
   ACCEPTED_FILE_LABEL,
   ACCEPTED_FILE_TYPES,
+  ASSET_TYPE_LABELS,
   DOCUMENT_SUBJECTS,
   MAX_FILE_BYTES,
   type DocumentSubject,
@@ -133,6 +134,16 @@ export async function POST(request: Request) {
       return Response.json(
         { error: "That record was not found in this organization" },
         { status: 404 }
+      );
+    }
+
+    if (result.error === "duplicate-asset-type") {
+      const label = ASSET_TYPE_LABELS[parsed.data.assetType];
+      return Response.json(
+        {
+          error: `A ${label} is already on file (${result.existing.fileName}) — delete it before uploading another`,
+        },
+        { status: 409 }
       );
     }
 

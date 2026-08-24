@@ -26,6 +26,7 @@ import {
   ACCEPTED_FILE_EXTENSIONS,
   ACCEPTED_FILE_LABEL,
   ACCEPTED_FILE_TYPES,
+  allowsMultiple,
   ASSET_TYPE_LABELS,
   formatFileSize,
   MAX_FILE_BYTES,
@@ -49,6 +50,8 @@ export function DocumentUploadDialog({
   subjectType,
   subjectId,
   assetTypes,
+  /** Types already on file for this subject — offered but greyed, not omitted, same as a disabled `RowAction`. */
+  existingTypes = [],
   title,
   description,
 }: {
@@ -57,14 +60,26 @@ export function DocumentUploadDialog({
   subjectType: DocumentSubject;
   subjectId: string | null;
   assetTypes: FileAssetType[];
+  existingTypes?: FileAssetType[];
   title: string;
-  description: string;
+  description?: string;
 }) {
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  // A type that doesn't allow multiples and is already on file can't be
+  // uploaded again — disabled in the list rather than dropped, so the option
+  // stays in its usual place and the reason ("On file") is visible right there
+  // instead of a rejection after the fact.
+  const takenTypes = React.useMemo(
+    () => new Set(existingTypes.filter((type) => !allowsMultiple(type))),
+    [existingTypes]
+  );
+
   const [file, setFile] = React.useState<File | null>(null);
-  const [assetType, setAssetType] = React.useState<FileAssetType>(assetTypes[0]);
+  const [assetType, setAssetType] = React.useState<FileAssetType>(
+    assetTypes.find((type) => !takenTypes.has(type)) ?? assetTypes[0]
+  );
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [dragging, setDragging] = React.useState(false);
@@ -144,7 +159,7 @@ export function DocumentUploadDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
+            {description && <DialogDescription>{description}</DialogDescription>}
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -163,8 +178,15 @@ export function DocumentUploadDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {assetTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
+                    <SelectItem
+                      key={type}
+                      value={type}
+                      disabled={takenTypes.has(type)}
+                    >
                       {ASSET_TYPE_LABELS[type]}
+                      {takenTypes.has(type) && (
+                        <span className="text-muted-foreground"> · On file</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
