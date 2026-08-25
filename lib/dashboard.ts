@@ -1,3 +1,4 @@
+import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { displayName, primaryContact } from "@/lib/user-display";
@@ -285,6 +286,7 @@ const PANEL_ROWS = 6;
 export type RenewalRow = {
   id: string;
   tenantName: string;
+  photoId: string | null;
   unitLabel: string;
   propertyName: string;
   endDate: Date;
@@ -294,6 +296,7 @@ export type RenewalRow = {
 export type MoveInRow = {
   id: string;
   tenantName: string;
+  photoId: string | null;
   unitLabel: string;
   propertyName: string;
   startDate: Date;
@@ -313,6 +316,7 @@ export type VacantUnitRow = {
 export type NeedsInviteRow = {
   membershipId: string;
   name: string;
+  photoId: string | null;
   contact: string | null;
   roleName: string;
 };
@@ -379,7 +383,10 @@ export async function getDashboardPanels(
   const tenantTitle = {
     unit: { select: { label: true, property: { select: { name: true } } } },
     membership: {
-      select: { user: { select: { name: true, email: true, phone: true } } },
+      select: {
+        id: true,
+        user: { select: { name: true, email: true, phone: true } },
+      },
     },
   } as const;
 
@@ -520,12 +527,22 @@ export async function getDashboardPanels(
     // is, and no end date means no number to compare.
     .sort((a, b) => (b.daysVacant ?? Infinity) - (a.daysVacant ?? Infinity));
 
+  // One query for every membership these three panels mention, rather than
+  // one per row — the panels are capped at PANEL_ROWS each, but the query
+  // that finds `renewalsTotal` etc. isn't, so this stays cheap regardless.
+  const photoIds = await getProfilePhotoIds(organizationId, [
+    ...renewals.map((lease) => lease.membership.id),
+    ...moveIns.map((lease) => lease.membership.id),
+    ...needsInvite.map((membership) => membership.id),
+  ]);
+
   return {
     renewals: {
       total: renewalsTotal,
       items: renewals.map((lease) => ({
         id: lease.id,
         tenantName: displayName(lease.membership.user),
+        photoId: photoIds.get(lease.membership.id) ?? null,
         unitLabel: lease.unit.label,
         propertyName: lease.unit.property.name,
         endDate: lease.endDate,
@@ -537,6 +554,7 @@ export async function getDashboardPanels(
       items: moveIns.map((lease) => ({
         id: lease.id,
         tenantName: displayName(lease.membership.user),
+        photoId: photoIds.get(lease.membership.id) ?? null,
         unitLabel: lease.unit.label,
         propertyName: lease.unit.property.name,
         startDate: lease.startDate,
@@ -552,6 +570,7 @@ export async function getDashboardPanels(
       items: needsInvite.map((membership) => ({
         membershipId: membership.id,
         name: displayName(membership.user),
+        photoId: photoIds.get(membership.id) ?? null,
         contact: primaryContact(membership.user),
         roleName: membership.role.name,
       })),

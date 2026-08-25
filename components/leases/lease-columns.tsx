@@ -69,7 +69,9 @@ export function buildLeaseColumns({
           className="-ml-2"
         />
       ),
-      cell: ({ row }) => <PersonCell name={row.original.tenantName} />,
+      cell: ({ row }) => (
+        <PersonCell name={row.original.tenantName} photoId={row.original.photoId} />
+      ),
     },
     {
       accessorKey: "propertyName",

@@ -65,7 +65,9 @@ export function buildTenantColumns({
           className="-ml-2"
         />
       ),
-      cell: ({ row }) => <PersonCell name={row.original.name} />,
+      cell: ({ row }) => (
+        <PersonCell name={row.original.name} photoId={row.original.photoId} />
+      ),
     },
     {
       accessorKey: "phone",

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 import { DashboardPanel, PanelRow } from "@/components/dashboard/panel";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type {
   ActivityRow,
   MoveInRow,
@@ -22,9 +22,10 @@ import type { PropertySummary } from "@/lib/properties";
 import { initials } from "@/lib/user-display";
 
 /** Matches the tables' person cells, so the same tenant looks the same anywhere. */
-function PersonAvatar({ name }: { name: string }) {
+function PersonAvatar({ name, photoId }: { name: string; photoId: string | null }) {
   return (
     <Avatar className="size-8 shrink-0">
+      {photoId && <AvatarImage src={`/api/documents/${photoId}`} alt={name} />}
       <AvatarFallback className="text-xs">{initials(name)}</AvatarFallback>
     </Avatar>
   );
@@ -49,7 +50,7 @@ export function RenewalsPanel({
         <PanelRow
           key={renewal.id}
           href={`/leases/${renewal.id}`}
-          leading={<PersonAvatar name={renewal.tenantName} />}
+          leading={<PersonAvatar name={renewal.tenantName} photoId={renewal.photoId} />}
           title={renewal.tenantName}
           subtitle={`${renewal.propertyName} / ${renewal.unitLabel}`}
           trailing={`${renewal.daysLeft}d`}
@@ -77,7 +78,7 @@ export function MoveInsPanel({ moveIns }: { moveIns: PanelList<MoveInRow> }) {
         <PanelRow
           key={moveIn.id}
           href={`/leases/${moveIn.id}`}
-          leading={<PersonAvatar name={moveIn.tenantName} />}
+          leading={<PersonAvatar name={moveIn.tenantName} photoId={moveIn.photoId} />}
           title={moveIn.tenantName}
           subtitle={`${moveIn.propertyName} / ${moveIn.unitLabel}`}
           trailing={moveIn.daysUntil === 0 ? "today" : `${moveIn.daysUntil}d`}
@@ -198,7 +199,7 @@ export function NeedsInvitePanel({
         <PanelRow
           key={member.membershipId}
           href={`/members/${member.membershipId}`}
-          leading={<PersonAvatar name={member.name} />}
+          leading={<PersonAvatar name={member.name} photoId={member.photoId} />}
           title={member.name}
           subtitle={member.contact ?? "No contact on file"}
           trailing={member.roleName}

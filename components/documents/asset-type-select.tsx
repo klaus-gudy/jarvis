@@ -160,19 +160,19 @@ export function AssetTypeSelect({
           </Button>
         </div>
 
-        {/* Not offered for a photo type: every photo type allows multiple,
-            enforced server-side regardless of what this would send, so asking
-            here would be a question with a fixed answer. */}
-        {!isPhoto && (
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-            <Checkbox
-              checked={allowsMultiple}
-              onCheckedChange={(checked) => setAllowsMultiple(checked === true)}
-              disabled={pending}
-            />
-            Allow multiple of this type
-          </label>
-        )}
+        {/* Asked regardless of `isPhoto` — the two are independent (see the
+            comment on `createAssetType`). No current caller passes
+            `isPhoto: true` into this component (both photo surfaces prefill
+            their type instead), but nothing here should assume that stays
+            true. */}
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+          <Checkbox
+            checked={allowsMultiple}
+            onCheckedChange={(checked) => setAllowsMultiple(checked === true)}
+            disabled={pending}
+          />
+          Allow multiple of this type
+        </label>
 
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>

@@ -1,3 +1,4 @@
+import { getProfilePhotoIds } from "@/lib/documents";
 import {
   leaseExpiry,
   leaseReference,
@@ -50,6 +51,7 @@ export type TenantRow = {
   propertyName: string | null;
   status: TenantStatus;
   canSignIn: boolean;
+  photoId: string | null;
 };
 
 export async function getTenants(organizationId: string): Promise<TenantRow[]> {
@@ -78,6 +80,11 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
     },
   });
 
+  const photoIds = await getProfilePhotoIds(
+    organizationId,
+    memberships.map((membership) => membership.id)
+  );
+
   return memberships.map((membership) => {
     const activeLease =
       membership.leases.find(
@@ -104,6 +111,7 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
       status,
       // Surfaced so staff can see who still needs an invite to actually log in.
       canSignIn: membership.user.passwordHash !== null,
+      photoId: photoIds.get(membership.id) ?? null,
     };
   });
 }

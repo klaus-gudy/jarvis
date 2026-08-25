@@ -5,6 +5,7 @@ import {
   sendLeaseRenewedToTenant,
   type LeaseFacts,
 } from "@/lib/mail/leases";
+import { getProfilePhotoIds } from "@/lib/documents";
 import { getOwnerRecipients } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
 import { invoiceReference } from "@/lib/invoice-types";
@@ -39,6 +40,7 @@ export type LeaseRow = {
   id: string;
   membershipId: string;
   tenantName: string;
+  photoId: string | null;
   unitLabel: string;
   propertyName: string;
   startDate: string;
@@ -131,6 +133,11 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     },
   });
 
+  const photoIds = await getProfilePhotoIds(
+    organizationId,
+    leases.map((lease) => lease.membershipId)
+  );
+
   return leases.map((lease) => ({
     id: lease.id,
     membershipId: lease.membershipId,
@@ -139,6 +146,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
       lease.membership.user.email ??
       lease.membership.user.phone ??
       "Unnamed",
+    photoId: photoIds.get(lease.membershipId) ?? null,
     unitLabel: lease.unit.label,
     propertyName: lease.unit.property.name,
     startDate: lease.startDate.toISOString(),

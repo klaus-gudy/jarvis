@@ -9,6 +9,7 @@ import { TourProvider } from "@/components/tour/tour-provider"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { needsEmailVerification } from "@/lib/auth/email-verification"
 import { getCurrentUser } from "@/lib/auth/session"
+import { getProfilePhotoIds } from "@/lib/documents"
 import { prisma } from "@/lib/prisma"
 import { displayName, primaryContact } from "@/lib/user-display"
 
@@ -37,6 +38,16 @@ export default async function AppLayout({
   const membership =
     memberships.find((m) => m.organizationId === user.activeOrgId) ?? null
 
+  // Runs on every page in the app, so this stays a single indexed lookup
+  // rather than the fuller `listDocuments`/`listAssetTypes` pair the profile
+  // and member pages use — those also need the type list to offer an upload
+  // dropdown, which nothing here renders.
+  const photoId = membership
+    ? (
+        await getProfilePhotoIds(membership.organizationId, [membership.id])
+      ).get(membership.id) ?? null
+    : null
+
   const needsOrganization = memberships.length === 0
 
   // Restore the sidebar's collapsed state on the server so it doesn't flash
@@ -59,6 +70,7 @@ export default async function AppLayout({
             name: displayName(user),
             email: primaryContact(user) ?? "",
             role: membership?.role.name ?? null,
+            photoId,
           }}
         />
         <SidebarInset className="min-w-0">

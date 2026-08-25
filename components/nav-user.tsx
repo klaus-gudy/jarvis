@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ChevronsUpDownIcon, LogOutIcon, UserRoundIcon } from "lucide-react"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +35,12 @@ function initials(value: string) {
 export function NavUser({
   user,
 }: {
-  user: { name: string; email: string; role: string | null }
+  user: {
+    name: string
+    email: string
+    role: string | null
+    photoId: string | null
+  }
 }) {
   const router = useRouter()
   const { isMobile } = useSidebar()
@@ -59,6 +64,13 @@ export function NavUser({
                 className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
               >
                 <Avatar className="size-8 rounded-lg">
+                  {user.photoId && (
+                    <AvatarImage
+                      src={`/api/documents/${user.photoId}`}
+                      alt={user.name}
+                      className="rounded-lg"
+                    />
+                  )}
                   <AvatarFallback className="rounded-lg">
                     {initials(user.name)}
                   </AvatarFallback>

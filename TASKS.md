@@ -994,6 +994,53 @@ The enum had grown three times in two days. It stops being an enum.
 - [ ] **No UI ever offers a custom *photo* type again** — the only way to add one now is the API directly (`isPhoto: true` in the request body). Removing the picker from `PhotoUploadDialog` closed a real gap (asking for a group nobody wanted to name) but also closed the one place a photo-type addition could happen. If an organization needs a second photo category — floor plan renders, before/after shots — nothing in the UI gets them there
 - [ ] The dev server needed no restart this time — no migration in this phase — but the note stands for next time a `FileAssetType` column changes
 
+## Phase 72 — Profile photos: seeded type, circular crop, replace-on-upload
+
+- [x] Migration `20260825140000_profile_photo_type` seeds `PROFILE_PHOTO` (`sys_PROFILE_PHOTO`) — subject `MEMBERSHIP`, `isPhoto: true`, `allowsMultiple: false`. **Nothing configures it**: it exists the moment the migration runs, in every organization, which is the whole ask — "should always be seeded initially, no need for one to add its type"
+- [x] `components/documents/profile-photo-avatar.tsx` — the member header's avatar now shows the real photo when one exists (via `AvatarImage`, base-ui's own Avatar already falls back to initials on no `src` or a load error) and a small `+` badge that opens the picker. The badge relabels itself "Change profile photo" once one exists, same affordance either way
+- [x] `components/documents/photo-crop-dialog.tsx` — the circular resize mechanism asked for. Drag to pan, a slider to zoom (re-anchored on the frame's centre, not a corner), exported to a fixed 512×512 JPEG via canvas. No cropping library: the whole feature is a pointer-drag handler, a `<input type=range>`, and one `drawImage` call
+- [x] **Uploading replaces, not adds.** `PROFILE_PHOTO` disallows multiple, so the component deletes the existing row before uploading the new one rather than surfacing the resulting 409. Verified: exactly one `PROFILE_PHOTO` row survives a replace, in both a raw API sequence and through the actual dialog
+- [x] The member page splits its `FileAsset` query the same way the property page splits Images from Documents: `assets.filter(isPhoto)` is the profile photo, everything else is "documents". The Documents tab's badge, empty state and type dropdown all exclude it — verified in the browser, dropdown shows only Employment document / NIDA / Other tenant document / Passport
+- [x] **Found and fixed a real bug while wiring this up**: `createDocument`'s duplicate check had `!assetType.allowsMultiple && !assetType.isPhoto`, added in Phase 71 on the assumption every photo type is a gallery. `PROFILE_PHOTO` broke that assumption — the check let a second profile photo upload through with no delete. Fixed to `!assetType.allowsMultiple` alone, trusting the column (already correctly seeded per type) rather than special-casing `isPhoto`. Confirmed the fix doesn't regress property/unit photo galleries, which still accept multiple
+- [x] Same fix applied to `createAssetType`'s creation-time default, which had forced `allowsMultiple: true` whenever `isPhoto: true`. `allowsMultiple` and `isPhoto` are independent now, documented as such
+- [x] Verified over HTTP: `PROFILE_PHOTO` appears in `GET /api/asset-types?subject=MEMBERSHIP`; upload by its seeded id succeeds; a second upload without deleting 409s; delete-then-upload leaves exactly one row; property photos (`allowsMultiple: true`) still accept a second upload unchanged
+- [x] Verified in the browser: initials replaced by the actual photo on load; the badge opens the crop dialog; drag panning and zoom-slider math both confirmed via the rendered `<img>` transform (a vertical drag correctly clamped to zero when the image's height already matched the frame exactly); Save re-encodes to a smaller JPEG and updates the avatar; Cancel leaves the existing photo untouched; the general "Upload document" dropdown never offers "Profile photo"
+- [x] `tsc`, lint (0 errors) and `npm run build` clean; every test upload deleted afterwards, pre-existing rows in other organizations confirmed untouched
+
+### Not done
+- [ ] **Only the member detail page's avatar is wired up.** Table-based avatars (`PersonCell`, used by the Tenants and Users tables) still show initials only — extending them means a photo lookup per row, which is a real N+1 this pass didn't take on. Scoped deliberately: the ask named the one place initials are shown large enough for a plus icon to make sense
+- [ ] **No "remove photo" affordance.** The badge only ever opens the picker; there's no way to delete a profile photo and fall back to initials without picking a replacement
+- [ ] The crop export is always a JPEG at fixed quality (0.92) and fixed size (512×512) — no say in either, which is fine for an avatar but worth knowing if this pattern gets reused for something that wants more control
+- [ ] The dev server needed a restart again for the new seed row — same stale-`globalThis`-client note as every migration this week
+
+## Phase 73 — Crop dialog shows the cropped-away part (blurred), profile page gets the same avatar
+
+- [x] **`PhotoCropDialog` no longer clips to a circle at the container level.** The frame is square now, and the same image renders twice, stacked: a back copy fills the whole square (`blur-md brightness-[0.45]`, scaled 110% so the blur has margin to bleed into rather than leaving a hairline unblurred edge), a front copy is the same pixels sharp, clipped to a circle by an inner `overflow-hidden` wrapper. Both read the same `offset`/`scale` state, so panning and zooming move them together — verified via `getComputedStyle` on both `<img>`s mid-interaction, only the back one carries the blur/dim filter
+- [x] `ProfilePhotoAvatar.membershipId` is now `string | null` — the profile page (`/profile`) can be viewed by an account with no organization and therefore no `Membership`, which is where a photo would hang off. The avatar still renders (initials), just without the edit badge; `editable` is the single derived flag both the badge and the input key off
+- [x] **`app/(app)/profile/page.tsx` uses `ProfilePhotoAvatar`** in place of the plain initials-only `Avatar` it had — same split as the member page: fetch `listDocuments`/`listAssetTypes` for `MEMBERSHIP` when a membership exists, find the `isPhoto` row for the photo and its type id, skip the fetch entirely when there's no membership to fetch for
+- [x] Verified in the browser: the profile page's badge reads "Add a profile photo" (this account has none yet); opening the picker with a generated checkerboard test image (built in-browser via canvas — no file needed) shows the corners blurred and dimmed around a sharp circular centre, confirmed both visually and via `filter: blur(12px) brightness(0.45)` on the back image and `filter: none` on the front; Cancel uploads nothing (row count unchanged); the member detail page, unaffected by the nullable-prop change, still renders a plain initials avatar for a member with no photo
+- [x] `tsc`, lint (0 errors) and `npm run build` clean; no test rows left in the working organization afterwards
+
+### Not done
+- [ ] Same gaps as Phase 72, still open: no "remove photo" affordance, table avatars (`PersonCell`) still initials-only, fixed JPEG quality and 512×512 output with no way to ask for anything else
+
+## Phase 74 — Profile photos everywhere a member's initials showed
+
+Every avatar in the app that fell back to initials now shows the real photo when one is on file. Nine files, one new batched lookup.
+
+- [x] `lib/documents.ts` gains `getProfilePhotoIds(organizationId, membershipIds[])` — one query for a whole table or panel, not one per row. Returns a `Map`; a membership with no photo simply has no entry, which every caller reads as `?? null`
+- [x] **`PersonCell`** (shared by every table and card that names a person) takes an optional `photoId` and renders `AvatarImage` when present, `AvatarFallback` (initials) otherwise — base-ui's own Avatar handles the fallback, so this is one conditional line
+- [x] **The sidebar's menu button** (`NavUser`) — the "menu button" named directly. `app/(app)/layout.tsx` runs on every page, so it uses the lean single-row lookup rather than the fuller `listDocuments`/`listAssetTypes` pair the profile and member pages need for their upload dropdowns
+- [x] **Every data table wired through**: `getTenants`, `getMembers`, `getLeases`, `getPayments` each batch-fetch photo ids for their rows in one extra query and attach `photoId` to the row type. Consumers updated: `tenant-columns.tsx`, `tenant-card.tsx`, `users-view.tsx`, `member-card.tsx`, `lease-columns.tsx`, `payment-columns.tsx`
+- [x] **Dashboard panels** — `RenewalsPanel`, `MoveInsPanel`, `NeedsInvitePanel` all reach a member via a lease or a membership already loaded for the tenant's *name*, so `membership.id` (added to the shared `tenantTitle` select) cost nothing extra to also select. One combined `getProfilePhotoIds` call covers all three panels' membership ids at once, computed right before the final `return` in `getDashboardPanels`
+- [x] **Left as initials, deliberately**: the invitation row in `users-view.tsx` (`invitationLabel(...)`, no `photoId` passed) — a pending invitation has no `Membership` yet, so there is nothing to look a photo up against. `LeaseCard`/`PaymentCard` (the mobile card views for leases and payments) don't render an avatar at all, `PersonCell` or otherwise, so there was nothing to change there
+- [x] Verified end to end: uploaded a photo for the signed-in owner and for one tenant, confirmed both rendered in the Tenants table, the Users table, the sidebar dropdown, and — the one that exercises the dashboard wiring specifically — the "Upcoming move-ins" panel, sitting beside a tenant with no photo who still showed plain initials in "Renewals due" on the same page. Confirmed via `getBoundingClientRect` that exactly two `<img src="/api/documents/...">` tags existed on the dashboard page, matching the two uploads
+- [x] `tsc`, lint (0 errors) and `npm run build` clean; both test uploads deleted afterwards
+
+### Not done
+- [ ] No batched N+1 audit beyond what was touched — if another table renders a person by name in the future, it needs to remember to also fetch and pass `photoId`; nothing enforces that a new caller of `PersonCell` does
+- [ ] `getProfilePhotoIds` is called once per list-producing function today. A page that renders more than one such list (there are none currently) would issue the query twice rather than sharing one batch across both
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

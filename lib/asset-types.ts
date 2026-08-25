@@ -79,9 +79,12 @@ export function toAssetTypeKey(label: string) {
  * certificate"), and a surprise 409 on the second upload is a smaller cost
  * than an unbounded pile nobody meant to allow.
  *
- * Photos are the one case with no question to ask: `isPhoto` forces
- * `allowsMultiple` to `true` regardless of what was passed, because a gallery
- * that refuses a second photo is a bug, not a setting.
+ * `isPhoto` does **not** decide `allowsMultiple`. An earlier version forced
+ * every photo type to allow multiple, on the theory that a photo type is
+ * always a gallery — wrong the moment a *singular* photo type existed, which
+ * `PROFILE_PHOTO` now is (seeded directly, not through this function, but the
+ * same column). The two flags describe different things: whether a type takes
+ * images, and whether a subject may hold more than one.
  */
 export async function createAssetType(
   organizationId: string,
@@ -121,7 +124,7 @@ export async function createAssetType(
       label,
       subject: input.subject,
       isPhoto: input.isPhoto,
-      allowsMultiple: input.isPhoto ? true : (input.allowsMultiple ?? false),
+      allowsMultiple: input.allowsMultiple ?? false,
       organizationId,
       isSystem: false,
     },

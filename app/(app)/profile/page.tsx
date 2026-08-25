@@ -6,17 +6,19 @@ import {
   UserRoundIcon,
 } from "lucide-react";
 
+import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
 import { AccountSettingsCard } from "@/components/profile/account-settings-card";
 import { PaymentAccountsCard } from "@/components/profile/payment-accounts-card";
 import { PersonalInfoCard } from "@/components/profile/personal-info-card";
 import { ProfileCardHeader } from "@/components/profile/profile-card-header";
 import { ProfileField } from "@/components/profile/profile-field";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
+import { listAssetTypes } from "@/lib/asset-types";
 import { getCurrentUser } from "@/lib/auth/session";
+import { listDocuments } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { getProfile } from "@/lib/profile";
-import { displayName, initials, primaryContact } from "@/lib/user-display";
+import { displayName, primaryContact } from "@/lib/user-display";
 
 export const metadata = { title: "Profile" };
 
@@ -28,13 +30,31 @@ export default async function ProfilePage() {
   const { personal, organization, membershipId } = profile;
   const name = displayName(personal);
 
+  // Same split as the member detail page: the profile photo is a `FileAsset`
+  // like any other, scoped to the `Membership` — which this account may not
+  // have if it belongs to no organization, the one case `ProfilePhotoAvatar`
+  // renders read-only.
+  const [assets, assetTypes] =
+    membershipId && user.activeOrgId
+      ? await Promise.all([
+          listDocuments(user.activeOrgId, "MEMBERSHIP", membershipId),
+          listAssetTypes(user.activeOrgId, "MEMBERSHIP"),
+        ])
+      : [[], []];
+  const profilePhoto = assets.find((asset) => asset.assetType.isPhoto) ?? null;
+  const profilePhotoTypeId =
+    assetTypes.find((type) => type.isPhoto)?.id ?? null;
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
       <Card>
         <CardContent className="flex items-center gap-4">
-          <Avatar className="size-12 shrink-0">
-            <AvatarFallback className="text-sm">{initials(name)}</AvatarFallback>
-          </Avatar>
+          <ProfilePhotoAvatar
+            membershipId={membershipId}
+            name={name}
+            photoId={profilePhoto?.id ?? null}
+            assetTypeId={profilePhotoTypeId}
+          />
           <div className="min-w-0 flex-1 space-y-1">
             <h2 className="truncate text-xl font-semibold tracking-tight">
               {name}

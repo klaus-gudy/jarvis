@@ -56,7 +56,9 @@ export function UsersView({
       {
         accessorKey: "name",
         header: "Name",
-        cell: ({ row }) => <PersonCell name={row.original.name} />,
+        cell: ({ row }) => (
+          <PersonCell name={row.original.name} photoId={row.original.photoId} />
+        ),
       },
       {
         accessorKey: "phone",

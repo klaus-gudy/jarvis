@@ -16,7 +16,7 @@ export function MemberCard({ member }: { member: MemberRow }) {
   return (
     <div className="min-w-0 space-y-2.5">
       <div className="flex items-start justify-between gap-3">
-        <PersonCell name={member.name} />
+        <PersonCell name={member.name} photoId={member.photoId} />
         <Badge className="shrink-0 rounded-full font-normal" variant="outline">
           {member.roleName}
         </Badge>

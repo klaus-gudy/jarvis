@@ -242,11 +242,14 @@ export async function createDocument(
   // declared collection — replacing it means deleting the old one first,
   // rather than the two silently piling up as "which NIDA is current?".
   //
-  // Photos are exempt outright, not just by their usual `allowsMultiple`
-  // default: a gallery is a collection by definition, and `isPhoto` is
-  // enforced here as the actual rule rather than trusted to have been set
-  // correctly wherever the row was created.
-  if (!assetType.allowsMultiple && !assetType.isPhoto) {
+  // Keyed on `allowsMultiple` alone now — an earlier version of this also
+  // exempted every `isPhoto` type outright, on the assumption that a photo is
+  // always a gallery. `PROFILE_PHOTO` broke that assumption: it is a photo and
+  // it is deliberately singular, replaced rather than accumulated. The column
+  // already said the right thing for every type that existed — property and
+  // unit photos seeded `allowsMultiple: true`, profile photo seeded `false` —
+  // so trusting it is both the fix and the simplification.
+  if (!assetType.allowsMultiple) {
     const existing = await findExisting(
       organizationId,
       input.subjectType,
@@ -349,6 +352,34 @@ export async function getDocument(organizationId: string, id: string) {
     where: { id, organizationId },
     select: { id: true, objectKey: true, fileName: true, fileType: true },
   });
+}
+
+/**
+ * Profile photo id, per membership — one query for a whole table or list
+ * rather than one per row. Every caller that renders more than a single
+ * member (the Tenants and Users tables, the dashboard panels, the sidebar's
+ * own row) goes through this rather than `listDocuments` per row, which would
+ * turn a page load into N+1 queries.
+ *
+ * Returns a `Map` rather than an array so a caller can look up by id without
+ * building its own index; a membership with no photo simply has no entry.
+ */
+export async function getProfilePhotoIds(
+  organizationId: string,
+  membershipIds: string[]
+): Promise<Map<string, string>> {
+  if (membershipIds.length === 0) return new Map();
+
+  const rows = await prisma.fileAsset.findMany({
+    where: {
+      organizationId,
+      membershipId: { in: membershipIds },
+      assetType: { key: "PROFILE_PHOTO" },
+    },
+    select: { id: true, membershipId: true },
+  });
+
+  return new Map(rows.map((row) => [row.membershipId as string, row.id]));
 }
 
 /**

@@ -4,9 +4,9 @@ import { ArrowLeftIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
 import { MemberLeasesTab } from "@/components/members/member-leases-tab";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +17,6 @@ import { formatDate } from "@/lib/format";
 import { getLeaseOptions } from "@/lib/leases";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { getTenantDetail, type TenantStatus } from "@/lib/tenants";
-import { initials } from "@/lib/user-display";
 import { cn } from "@/lib/utils";
 
 const STATUS_TONE: Record<TenantStatus, string> = {
@@ -66,10 +65,20 @@ export default async function MemberDetailPage({
 
   // Every member can hold documents, tenant or not — a caretaker's contract is
   // as much a record as a tenant's NIDA.
-  const [documents, assetTypes] = await Promise.all([
+  const [assets, assetTypes] = await Promise.all([
     listDocuments(user.activeOrgId, "MEMBERSHIP", member.membershipId),
     listAssetTypes(user.activeOrgId, "MEMBERSHIP"),
   ]);
+
+  // The profile photo is a `FileAsset` like any other, but it isn't a
+  // "document" the Documents tab should list or offer as a type to pick —
+  // it has its own entry point on the avatar above. Split here, the same way
+  // the property page separates its Images tab from its Documents tab.
+  const documents = assets.filter((asset) => !asset.assetType.isPhoto);
+  const profilePhoto = assets.find((asset) => asset.assetType.isPhoto) ?? null;
+  const documentAssetTypes = assetTypes.filter((type) => !type.isPhoto);
+  const profilePhotoTypeId =
+    assetTypes.find((type) => type.isPhoto)?.id ?? null;
 
   return (
     <div className="space-y-6">
@@ -85,11 +94,12 @@ export default async function MemberDetailPage({
 
       <Card>
         <CardContent className="flex items-center gap-4">
-          <Avatar className="size-12 shrink-0">
-            <AvatarFallback className="text-sm">
-              {initials(member.name)}
-            </AvatarFallback>
-          </Avatar>
+          <ProfilePhotoAvatar
+            membershipId={member.membershipId}
+            name={member.name}
+            photoId={profilePhoto?.id ?? null}
+            assetTypeId={profilePhotoTypeId}
+          />
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-2.5">
               <h2 className="truncate text-xl font-semibold tracking-tight">
@@ -244,7 +254,7 @@ export default async function MemberDetailPage({
           <DocumentsPanel
             subjectType="MEMBERSHIP"
             subjectId={member.membershipId}
-            assetTypes={assetTypes}
+            assetTypes={documentAssetTypes}
             emptyMessage="No documents yet. Upload a NIDA card, passport or employment letter to keep it on file."
             documents={documents.map((document) => ({
               ...document,

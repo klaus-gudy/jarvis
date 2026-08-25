@@ -1,3 +1,4 @@
+import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import {
   deriveInvoiceStatus,
@@ -69,6 +70,7 @@ export type PaymentRow = {
   invoiceStatus: InvoiceStatus;
   leaseId: string;
   tenantName: string;
+  photoId: string | null;
   /**
    * Re-added after Phase 34 dropped it: the payments table filters by property,
    * and a facet needs the value on the row. Org scoping is still done by the
@@ -113,6 +115,11 @@ export async function getPayments(organizationId: string): Promise<PaymentRow[]>
     paidByInvoice(organizationId),
   ]);
 
+  const photoIds = await getProfilePhotoIds(
+    organizationId,
+    payments.map((payment) => payment.invoice.lease.membershipId)
+  );
+
   return payments.map((payment) => {
     const { invoice } = payment;
     const invoicePaid = paid.get(invoice.id) ?? 0;
@@ -130,6 +137,7 @@ export async function getPayments(organizationId: string): Promise<PaymentRow[]>
       invoiceStatus: deriveInvoiceStatus(invoice.amount, invoicePaid),
       leaseId: invoice.leaseId,
       tenantName: displayName(invoice.lease.membership.user),
+      photoId: photoIds.get(invoice.lease.membershipId) ?? null,
       propertyName: invoice.lease.unit.property.name,
       unitLabel: invoice.lease.unit.label,
     };

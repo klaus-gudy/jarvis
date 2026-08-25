@@ -30,7 +30,12 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
   organizations: OrganizationOption[]
   activeOrgId: string | null
-  user: { name: string; email: string; role: string | null }
+  user: {
+    name: string
+    email: string
+    role: string | null
+    photoId: string | null
+  }
 }) {
   const pathname = usePathname()
   const activeItem = findActiveNavItem(pathname)

@@ -35,7 +35,7 @@ export function TenantCard({ tenant }: { tenant: TenantRow }) {
   return (
     <div className="min-w-0 space-y-2.5">
       <div className="flex items-start justify-between gap-3">
-        <PersonCell name={tenant.name} />
+        <PersonCell name={tenant.name} photoId={tenant.photoId} />
         <Badge
           variant={TENANT_STATUS_VARIANT[status]}
           className="shrink-0 rounded-full font-normal"

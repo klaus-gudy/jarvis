@@ -1,3 +1,4 @@
+import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import type { UpdateMemberInput } from "@/lib/members-schemas";
 import { OWNER_ROLE_NAME } from "@/lib/roles";
@@ -14,6 +15,7 @@ export type MemberRow = {
   joinedAt: string;
   canSignIn: boolean;
   isOwner: boolean;
+  photoId: string | null;
 };
 
 export async function getMembers(organizationId: string): Promise<MemberRow[]> {
@@ -33,6 +35,11 @@ export async function getMembers(organizationId: string): Promise<MemberRow[]> {
     },
   });
 
+  const photoIds = await getProfilePhotoIds(
+    organizationId,
+    memberships.map((membership) => membership.id)
+  );
+
   return memberships.map((membership) => ({
     membershipId: membership.id,
     name:
@@ -48,6 +55,7 @@ export async function getMembers(organizationId: string): Promise<MemberRow[]> {
     joinedAt: membership.createdAt.toISOString(),
     canSignIn: membership.user.passwordHash !== null,
     isOwner: membership.role.name.toLowerCase() === OWNER_ROLE_NAME.toLowerCase(),
+    photoId: photoIds.get(membership.id) ?? null,
   }));
 }
 
