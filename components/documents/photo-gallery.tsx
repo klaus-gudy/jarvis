@@ -25,8 +25,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { DocumentSubject, DocumentView } from "@/lib/document-options";
-import type { FileAssetType } from "@/lib/generated/prisma/enums";
+import type { AssetTypeView } from "@/lib/asset-types";
+import type { DocumentView } from "@/lib/document-options";
+import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,14 +42,15 @@ import { cn } from "@/lib/utils";
 export function PhotoGallery({
   subjectType,
   subjectId,
-  assetType,
+  assetTypes,
   photos,
   title,
   emptyMessage,
 }: {
-  subjectType: DocumentSubject;
+  subjectType: FileAssetSubject;
   subjectId: string;
-  assetType: FileAssetType;
+  /** Photo types for this subject; the first is the default the picker opens on. */
+  assetTypes: AssetTypeView[];
   photos: DocumentView[];
   title: string;
   emptyMessage: string;
@@ -235,7 +237,7 @@ export function PhotoGallery({
         onOpenChange={setUploadOpen}
         subjectType={subjectType}
         subjectId={subjectId}
-        assetType={assetType}
+        assetTypes={assetTypes}
         title="Add photos"
       />
 

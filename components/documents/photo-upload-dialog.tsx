@@ -21,15 +21,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AssetTypeSelect } from "@/components/documents/asset-type-select";
+import { Field, FieldLabel } from "@/components/ui/field";
+import type { AssetTypeView } from "@/lib/asset-types";
 import {
   formatFileSize,
   IMAGE_FILE_EXTENSIONS,
   IMAGE_FILE_LABEL,
   IMAGE_FILE_TYPES,
   MAX_FILE_BYTES,
-  type DocumentSubject,
 } from "@/lib/document-options";
-import type { FileAssetType } from "@/lib/generated/prisma/enums";
+import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
 type Picked = {
@@ -60,20 +62,27 @@ export function PhotoUploadDialog({
   onOpenChange,
   subjectType,
   subjectId,
-  assetType,
+  assetTypes: initialAssetTypes,
   title,
   description,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  subjectType: DocumentSubject;
+  subjectType: FileAssetSubject;
   subjectId: string;
-  assetType: FileAssetType;
+  /** Photo types for this subject. The first is the default — for a property that is the seeded "Photo". */
+  assetTypes: AssetTypeView[];
   title: string;
   description?: string;
 }) {
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Held locally so a type added from inside the dropdown is usable at once.
+  const [assetTypes, setAssetTypes] = React.useState(initialAssetTypes);
+  const [assetTypeId, setAssetTypeId] = React.useState(
+    initialAssetTypes[0]?.id ?? ""
+  );
 
   const [picked, setPicked] = React.useState<Picked[]>([]);
   const [pending, setPending] = React.useState(false);
@@ -157,7 +166,7 @@ export function PhotoUploadDialog({
 
       const body = new FormData();
       body.append("file", item.file);
-      body.append("assetType", assetType);
+      body.append("assetTypeId", assetTypeId);
       body.append("subjectType", subjectType);
       body.append("subjectId", subjectId);
 
@@ -236,6 +245,31 @@ export function PhotoUploadDialog({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
+          {/* Always rendered, even with a single option. It looks like a
+              control that does nothing until you open it — but the "Add a
+              type…" affordance lives inside, and hiding the picker on the
+              common case (one seeded "Photo" type) would mean the only place
+              to add a photo type is a screen that has two of them already. */}
+          <Field>
+              <FieldLabel htmlFor="photo-type" required>
+                Photo type
+              </FieldLabel>
+              <AssetTypeSelect
+                id="photo-type"
+                assetTypes={assetTypes}
+                value={assetTypeId}
+                onValueChange={setAssetTypeId}
+                subject={subjectType}
+                isPhoto
+                disabled={pending}
+                onCreated={(created) => {
+                  setAssetTypes((current) => [...current, created]);
+                  setAssetTypeId(created.id);
+                  router.refresh();
+                }}
+              />
+          </Field>
+
           {picked.length === 0 ? (
             <button
               type="button"

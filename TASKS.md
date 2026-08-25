@@ -949,6 +949,36 @@ Everything the tenant documents tab already did, applied to properties and units
 - [ ] The unit strip opens photos in a new tab rather than the in-app viewer, because `UnitViewDialog` is already a dialog and stacking a second one on it reads badly. A gallery inside that dialog would be better than either
 - [ ] Unit photos still cannot be **deleted** from the UI — only property photos can. The route supports it; the strip has no affordance
 
+## Phase 70 — `FileAssetType` becomes a table; property Images gets its own tab
+
+The enum had grown three times in two days. It stops being an enum.
+
+- [x] Migration `20260825120000_file_asset_types`, **hand-written**: `migrate diff` produces the right shape in the wrong order — drop `assetType`, add a `NOT NULL assetTypeId`, nothing in between — which fails on the first existing row and would lose every file's type if it didn't. The order here is seed → backfill → enforce → drop, so no row is ever without a type
+- [x] The old enum and the new table want the same name and Postgres will not hold both, so the enum is **renamed out of the way** and dropped at the end once nothing refers to it
+- [x] The seventeen enum values are **seeded as system rows** with a null `organizationId`, ids `sys_<KEY>` so the same type has the same id in every environment. `allowsMultiple` and `isPhoto` carry over exactly what `lib/document-options.ts` used to assert in code
+- [x] A `DO $$` block **fails the migration loudly** if the backfill misses a row, rather than letting it surface as a NOT NULL violation naming nothing
+- [x] `FileAsset.assetTypeId` is **`ON DELETE RESTRICT`** — deleting a type files still point at must fail, not take the files with it. Verified against the live database
+- [x] **The grouping is `subject`, and it is never asked for.** A type is created from a surface that already knows what it is attached to, so the client posts the group it is standing in. Verified three ways: added from a lease → `LEASE`, from the property Documents tab → `PROPERTY`, from the property Images tab → `PROPERTY` **and `isPhoto: true`**
+- [x] `FileAssetSubject` stays an enum where the type list did not: the set of things a file can hang off is the set of foreign keys on `FileAsset`, so it cannot grow without a migration anyway
+- [x] **Custom types are per organization.** Null `organizationId` means system and shared; anything else belongs to one tenancy. Verified: another organization neither sees a custom type in its list nor can upload with its id (404)
+- [x] A **partial unique index** on `key WHERE "organizationId" IS NULL` — Postgres treats NULLs as distinct, so the composite unique alone would let two system rows share a key. Prisma cannot express it, so it is hand-written
+- [x] `toAssetTypeKey` collapses punctuation and case, so "Inspection report" and "inspection-report" are the same type rather than two dropdown entries reading alike. A collision with a *system* key 409s naming the group it already lives under, since it is usually a different one
+- [x] **`AssetTypeSelect`** — the dropdown with "Add a type…" inside it, because a list you can extend only helps if extending it is available at the moment you find it lacking. Not a `SelectItem`: choosing one would set the field to a sentinel value, and a type called `__add__` is one forgotten guard from reaching the API
+- [x] The photo picker **always renders its type dropdown**, even with a single option. It looks inert until opened — but hiding it on the common case would put the only way to add a photo type behind already having two
+- [x] Property **Images and Documents are separate tabs**. Photos are browsed and papers are filed; stacked, the table started below the fold on any property with pictures
+- [x] `isPhoto` is a column, so a *custom* photo type lands in the Images tab, gets the narrow image-only allowlist, and shows in a unit's photo strip without anything in code naming it
+- [x] Verified over HTTP: types listed per group with photo types flagged; unknown subject 400; custom type created, duplicate 409, system-key shadow 409; upload by type id 201; PDF as a photo type 415; a lease type filed on a property 400; second title deed 409; cross-organization type 404
+- [x] Verified in the browser: four property tabs with correct counts, Images holding only photos and Documents only papers, "Title deed · On file" greyed, the inline add creating and selecting a type in place with a toast, no console errors
+- [x] Both pre-existing `FileAsset` rows kept their NIDA type through the migration; `tsc`, lint (0 errors) and `npm run build` clean; every test upload and custom type deleted afterwards
+
+### Not done
+- [ ] **Types cannot be renamed, deleted or hidden from the UI.** Adding is the only operation. A typo'd type is permanent, and an organization that stops using one still sees it in the dropdown forever — `RESTRICT` means deleting one in use has to fail anyway, so this wants a "retired" flag rather than a delete
+- [ ] **`allowsMultiple` is never asked and always true for custom types.** Someone who wants "one of these per lease" cannot say so
+- [ ] **`OTHER` moved under `ORGANIZATION`.** Under the enum it was filed anywhere; a type now declares one subject. Nothing used it, and "add a type" is the better escape hatch — but it is a behaviour change, not a refactor
+- [ ] The dev server **must be restarted after this migration** — the same stale-`globalThis`-client trap as Phase 64 and 69
+- [ ] Seeding lives only in the migration. A new *system* type means another migration; there is no idempotent seed script the way a `prisma/seed.ts` would give
+- [ ] `resolveAssetType` runs twice per upload — once in the route to name what a wrong MIME should have been, once in `createDocument` as the authority. Cheap and indexed, but it is two queries where one would do
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

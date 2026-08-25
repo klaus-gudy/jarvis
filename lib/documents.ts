@@ -1,12 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  ACCEPTED_FILE_TYPES,
-  allowsMultiple,
-  type DocumentSubject,
-} from "@/lib/document-options";
+import { resolveAssetType } from "@/lib/asset-types";
+import { ACCEPTED_FILE_TYPES } from "@/lib/document-options";
 import type { UploadDocumentInput } from "@/lib/documents-schemas";
-import type { FileAssetType } from "@/lib/generated/prisma/enums";
+import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { deleteObject, putObject } from "@/lib/storage";
 import { displayName } from "@/lib/user-display";
@@ -29,24 +26,24 @@ import { displayName } from "@/lib/user-display";
  * `members`, not `tenants` — the subject is a Membership, and an Owner has one
  * of those too.
  */
-const KEY_SEGMENT: Record<DocumentSubject, string> = {
-  organization: "organization",
-  property: "properties",
-  unit: "units",
-  membership: "members",
-  lease: "leases",
-  invoice: "invoices",
-  payment: "payments",
+const KEY_SEGMENT: Record<FileAssetSubject, string> = {
+  ORGANIZATION: "organization",
+  PROPERTY: "properties",
+  UNIT: "units",
+  MEMBERSHIP: "members",
+  LEASE: "leases",
+  INVOICE: "invoices",
+  PAYMENT: "payments",
 };
 
 /** The `FileAsset` column each subject writes to. */
-const SUBJECT_COLUMN: Record<Exclude<DocumentSubject, "organization">, string> = {
-  property: "propertyId",
-  unit: "unitId",
-  membership: "membershipId",
-  lease: "leaseId",
-  invoice: "invoiceId",
-  payment: "paymentId",
+const SUBJECT_COLUMN: Record<Exclude<FileAssetSubject, "ORGANIZATION">, string> = {
+  PROPERTY: "propertyId",
+  UNIT: "unitId",
+  MEMBERSHIP: "membershipId",
+  LEASE: "leaseId",
+  INVOICE: "invoiceId",
+  PAYMENT: "paymentId",
 };
 
 /**
@@ -61,13 +58,13 @@ const SUBJECT_COLUMN: Record<Exclude<DocumentSubject, "organization">, string> =
  */
 export function buildObjectKey(input: {
   organizationId: string;
-  subjectType: DocumentSubject;
+  subjectType: FileAssetSubject;
   subjectId: string | null;
   extension: string;
 }) {
   const scope =
-    input.subjectType === "organization" || !input.subjectId
-      ? KEY_SEGMENT.organization
+    input.subjectType === "ORGANIZATION" || !input.subjectId
+      ? KEY_SEGMENT.ORGANIZATION
       : `${KEY_SEGMENT[input.subjectType]}/${input.subjectId}`;
 
   return `organizations/${input.organizationId}/${scope}/${randomUUID()}${input.extension}`;
@@ -83,7 +80,7 @@ export function buildObjectKey(input: {
  */
 async function subjectBelongsToOrg(
   organizationId: string,
-  subjectType: DocumentSubject,
+  subjectType: FileAssetSubject,
   subjectId: string
 ) {
   const where = {
@@ -99,19 +96,19 @@ async function subjectBelongsToOrg(
   };
 
   switch (subjectType) {
-    case "organization":
+    case "ORGANIZATION":
       return true;
-    case "property":
+    case "PROPERTY":
       return (await prisma.property.count({ where: where.property })) > 0;
-    case "unit":
+    case "UNIT":
       return (await prisma.unit.count({ where: where.unit })) > 0;
-    case "membership":
+    case "MEMBERSHIP":
       return (await prisma.membership.count({ where: where.membership })) > 0;
-    case "lease":
+    case "LEASE":
       return (await prisma.lease.count({ where: where.lease })) > 0;
-    case "invoice":
+    case "INVOICE":
       return (await prisma.invoice.count({ where: where.invoice })) > 0;
-    case "payment":
+    case "PAYMENT":
       return (await prisma.payment.count({ where: where.payment })) > 0;
   }
 }
@@ -124,19 +121,19 @@ async function subjectBelongsToOrg(
  */
 async function findExisting(
   organizationId: string,
-  subjectType: DocumentSubject,
+  subjectType: FileAssetSubject,
   subjectId: string | null,
-  assetType: FileAssetType
+  assetTypeId: string
 ) {
   const column =
-    subjectType === "organization" || !subjectId
+    subjectType === "ORGANIZATION" || !subjectId
       ? null
       : SUBJECT_COLUMN[subjectType as keyof typeof SUBJECT_COLUMN];
 
   return prisma.fileAsset.findFirst({
     where: {
       organizationId,
-      assetType,
+      assetTypeId,
       ...(column
         ? { [column]: subjectId }
         : {
@@ -157,7 +154,12 @@ export type DocumentRow = {
   fileName: string;
   fileType: string;
   sizeBytes: number;
-  assetType: FileAssetType;
+  /**
+   * Joined, not just the id: every surface that lists a document renders its
+   * label and branches on `isPhoto`, so resolving it per row on the client
+   * would be a second lookup that eventually goes missing.
+   */
+  assetType: { id: string; label: string; isPhoto: boolean };
   createdAt: Date;
   /** Null once the uploader has left the organization — the file outlives them. */
   uploadedByName: string | null;
@@ -168,8 +170,8 @@ const ROW_SELECT = {
   fileName: true,
   fileType: true,
   sizeBytes: true,
-  assetType: true,
   createdAt: true,
+  assetType: { select: { id: true, label: true, isPhoto: true } },
   uploadedBy: {
     select: { user: { select: { name: true, email: true, phone: true } } },
   },
@@ -180,7 +182,7 @@ type SelectedRow = {
   fileName: string;
   fileType: string;
   sizeBytes: number;
-  assetType: FileAssetType;
+  assetType: { id: string; label: string; isPhoto: boolean };
   createdAt: Date;
   uploadedBy: {
     user: { name: string | null; email: string | null; phone: string | null };
@@ -213,6 +215,20 @@ export async function createDocument(
   input: UploadDocumentInput,
   file: { name: string; type: string; bytes: Uint8Array }
 ) {
+  // The type, resolved against this organization. A custom type belonging to
+  // another tenancy resolves to nothing, exactly as a borrowed subject id
+  // does — the two are the same class of mistake.
+  const assetType = await resolveAssetType(organizationId, input.assetTypeId);
+  if (!assetType) return { error: "asset-type-not-found" as const };
+
+  // The pairing rule that used to be a static map: a type declares one subject
+  // and may only be filed under it. Checked here rather than in the schema
+  // because the type's subject is a column now, and this is the only place
+  // that has the row.
+  if (assetType.subject !== input.subjectType) {
+    return { error: "subject-mismatch" as const, assetType };
+  }
+
   if (input.subjectId) {
     const belongs = await subjectBelongsToOrg(
       organizationId,
@@ -225,17 +241,18 @@ export async function createDocument(
   // One canonical document per (subject, type) for anything that isn't a
   // declared collection — replacing it means deleting the old one first,
   // rather than the two silently piling up as "which NIDA is current?".
-  if (!allowsMultiple(input.assetType)) {
+  if (!assetType.allowsMultiple) {
     const existing = await findExisting(
       organizationId,
       input.subjectType,
       input.subjectId,
-      input.assetType
+      assetType.id
     );
     if (existing) {
       return {
         error: "duplicate-asset-type" as const,
         existing,
+        assetType,
       };
     }
   }
@@ -264,7 +281,7 @@ export async function createDocument(
         fileName: file.name,
         fileType: file.type,
         sizeBytes: file.bytes.byteLength,
-        assetType: input.assetType,
+        assetTypeId: assetType.id,
         organizationId,
         uploadedById: uploader?.id ?? null,
         ...(input.subjectId
@@ -290,7 +307,7 @@ export async function createDocument(
  */
 export async function listDocuments(
   organizationId: string,
-  subjectType: DocumentSubject,
+  subjectType: FileAssetSubject,
   subjectId: string | null
 ): Promise<DocumentRow[]> {
   const rows = await prisma.fileAsset.findMany({

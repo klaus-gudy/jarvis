@@ -14,24 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AssetTypeSelect } from "@/components/documents/asset-type-select";
 import { Field, FieldLabel } from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import type { AssetTypeView } from "@/lib/asset-types";
 import {
   acceptedTypesFor,
-  allowsMultiple,
-  ASSET_TYPE_LABELS,
+  extensionsOf,
   formatFileSize,
   labelForAcceptedTypes,
   MAX_FILE_BYTES,
-  type DocumentSubject,
 } from "@/lib/document-options";
-import type { FileAssetType } from "@/lib/generated/prisma/enums";
+import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
 /**
@@ -48,45 +41,53 @@ export function DocumentUploadDialog({
   onOpenChange,
   subjectType,
   subjectId,
-  assetTypes,
-  /** Types already on file for this subject — offered but greyed, not omitted, same as a disabled `RowAction`. */
-  existingTypes = [],
+  assetTypes: initialAssetTypes,
+  /** Type ids already on file for this subject — offered but greyed, not omitted, same as a disabled `RowAction`. */
+  existingTypeIds = [],
   title,
   description,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  subjectType: DocumentSubject;
+  subjectType: FileAssetSubject;
   subjectId: string | null;
-  assetTypes: FileAssetType[];
-  existingTypes?: FileAssetType[];
+  assetTypes: AssetTypeView[];
+  existingTypeIds?: string[];
   title: string;
   description?: string;
 }) {
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  // Held locally so a type added from inside the dropdown is selectable
+  // immediately, without waiting for the server component above to re-render.
+  const [assetTypes, setAssetTypes] = React.useState(initialAssetTypes);
+
   // A type that doesn't allow multiples and is already on file can't be
   // uploaded again — disabled in the list rather than dropped, so the option
   // stays in its usual place and the reason ("On file") is visible right there
   // instead of a rejection after the fact.
-  const takenTypes = React.useMemo(
-    () => new Set(existingTypes.filter((type) => !allowsMultiple(type))),
-    [existingTypes]
-  );
+  const takenTypeIds = React.useMemo(() => {
+    const singular = new Set(
+      assetTypes.filter((type) => !type.allowsMultiple).map((type) => type.id)
+    );
+    return existingTypeIds.filter((id) => singular.has(id));
+  }, [assetTypes, existingTypeIds]);
 
   const [file, setFile] = React.useState<File | null>(null);
-  const [assetType, setAssetType] = React.useState<FileAssetType>(
-    assetTypes.find((type) => !takenTypes.has(type)) ?? assetTypes[0]
+  const [assetTypeId, setAssetTypeId] = React.useState<string>(
+    assetTypes.find((type) => !takenTypeIds.includes(type.id))?.id ??
+      assetTypes[0]?.id ??
+      ""
   );
+
+  const assetType = assetTypes.find((type) => type.id === assetTypeId) ?? null;
 
   // Photo types take images only, everything else takes PDFs too — so the
   // accepted table follows the dropdown rather than being fixed for the dialog.
-  const accepted = acceptedTypesFor(assetType);
+  const accepted = acceptedTypesFor(assetType?.isPhoto ?? false);
   const acceptedLabel = labelForAcceptedTypes(accepted);
-  const acceptAttribute = Object.values(accepted)
-    .map((type) => type.extension)
-    .join(",");
+  const acceptAttribute = extensionsOf(accepted);
 
   // Switching the type after picking the file can invalidate it — derived
   // rather than cleared in an effect, which this codebase lints against.
@@ -131,7 +132,7 @@ export function DocumentUploadDialog({
 
     const body = new FormData();
     body.append("file", file);
-    body.append("assetType", assetType);
+    body.append("assetTypeId", assetTypeId);
     body.append("subjectType", subjectType);
     if (subjectId) body.append("subjectId", subjectId);
 
@@ -140,7 +141,7 @@ export function DocumentUploadDialog({
 
     if (response.ok) {
       onOpenChange(false);
-      toast.success(`${ASSET_TYPE_LABELS[assetType]} uploaded`);
+      toast.success(`${assetType?.label ?? "Document"} uploaded`);
       router.refresh();
       return;
     }
@@ -178,30 +179,23 @@ export function DocumentUploadDialog({
               <FieldLabel htmlFor="document-type" required>
                 Document type
               </FieldLabel>
-              <Select
-                value={assetType}
-                onValueChange={(next) => next && setAssetType(next as FileAssetType)}
-              >
-                <SelectTrigger id="document-type" className="w-full">
-                  <SelectValue>
-                    {(selected: FileAssetType) => ASSET_TYPE_LABELS[selected]}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {assetTypes.map((type) => (
-                    <SelectItem
-                      key={type}
-                      value={type}
-                      disabled={takenTypes.has(type)}
-                    >
-                      {ASSET_TYPE_LABELS[type]}
-                      {takenTypes.has(type) && (
-                        <span className="text-muted-foreground"> · On file</span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AssetTypeSelect
+                id="document-type"
+                assetTypes={assetTypes}
+                value={assetTypeId}
+                onValueChange={setAssetTypeId}
+                subject={subjectType}
+                isPhoto={false}
+                disabledTypeIds={takenTypeIds}
+                disabled={pending}
+                onCreated={(created) => {
+                  setAssetTypes((current) => [...current, created]);
+                  setAssetTypeId(created.id);
+                  // The list above this dialog is server-rendered, so the new
+                  // type only reaches the *next* upload without this.
+                  router.refresh();
+                }}
+              />
             </Field>
 
             {file ? (
@@ -269,11 +263,11 @@ export function DocumentUploadDialog({
               }}
             />
 
-            {(error ?? (typeMismatch ? `A ${ASSET_TYPE_LABELS[assetType].toLowerCase()} must be a ${acceptedLabel} file — choose another.` : null)) && (
+            {(error ?? (typeMismatch ? `A ${(assetType?.label ?? "document").toLowerCase()} must be a ${acceptedLabel} file — choose another.` : null)) && (
               <p className="flex items-start gap-2 text-sm text-destructive">
                 <CircleAlertIcon className="mt-0.5 size-4 shrink-0" />
                 {error ??
-                  `A ${ASSET_TYPE_LABELS[assetType].toLowerCase()} must be a ${acceptedLabel} file — choose another.`}
+                  `A ${(assetType?.label ?? "document").toLowerCase()} must be a ${acceptedLabel} file — choose another.`}
               </p>
             )}
           </div>
@@ -287,7 +281,10 @@ export function DocumentUploadDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || !file || typeMismatch}>
+            <Button
+              type="submit"
+              disabled={pending || !file || typeMismatch || !assetTypeId}
+            >
               {pending ? "Uploading…" : "Upload document"}
             </Button>
           </DialogFooter>

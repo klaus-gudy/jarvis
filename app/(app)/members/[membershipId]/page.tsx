@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
-import { TENANT_ASSET_TYPES } from "@/lib/document-options";
+import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { getLeaseOptions } from "@/lib/leases";
@@ -66,11 +66,10 @@ export default async function MemberDetailPage({
 
   // Every member can hold documents, tenant or not — a caretaker's contract is
   // as much a record as a tenant's NIDA.
-  const documents = await listDocuments(
-    user.activeOrgId,
-    "membership",
-    member.membershipId
-  );
+  const [documents, assetTypes] = await Promise.all([
+    listDocuments(user.activeOrgId, "MEMBERSHIP", member.membershipId),
+    listAssetTypes(user.activeOrgId, "MEMBERSHIP"),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -237,9 +236,9 @@ export default async function MemberDetailPage({
 
         <TabsContent value="documents" className="pt-5">
           <DocumentsPanel
-            subjectType="membership"
+            subjectType="MEMBERSHIP"
             subjectId={member.membershipId}
-            assetTypes={TENANT_ASSET_TYPES}
+            assetTypes={assetTypes}
             emptyMessage="No documents yet. Upload a NIDA card, passport or employment letter to keep it on file."
             documents={documents.map((document) => ({
               ...document,

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
-import { isPhotoType, PROPERTY_DOCUMENT_TYPES } from "@/lib/document-options";
+import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { getProperty } from "@/lib/properties";
 import { cn } from "@/lib/utils";
@@ -32,16 +32,28 @@ export default async function PropertyDetailPage({
 
   const isActive = property.status === "ACTIVE";
 
-  // Photos and papers come from one query and split here: the carousel and the
-  // documents table are two ways of reading the same table, not two sources.
-  const assets = await listDocuments(user.activeOrgId, "property", property.id);
+  // Photos and papers come from one query and split here: the Images tab and
+  // the Documents tab are two ways of reading one table, not two sources.
+  const [assets, propertyTypes, unitTypes] = await Promise.all([
+    listDocuments(user.activeOrgId, "PROPERTY", property.id),
+    listAssetTypes(user.activeOrgId, "PROPERTY"),
+    listAssetTypes(user.activeOrgId, "UNIT"),
+  ]);
+
   const serialise = (asset: (typeof assets)[number]) => ({
     ...asset,
     // Dates must be serialisable to cross the server/client boundary.
     createdAt: asset.createdAt.toISOString(),
   });
-  const photos = assets.filter((asset) => isPhotoType(asset.assetType)).map(serialise);
-  const papers = assets.filter((asset) => !isPhotoType(asset.assetType)).map(serialise);
+
+  // `isPhoto` is a column on the type now, so a photo type an organization
+  // added of its own lands in the Images tab without anything here listing it.
+  const photos = assets.filter((asset) => asset.assetType.isPhoto).map(serialise);
+  const papers = assets.filter((asset) => !asset.assetType.isPhoto).map(serialise);
+
+  const photoTypes = propertyTypes.filter((type) => type.isPhoto);
+  const documentTypes = propertyTypes.filter((type) => !type.isPhoto);
+  const unitPhotoTypes = unitTypes.filter((type) => type.isPhoto);
 
   const details = [
     { label: "Property type", value: property.category },
@@ -111,10 +123,16 @@ export default async function PropertyDetailPage({
               {property.totalUnits}
             </span>
           </TabsTrigger>
+          <TabsTrigger value="images" className="flex-none gap-2 px-3">
+            Images
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+              {photos.length}
+            </span>
+          </TabsTrigger>
           <TabsTrigger value="documents" className="flex-none gap-2 px-3">
             Documents
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {assets.length}
+              {papers.length}
             </span>
           </TabsTrigger>
         </TabsList>
@@ -218,31 +236,32 @@ export default async function PropertyDetailPage({
               leaseStart: unit.leaseStart ? unit.leaseStart.toISOString() : null,
               photos: unit.photos,
             }))}
+            photoAssetTypes={unitPhotoTypes}
           />
         </TabsContent>
 
-        {/* Photos above papers: a title deed is filed and forgotten, whereas
-            the pictures are what anyone actually opens this tab to look at. */}
-        <TabsContent value="documents" className="space-y-6 pt-5">
+        {/* Its own tab, not a band above the documents table: photos are
+            browsed and papers are filed, and stacking the two meant the table
+            started below the fold on every property that had pictures. */}
+        <TabsContent value="images" className="pt-5">
           <PhotoGallery
-            subjectType="property"
+            subjectType="PROPERTY"
             subjectId={property.id}
-            assetType="PROPERTY_PHOTO"
+            assetTypes={photoTypes}
             photos={photos}
             title="Photos"
             emptyMessage="No photos yet. Add a few so this property is recognisable at a glance."
           />
+        </TabsContent>
 
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold tracking-tight">Documents</h3>
-            <DocumentsPanel
-              subjectType="property"
-              subjectId={property.id}
-              assetTypes={PROPERTY_DOCUMENT_TYPES}
-              documents={papers}
-              emptyMessage="No documents yet. Upload the title deed or a permit to keep it on file."
-            />
-          </div>
+        <TabsContent value="documents" className="pt-5">
+          <DocumentsPanel
+            subjectType="PROPERTY"
+            subjectId={property.id}
+            assetTypes={documentTypes}
+            documents={papers}
+            emptyMessage="No documents yet. Upload the title deed or a permit to keep it on file."
+          />
         </TabsContent>
       </Tabs>
     </div>

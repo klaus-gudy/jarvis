@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { AssetTypeView } from "@/lib/asset-types";
 import { formatMoneyFull } from "@/lib/format";
 import { UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
 import type { CreateUnitInput } from "@/lib/units-schemas";
@@ -58,9 +59,12 @@ function toFormValues(unit: UnitRow): UnitFormValues {
 export function UnitsTable({
   propertyId,
   units,
+  photoAssetTypes,
 }: {
   propertyId: string;
   units: UnitRow[];
+  /** Unit photo types, loaded once with the page and shared by every row's picker. */
+  photoAssetTypes: AssetTypeView[];
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
@@ -209,9 +213,9 @@ export function UnitsTable({
           key={photographing.id}
           open
           onOpenChange={(open) => !open && setPhotographing(null)}
-          subjectType="unit"
+          subjectType="UNIT"
           subjectId={photographing.id}
-          assetType="UNIT_PHOTO"
+          assetTypes={photoAssetTypes}
           title={`Photos for unit ${photographing.label}`}
         />
       )}

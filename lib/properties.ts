@@ -136,7 +136,11 @@ export async function getProperty(organizationId: string, propertyId: string) {
              * be a round trip to show four thumbnails.
              */
             fileAssets: {
-              where: { assetType: "UNIT_PHOTO" },
+              // Any photo type, not the seeded `UNIT_PHOTO` by name: an
+              // organization that added its own unit photo type should see
+              // those here too, and `isPhoto` is what the carousel and the
+              // narrow MIME allowlist already key off.
+              where: { assetType: { isPhoto: true } },
               orderBy: { createdAt: "asc" },
               select: { id: true, fileName: true },
             },

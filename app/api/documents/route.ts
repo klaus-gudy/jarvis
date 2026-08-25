@@ -1,16 +1,15 @@
 import { revalidatePath } from "next/cache";
 
 import { requireActiveOrg } from "@/lib/api-auth";
+import { resolveAssetType } from "@/lib/asset-types";
 import {
   acceptedTypesFor,
-  ASSET_TYPE_LABELS,
-  DOCUMENT_SUBJECTS,
   labelForAcceptedTypes,
   MAX_FILE_BYTES,
-  type DocumentSubject,
 } from "@/lib/document-options";
 import { createDocument, listDocuments } from "@/lib/documents";
 import { uploadDocumentSchema } from "@/lib/documents-schemas";
+import { FileAssetSubject } from "@/lib/generated/prisma/enums";
 import { StorageNotConfiguredError } from "@/lib/storage";
 
 /**
@@ -43,14 +42,14 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   const params = new URL(request.url).searchParams;
-  const subjectType = params.get("subjectType") ?? "organization";
-  if (!DOCUMENT_SUBJECTS.includes(subjectType as DocumentSubject)) {
+  const subjectType = params.get("subjectType") ?? "ORGANIZATION";
+  if (!(subjectType in FileAssetSubject)) {
     return Response.json({ error: "Unknown subject" }, { status: 400 });
   }
 
   const documents = await listDocuments(
     auth.context.organizationId,
-    subjectType as DocumentSubject,
+    subjectType as FileAssetSubject,
     params.get("subjectId") || null
   );
 
@@ -78,7 +77,7 @@ export async function POST(request: Request) {
   }
 
   const parsed = uploadDocumentSchema.safeParse({
-    assetType: form.get("assetType"),
+    assetTypeId: form.get("assetTypeId"),
     subjectType: form.get("subjectType"),
     subjectId: form.get("subjectId"),
   });
@@ -100,10 +99,26 @@ export async function POST(request: Request) {
   if (file.size > MAX_FILE_BYTES) {
     return Response.json({ error: "That file is too large" }, { status: 413 });
   }
+  // The type has to be resolved before the file can be judged: whether a PDF
+  // is acceptable depends on the type's `isPhoto`, which is a column now.
+  // `createDocument` resolves it again as the authority — this lookup exists
+  // only so a wrong MIME gets a 415 naming what *would* have been accepted,
+  // rather than a generic rejection.
+  const assetType = await resolveAssetType(
+    auth.context.organizationId,
+    parsed.data.assetTypeId
+  );
+  if (!assetType) {
+    return Response.json(
+      { error: "That document type was not found" },
+      { status: 404 }
+    );
+  }
+
   // Narrower for photo types than for documents: a PDF filed as a photo would
   // land in a carousel that cannot draw it. `acceptedTypesFor` is the same
   // table the upload dialog builds its `accept` from, so the two cannot drift.
-  const accepted = acceptedTypesFor(parsed.data.assetType);
+  const accepted = acceptedTypesFor(assetType.isPhoto);
   if (!(file.type in accepted)) {
     return Response.json(
       { error: `Upload a ${labelForAcceptedTypes(accepted)} file` },
@@ -134,6 +149,22 @@ export async function POST(request: Request) {
       }
     );
 
+    if (result.error === "asset-type-not-found") {
+      return Response.json(
+        { error: "That document type was not found" },
+        { status: 404 }
+      );
+    }
+
+    if (result.error === "subject-mismatch") {
+      return Response.json(
+        {
+          error: `“${result.assetType.label}” belongs to a ${result.assetType.subject.toLowerCase()}, not a ${parsed.data.subjectType.toLowerCase()}`,
+        },
+        { status: 400 }
+      );
+    }
+
     if (result.error === "subject-not-found") {
       return Response.json(
         { error: "That record was not found in this organization" },
@@ -142,10 +173,9 @@ export async function POST(request: Request) {
     }
 
     if (result.error === "duplicate-asset-type") {
-      const label = ASSET_TYPE_LABELS[parsed.data.assetType];
       return Response.json(
         {
-          error: `A ${label} is already on file (${result.existing.fileName}) — delete it before uploading another`,
+          error: `A ${result.assetType.label} is already on file (${result.existing.fileName}) — delete it before uploading another`,
         },
         { status: 409 }
       );
@@ -156,12 +186,12 @@ export async function POST(request: Request) {
     // new row won't be there when the user navigates back to it.
     const { subjectType, subjectId } = parsed.data;
     if (subjectId) {
-      if (subjectType === "membership") revalidatePath(`/members/${subjectId}`);
-      if (subjectType === "property") revalidatePath(`/properties/${subjectId}`);
+      if (subjectType === "MEMBERSHIP") revalidatePath(`/members/${subjectId}`);
+      if (subjectType === "PROPERTY") revalidatePath(`/properties/${subjectId}`);
       // A unit is rendered inside its property's page and the request carries
       // no property id, so the segment is revalidated rather than fetching the
       // parent purely to name one path.
-      if (subjectType === "unit") revalidatePath("/properties", "layout");
+      if (subjectType === "UNIT") revalidatePath("/properties", "layout");
     }
 
     return Response.json({ document: result.document }, { status: 201 });

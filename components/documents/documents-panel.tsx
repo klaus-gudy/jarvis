@@ -34,13 +34,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ASSET_TYPE_LABELS,
-  type DocumentSubject,
-  type DocumentView,
-} from "@/lib/document-options";
+import type { AssetTypeView } from "@/lib/asset-types";
+import type { DocumentView } from "@/lib/document-options";
 import { formatDate } from "@/lib/format";
-import type { FileAssetType } from "@/lib/generated/prisma/enums";
+import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 
 function DocumentIcon({ fileType }: { fileType: string }) {
   if (fileType.startsWith("image/")) {
@@ -70,10 +67,10 @@ export function DocumentsPanel({
   emptyMessage,
   uploadLabel = "Upload document",
 }: {
-  subjectType: DocumentSubject;
+  subjectType: FileAssetSubject;
   subjectId: string | null;
   documents: DocumentView[];
-  assetTypes: FileAssetType[];
+  assetTypes: AssetTypeView[];
   emptyMessage: string;
   uploadLabel?: string;
 }) {
@@ -150,7 +147,7 @@ export function DocumentsPanel({
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-normal">
-                        {ASSET_TYPE_LABELS[document.assetType]}
+                        {document.assetType.label}
                       </Badge>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
@@ -220,7 +217,7 @@ export function DocumentsPanel({
         subjectType={subjectType}
         subjectId={subjectId}
         assetTypes={assetTypes}
-        existingTypes={documents.map((document) => document.assetType)}
+        existingTypeIds={documents.map((document) => document.assetType.id)}
         title={uploadLabel}
       />
 

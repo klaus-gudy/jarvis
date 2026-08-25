@@ -12,11 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  ASSET_TYPE_LABELS,
-  formatFileSize,
-  type DocumentView,
-} from "@/lib/document-options";
+import { formatFileSize, type DocumentView } from "@/lib/document-options";
 
 /**
  * Reads a document without leaving the member you were looking at.
@@ -64,7 +60,7 @@ export function DocumentViewerDialog({
             <span className="truncate">{document?.fileName}</span>
             {document && (
               <Badge variant="outline" className="shrink-0">
-                {ASSET_TYPE_LABELS[document.assetType]}
+                {document.assetType.label}
               </Badge>
             )}
           </DialogTitle>
