@@ -119,21 +119,29 @@ export default async function PropertyDetailPage({
           </TabsTrigger>
           <TabsTrigger value="units" className="flex-none gap-2 px-3">
             Units
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {property.totalUnits}
-            </span>
+            {/* Hidden at zero — a "0" beside a tab reads as a problem rather
+                than as a total, same as the Billing and Users tabs. */}
+            {property.totalUnits > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {property.totalUnits}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="images" className="flex-none gap-2 px-3">
             Images
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {photos.length}
-            </span>
+            {photos.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {photos.length}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex-none gap-2 px-3">
             Documents
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {papers.length}
-            </span>
+            {papers.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {papers.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -249,7 +257,6 @@ export default async function PropertyDetailPage({
             subjectId={property.id}
             assetTypes={photoTypes}
             photos={photos}
-            title="Photos"
             emptyMessage="No photos yet. Add a few so this property is recognisable at a glance."
           />
         </TabsContent>

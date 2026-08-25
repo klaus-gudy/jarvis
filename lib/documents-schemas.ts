@@ -63,6 +63,8 @@ export const createAssetTypeSchema = z.object({
   label: z.string().trim().min(1, "Give the type a name").max(60),
   subject: z.enum(FileAssetSubject),
   isPhoto: z.boolean().default(false),
+  /** Ignored when `isPhoto` — see the comment on `createAssetType`. */
+  allowsMultiple: z.boolean().default(false),
 });
 
 export type CreateAssetTypeInput = z.infer<typeof createAssetTypeSchema>;

@@ -74,13 +74,23 @@ export function toAssetTypeKey(label: string) {
  * on a property knows both, and asking someone to classify their own document
  * type into a taxonomy is exactly the friction this replaced.
  *
- * `allowsMultiple` is not asked either, and defaults to true (the column's
- * default): nobody inventing a type has decided it is singular, and a 409 on
- * their second upload would be a rule they never opted into.
+ * `allowsMultiple` **is** asked, via a checkbox next to the name, and defaults
+ * to `false` — most invented types name one specific document ("Fire safety
+ * certificate"), and a surprise 409 on the second upload is a smaller cost
+ * than an unbounded pile nobody meant to allow.
+ *
+ * Photos are the one case with no question to ask: `isPhoto` forces
+ * `allowsMultiple` to `true` regardless of what was passed, because a gallery
+ * that refuses a second photo is a bug, not a setting.
  */
 export async function createAssetType(
   organizationId: string,
-  input: { label: string; subject: FileAssetSubject; isPhoto: boolean }
+  input: {
+    label: string;
+    subject: FileAssetSubject;
+    isPhoto: boolean;
+    allowsMultiple?: boolean;
+  }
 ) {
   const label = input.label.trim();
   const key = toAssetTypeKey(label);
@@ -111,6 +121,7 @@ export async function createAssetType(
       label,
       subject: input.subject,
       isPhoto: input.isPhoto,
+      allowsMultiple: input.isPhoto ? true : (input.allowsMultiple ?? false),
       organizationId,
       isSystem: false,
     },

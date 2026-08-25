@@ -21,8 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AssetTypeSelect } from "@/components/documents/asset-type-select";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import type { AssetTypeView } from "@/lib/asset-types";
 import {
   formatFileSize,
@@ -62,7 +62,7 @@ export function PhotoUploadDialog({
   onOpenChange,
   subjectType,
   subjectId,
-  assetTypes: initialAssetTypes,
+  assetTypes,
   title,
   description,
 }: {
@@ -70,7 +70,11 @@ export function PhotoUploadDialog({
   onOpenChange: (open: boolean) => void;
   subjectType: FileAssetSubject;
   subjectId: string;
-  /** Photo types for this subject. The first is the default — for a property that is the seeded "Photo". */
+  /**
+   * Photo types for this subject. Every organization has exactly one — the
+   * seeded "Photo" — until custom types can be added from a photo surface,
+   * which they cannot yet (see below). The first is what gets used.
+   */
   assetTypes: AssetTypeView[];
   title: string;
   description?: string;
@@ -78,11 +82,11 @@ export function PhotoUploadDialog({
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Held locally so a type added from inside the dropdown is usable at once.
-  const [assetTypes, setAssetTypes] = React.useState(initialAssetTypes);
-  const [assetTypeId, setAssetTypeId] = React.useState(
-    initialAssetTypes[0]?.id ?? ""
-  );
+  // No picker: photos have exactly one type per subject today, so there is
+  // nothing to choose. Shown, not editable — a field that already has the
+  // right answer filled in reads better than a dropdown of one.
+  const assetType = assetTypes[0] ?? null;
+  const assetTypeId = assetType?.id ?? "";
 
   const [picked, setPicked] = React.useState<Picked[]>([]);
   const [pending, setPending] = React.useState(false);
@@ -245,29 +249,12 @@ export function PhotoUploadDialog({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
-          {/* Always rendered, even with a single option. It looks like a
-              control that does nothing until you open it — but the "Add a
-              type…" affordance lives inside, and hiding the picker on the
-              common case (one seeded "Photo" type) would mean the only place
-              to add a photo type is a screen that has two of them already. */}
+          {/* Prefilled and unclickable — there is one photo type per subject,
+              so nothing here is a decision. A disabled input still shows the
+              field exists, which a hidden value would not. */}
           <Field>
-              <FieldLabel htmlFor="photo-type" required>
-                Photo type
-              </FieldLabel>
-              <AssetTypeSelect
-                id="photo-type"
-                assetTypes={assetTypes}
-                value={assetTypeId}
-                onValueChange={setAssetTypeId}
-                subject={subjectType}
-                isPhoto
-                disabled={pending}
-                onCreated={(created) => {
-                  setAssetTypes((current) => [...current, created]);
-                  setAssetTypeId(created.id);
-                  router.refresh();
-                }}
-              />
+            <FieldLabel htmlFor="photo-type">Photo type</FieldLabel>
+            <Input id="photo-type" value={assetType?.label ?? "Photo"} disabled />
           </Field>
 
           {picked.length === 0 ? (

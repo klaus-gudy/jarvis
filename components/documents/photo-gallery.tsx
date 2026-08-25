@@ -44,7 +44,6 @@ export function PhotoGallery({
   subjectId,
   assetTypes,
   photos,
-  title,
   emptyMessage,
 }: {
   subjectType: FileAssetSubject;
@@ -52,7 +51,6 @@ export function PhotoGallery({
   /** Photo types for this subject; the first is the default the picker opens on. */
   assetTypes: AssetTypeView[];
   photos: DocumentView[];
-  title: string;
   emptyMessage: string;
 }) {
   const router = useRouter();
@@ -103,15 +101,10 @@ export function PhotoGallery({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold tracking-tight">{title}</h3>
-          {photos.length > 0 && (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
-              {photos.length}
-            </span>
-          )}
-        </div>
+      {/* No "Photos" heading here: the tab this sits in is already named
+          Images and already carries the count in its trigger — repeating both
+          would be the same information said twice before the first photo. */}
+      <div className="flex justify-end">
         <Button onClick={() => setUploadOpen(true)}>
           <ImagePlusIcon />
           Add photos

@@ -241,7 +241,12 @@ export async function createDocument(
   // One canonical document per (subject, type) for anything that isn't a
   // declared collection — replacing it means deleting the old one first,
   // rather than the two silently piling up as "which NIDA is current?".
-  if (!assetType.allowsMultiple) {
+  //
+  // Photos are exempt outright, not just by their usual `allowsMultiple`
+  // default: a gallery is a collection by definition, and `isPhoto` is
+  // enforced here as the actual rule rather than trusted to have been set
+  // correctly wherever the row was created.
+  if (!assetType.allowsMultiple && !assetType.isPhoto) {
     const existing = await findExisting(
       organizationId,
       input.subjectType,

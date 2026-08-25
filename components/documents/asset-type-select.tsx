@@ -5,6 +5,7 @@ import { CheckIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -57,6 +58,10 @@ export function AssetTypeSelect({
 }) {
   const [adding, setAdding] = React.useState(false);
   const [label, setLabel] = React.useState("");
+  // Unreachable for a photo type — `isPhoto` forces multiple server-side, and
+  // the control is hidden below to match, rather than offering a choice that
+  // would be silently overridden.
+  const [allowsMultiple, setAllowsMultiple] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -79,7 +84,7 @@ export function AssetTypeSelect({
     const response = await fetch("/api/asset-types", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: trimmed, subject, isPhoto }),
+      body: JSON.stringify({ label: trimmed, subject, isPhoto, allowsMultiple }),
     });
     const data = await response.json().catch(() => null);
     setPending(false);
@@ -95,12 +100,20 @@ export function AssetTypeSelect({
     onCreated(data.assetType as AssetTypeView);
     setAdding(false);
     setLabel("");
+    setAllowsMultiple(false);
     toast.success(`“${data.assetType.label}” added`);
+  }
+
+  function cancel() {
+    setAdding(false);
+    setLabel("");
+    setAllowsMultiple(false);
+    setError(null);
   }
 
   if (adding) {
     return (
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <div className="flex gap-2">
           <Input
             ref={inputRef}
@@ -119,9 +132,7 @@ export function AssetTypeSelect({
               }
               if (event.key === "Escape") {
                 event.preventDefault();
-                setAdding(false);
-                setLabel("");
-                setError(null);
+                cancel();
               }
             }}
             placeholder="e.g. Inspection report"
@@ -142,23 +153,28 @@ export function AssetTypeSelect({
             variant="ghost"
             size="icon"
             aria-label="Cancel adding a type"
-            onClick={() => {
-              setAdding(false);
-              setLabel("");
-              setError(null);
-            }}
+            onClick={cancel}
             disabled={pending}
           >
             <XIcon />
           </Button>
         </div>
-        {error ? (
-          <p className="text-xs text-destructive">{error}</p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Added for this organization only, and filed where you are now.
-          </p>
+
+        {/* Not offered for a photo type: every photo type allows multiple,
+            enforced server-side regardless of what this would send, so asking
+            here would be a question with a fixed answer. */}
+        {!isPhoto && (
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              checked={allowsMultiple}
+              onCheckedChange={(checked) => setAllowsMultiple(checked === true)}
+              disabled={pending}
+            />
+            Allow multiple of this type
+          </label>
         )}
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
     );
   }

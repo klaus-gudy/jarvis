@@ -130,15 +130,21 @@ export default async function MemberDetailPage({
           </TabsTrigger>
           <TabsTrigger value="leases" className="flex-none gap-2 px-3">
             Lease
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {member.leases.length}
-            </span>
+            {/* Hidden at zero — a "0" beside a tab reads as a problem rather
+                than as a total, same as the Billing and Users tabs. */}
+            {member.leases.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {member.leases.length}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex-none gap-2 px-3">
             Documents
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {documents.length}
-            </span>
+            {documents.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {documents.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 

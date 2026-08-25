@@ -979,6 +979,21 @@ The enum had grown three times in two days. It stops being an enum.
 - [ ] Seeding lives only in the migration. A new *system* type means another migration; there is no idempotent seed script the way a `prisma/seed.ts` would give
 - [ ] `resolveAssetType` runs twice per upload — once in the route to name what a wrong MIME should have been, once in `createDocument` as the authority. Cheap and indexed, but it is two queries where one would do
 
+## Phase 71 — Feedback pass: quieter Images tab, prefilled photo type, an "allow multiple" checkbox, zero-count tabs
+
+- [x] **The "Photos 2" header is gone** from the Images tab. The tab trigger already carries the count; the card now sits directly under the tab strip with only the "Add photos" button, matching the toolbar-only pattern `DocumentsPanel` already uses
+- [x] **The photo upload dialog no longer offers a type picker.** Every subject has exactly one photo type today, so the field shows it — disabled, unclickable, no chevron — rather than a dropdown of one option with an "Add a type…" escape hatch that led nowhere useful yet
+- [x] **Photos always allow multiple, enforced where it counts.** `createDocument`'s duplicate check is now `!assetType.allowsMultiple && !assetType.isPhoto` — a belt under the belt `lib/asset-types.ts` already had (`isPhoto` forces `allowsMultiple: true` at creation). A gallery that refuses a second photo is a bug, not a setting, so it is guarded twice
+- [x] **The add-a-type caption is gone**, replaced with an **"Allow multiple of this type" checkbox**, default unchecked. Most invented types name one specific document ("Fire safety certificate"); a 409 on the second upload is a smaller cost than an unbounded pile nobody meant to allow. The checkbox is hidden for photo types — asking a question with a server-enforced fixed answer is worse than not asking
+- [x] **Tab counts hide at zero**, matching the convention the Billing and Users tabs already established (`{count > 0 && <span>…</span>}`, "a 0 beside a tab reads as a problem rather than a total"). Applied to Units, Images and Documents on the property page, Lease and Documents on the member page
+- [x] Verified over HTTP: checkbox omitted → `allowsMultiple: false`; checkbox checked → `true`; `isPhoto: true` with `allowsMultiple: false` sent anyway → stored as `true` regardless; a singular custom type still 409s on a second upload; a photo type with `allowsMultiple` forced true still accepts two uploads
+- [x] Verified in the browser: Images tab shows no redundant heading; the photo dialog's type field is inert to a click; the checkbox reads `aria-checked` correctly and its state reaches the database (`MAINTENANCE_RECORD` type created with `allowsMultiple: true`); Documents tab hides its badge at zero documents while Units and Images keep theirs; no console errors
+- [x] `tsc`, lint (0 errors) and `npm run build` clean; every test upload and custom type deleted afterwards
+
+### Not done
+- [ ] **No UI ever offers a custom *photo* type again** — the only way to add one now is the API directly (`isPhoto: true` in the request body). Removing the picker from `PhotoUploadDialog` closed a real gap (asking for a group nobody wanted to name) but also closed the one place a photo-type addition could happen. If an organization needs a second photo category — floor plan renders, before/after shots — nothing in the UI gets them there
+- [ ] The dev server needed no restart this time — no migration in this phase — but the note stands for next time a `FileAssetType` column changes
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
