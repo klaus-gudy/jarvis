@@ -11,7 +11,7 @@ Multi-tenant property management app. See `plan.md` (architecture + decisions) a
 ## Stack
 
 - Next.js 16.2.12, App Router, TypeScript strict
-- Tailwind 4 + shadcn built on `@base-ui/react` — **NOT Radix**. Add components only via `npx shadcn add <name>`
+- Tailwind 4 + shadcn built on `@base-ui/react` — **NOT Radix**. Add components only via `npx shadcn add <name>`, then **read the diff**: it overwrites unrelated `components/ui/*` files (it reverted `button.tsx`'s hover variants once). Revert anything outside the component you asked for
 - Prisma 7.9 + Postgres 16 in Docker (host port **5439**, db `jarvis`)
 - Dev server port **3347**; Prisma Studio on 5555
 

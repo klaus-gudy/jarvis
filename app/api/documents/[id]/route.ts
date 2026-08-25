@@ -97,7 +97,11 @@ export async function DELETE(
     return Response.json({ error: "Could not delete that file" }, { status: 500 });
   }
 
+  // The row could have hung off any subject and the response no longer knows
+  // which, so both segments that render documents are evicted. Cheap: it drops
+  // cached renders, it does not re-run anything eagerly.
   revalidatePath("/members", "layout");
+  revalidatePath("/properties", "layout");
 
   return Response.json({ ok: true });
 }

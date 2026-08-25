@@ -41,6 +41,7 @@ export const SUBJECT_FOR_ASSET_TYPE: Record<FileAssetType, DocumentSubject> = {
   PROPERTY_PHOTO: "property",
 
   UNIT_DOCUMENT: "unit",
+  UNIT_PHOTO: "unit",
 
   NIDA: "membership",
   PASSPORT: "membership",
@@ -72,6 +73,7 @@ export const ASSET_TYPE_LABELS: Record<FileAssetType, string> = {
   PROPERTY_PHOTO: "Photo",
 
   UNIT_DOCUMENT: "Unit document",
+  UNIT_PHOTO: "Photo",
 
   NIDA: "NIDA",
   PASSPORT: "Passport",
@@ -91,13 +93,36 @@ export const ASSET_TYPE_LABELS: Record<FileAssetType, string> = {
 };
 
 /**
- * The types a tenant's own page offers, in the order they are worth asking
- * for. Derived from the pairing map rather than listed twice, so a new
- * membership-scoped type appears in the dropdown by existing.
+ * The types a given subject's page offers, in enum order. Derived from the
+ * pairing map rather than listed a second time, so a new type appears in the
+ * right dropdown by existing — which is the whole point of the map being
+ * `Record<FileAssetType, …>` and not a partial lookup.
  */
-export const TENANT_ASSET_TYPES = (
-  Object.keys(SUBJECT_FOR_ASSET_TYPE) as FileAssetType[]
-).filter((type) => SUBJECT_FOR_ASSET_TYPE[type] === "membership");
+export function assetTypesFor(subject: DocumentSubject) {
+  return (Object.keys(SUBJECT_FOR_ASSET_TYPE) as FileAssetType[]).filter(
+    (type) => SUBJECT_FOR_ASSET_TYPE[type] === subject
+  );
+}
+
+/**
+ * One stored document as the client sees it. `createdAt` is a string, not a
+ * Date: a server component hands these straight to a client one, and Dates do
+ * not survive that boundary.
+ */
+export type DocumentView = {
+  id: string;
+  fileName: string;
+  fileType: string;
+  sizeBytes: number;
+  assetType: FileAssetType;
+  /** ISO string. */
+  createdAt: string;
+  uploadedByName: string | null;
+};
+
+export const TENANT_ASSET_TYPES = assetTypesFor("membership");
+export const PROPERTY_ASSET_TYPES = assetTypesFor("property");
+export const UNIT_ASSET_TYPES = assetTypesFor("unit");
 
 /**
  * Types that are legitimately a collection rather than a single document —
@@ -118,6 +143,7 @@ const MULTIPLE_ALLOWED: ReadonlySet<FileAssetType> = new Set([
   "PROPERTY_PERMIT",
   "PROPERTY_PHOTO",
   "UNIT_DOCUMENT",
+  "UNIT_PHOTO",
   "TENANT_DOCUMENT",
   "LEASE_AMENDMENT",
   "LEASE_RENEWAL",
@@ -146,22 +172,74 @@ export const ACCEPTED_FILE_TYPES: Record<string, { extension: string; label: str
   "image/webp": { extension: ".webp", label: "WebP" },
 };
 
-/** For the file input's `accept`, and for the hint under the drop zone. */
-export const ACCEPTED_FILE_EXTENSIONS = Object.values(ACCEPTED_FILE_TYPES)
-  .map((type) => type.extension)
-  .join(",");
+type FileTypeTable = Record<string, { extension: string; label: string }>;
+
+/** For a file input's `accept`. */
+function extensionsOf(table: FileTypeTable) {
+  return Object.values(table)
+    .map((type) => type.extension)
+    .join(",");
+}
 
 /** "PDF, JPEG, PNG or WebP" — it ends up mid-sentence in an error message. */
-export const ACCEPTED_FILE_LABEL = (() => {
-  const labels = Object.values(ACCEPTED_FILE_TYPES).map((type) => type.label);
+function labelOf(table: FileTypeTable) {
+  const labels = Object.values(table).map((type) => type.label);
   const last = labels[labels.length - 1];
-  return `${labels.slice(0, -1).join(", ")} or ${last}`;
-})();
+  return labels.length === 1 ? last : `${labels.slice(0, -1).join(", ")} or ${last}`;
+}
+
+/**
+ * A photo is an image, and only an image. A PDF filed as `PROPERTY_PHOTO`
+ * would sit in a carousel that cannot render it — so the narrower table is
+ * enforced per type rather than left to the person choosing correctly.
+ */
+const PHOTO_ASSET_TYPES: ReadonlySet<FileAssetType> = new Set([
+  "PROPERTY_PHOTO",
+  "UNIT_PHOTO",
+]);
+
+export function isPhotoType(assetType: FileAssetType) {
+  return PHOTO_ASSET_TYPES.has(assetType);
+}
+
+export const IMAGE_FILE_TYPES: FileTypeTable = Object.fromEntries(
+  Object.entries(ACCEPTED_FILE_TYPES).filter(([mime]) => mime.startsWith("image/"))
+);
+
+/**
+ * What this particular type will accept. The upload dialogs use it for their
+ * `accept` attribute and their hint; `POST /api/documents` uses it as the
+ * check that actually counts.
+ */
+export function acceptedTypesFor(assetType: FileAssetType): FileTypeTable {
+  return isPhotoType(assetType) ? IMAGE_FILE_TYPES : ACCEPTED_FILE_TYPES;
+}
+
+/**
+ * The non-photo types for a subject. Photos have their own surface — a
+ * carousel and a multi-file picker — so offering them in the documents table's
+ * type dropdown would mean two routes to the same place, one of which drops
+ * the file somewhere the person wasn't looking.
+ */
+export function documentTypesFor(subject: DocumentSubject) {
+  return assetTypesFor(subject).filter((type) => !isPhotoType(type));
+}
+
+export const PROPERTY_DOCUMENT_TYPES = documentTypesFor("property");
+export const UNIT_DOCUMENT_TYPES = documentTypesFor("unit");
+
+/** The same sentence fragment as the constants below, for a table chosen at runtime. */
+export const labelForAcceptedTypes = labelOf;
+
+export const ACCEPTED_FILE_EXTENSIONS = extensionsOf(ACCEPTED_FILE_TYPES);
+export const ACCEPTED_FILE_LABEL = labelOf(ACCEPTED_FILE_TYPES);
+export const IMAGE_FILE_EXTENSIONS = extensionsOf(IMAGE_FILE_TYPES);
+export const IMAGE_FILE_LABEL = labelOf(IMAGE_FILE_TYPES);
 
 /**
  * 10 MB. A phone photograph of a NIDA card is one or two; a scanned lease is a
  * few. Past this it is a video, and the route buffers the whole body in memory
- * to hash and forward it — the ceiling is as much about this process as about
+ * before forwarding it — the ceiling is as much about this process as about
  * the bucket.
  */
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;

@@ -128,6 +128,18 @@ export async function getProperty(organizationId: string, propertyId: string) {
               take: 1,
               include: { membership: { include: { user: true } } },
             },
+            /**
+             * Enough to render the unit's photo strip, and no more: the id is
+             * the image URL and the name is its alt text. Loaded with the
+             * units rather than fetched per row, because the view dialog opens
+             * from a table that is already in memory and a spinner there would
+             * be a round trip to show four thumbnails.
+             */
+            fileAssets: {
+              where: { assetType: "UNIT_PHOTO" },
+              orderBy: { createdAt: "asc" },
+              select: { id: true, fileName: true },
+            },
           },
         },
       },
@@ -150,6 +162,7 @@ export async function getProperty(organizationId: string, propertyId: string) {
       block: unit.block,
       sizeSqm: unit.sizeSqm,
       amenities: unit.amenities,
+      photos: unit.fileAssets,
       isOccupied: lease !== null,
       tenantName: lease?.membership.user.name ?? lease?.membership.user.email ?? null,
       leaseStart: lease?.startDate ?? null,

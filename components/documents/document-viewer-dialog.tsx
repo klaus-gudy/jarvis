@@ -12,8 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ASSET_TYPE_LABELS, formatFileSize } from "@/lib/document-options";
-import type { MemberDocument } from "@/components/tenants/member-documents-tab";
+import {
+  ASSET_TYPE_LABELS,
+  formatFileSize,
+  type DocumentView,
+} from "@/lib/document-options";
 
 /**
  * Reads a document without leaving the member you were looking at.
@@ -28,7 +31,7 @@ export function DocumentViewerDialog({
   document,
   onClose,
 }: {
-  document: MemberDocument | null;
+  document: DocumentView | null;
   onClose: () => void;
 }) {
   /**

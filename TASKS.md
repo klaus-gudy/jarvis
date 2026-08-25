@@ -922,6 +922,33 @@ The first thing to actually put a file in the bucket. Membership is the only sub
 - [ ] `uploadedById` is null when the uploader has no `Membership` in the organization, which cannot happen through the UI but is not impossible through the API — it is `SET NULL` anyway, so the row is fine
 - [ ] Nothing is paginated. A member with two hundred documents renders two hundred rows
 
+## Phase 69 — Property documents: photos in a carousel, papers in the table, unit photos from the row
+
+Everything the tenant documents tab already did, applied to properties and units — deliberately as *the same* components rather than a second set.
+
+- [x] Migration `20260825090000_unit_photo` — one `ALTER TYPE ... ADD VALUE 'UNIT_PHOTO'`, authored with the usual `migrate diff --from-migrations` + `migrate deploy`. A unit's photos are the same kind of thing as a property's, and the pairing map allows one subject per type, so squeezing them into `UNIT_DOCUMENT` beside floor plans would have made "show me the photos" a guess
+- [x] **Photo types accept images only.** `acceptedTypesFor()` narrows the allowlist for `PROPERTY_PHOTO` and `UNIT_PHOTO` — a PDF filed as a photo would sit in a carousel that cannot draw it. Same table feeds the route's 415 and the dialog's `accept`, so they cannot drift
+- [x] `PhotoUploadDialog` — **multi-file**, thumbnails to review before sending, per-file status, one summary toast. A separate dialog rather than a flag on `DocumentUploadDialog`, because nothing about the interaction survives the change: no type to choose, `multiple` input, a grid instead of one file name, and a per-file result where some can fail
+- [x] Uploads run **one at a time**: ten phone photos at 10 MB each would otherwise open ten concurrent requests that each buffer a body in a route handler. The visible cost is a tile settling at a time, which is the progress `ImportDialog` already trained people to read
+- [x] `PhotoGallery` — shadcn `carousel` (embla), arrows, a counter, a thumbnail strip, delete and full-size view per slide. A carousel not a grid: these are looked *at* one at a time, and a wall of thumbnails is a file manager, which the documents table already is
+- [x] **`DocumentsPanel` extracted** from the old `MemberDocumentsTab` and moved to `components/documents/` with the two dialogs. Tenants, properties and later leases now render one table, not three that drift. `member-documents-tab.tsx` is gone; the member page calls the panel directly
+- [x] Property **Documents tab** — photos above papers (a title deed is filed and forgotten; the pictures are what people open the tab for). `PROPERTY_DOCUMENT_TYPES` excludes the photo type, so the table's dropdown never offers a route that drops a file into the carousel instead
+- [x] Units get an **`ImagePlusIcon` row action**, since a unit has no page of its own — it slots into the existing `RowAction[]` beside view/edit/delete, so desktop icons and the mobile sheet both pick it up for free
+- [x] Unit photos are **visible**, not just uploadable: a strip at the top of `UnitViewDialog` with its own "Add photos" button, loaded with the units in `getProperty` rather than fetched per row. Opening the picker closes the viewer so the two never stack
+- [x] `revalidatePath` generalised past `/members` — property and unit uploads, and every delete, now evict the segment they came from
+- [x] **`shadcn add carousel` silently reverted `components/ui/button.tsx`**, wiping the deliberate hover-shadow variants this codebase documents in comments. Caught in review and restored; only `carousel.tsx` and the `embla-carousel-react` dependency were kept
+- [x] Two `react-hooks/set-state-in-effect` **errors** (not warnings) came in with the carousel. `PhotoGallery`'s was removed outright — `current` and the carousel both start at 0, so the subscription alone is enough. `carousel.tsx`'s is suppressed with a comment: Embla emits `init`, not `reInit`, so dropping it ships arrows that look broken until first interaction
+- [x] Verified over HTTP: a PDF as `PROPERTY_PHOTO` 415s while the same PDF as `TITLE_DEED` 201s; four property photos accepted (multiple allowed); `UNIT_PHOTO` on a property 400s on the pairing rule; a second title deed 409s. Verified in the browser: carousel arrows, thumbnail jumps keeping counter/filename/highlight in sync, the documents table below holding only the deed, the unit row action, the unit strip going 2 → 4 after an upload, a PDF rejected by name inside the multi-picker
+- [x] `tsc`, lint (0 errors) and `npm run build` clean; all nine test uploads deleted afterwards
+
+### Not done
+- [ ] **The dev server must be restarted after this migration**, and that cost a debugging cycle here: `UNIT_PHOTO` 500'd against the running server while both the database and the generated client already had it. The Prisma client is cached on `globalThis` across hot reloads — the same note Phase 64 records, now with a second scar
+- [ ] **No reordering, and no cover photo.** The carousel shows photos oldest-first, and nothing marks one as the image to represent the property in a list. Both want a column
+- [ ] **Photos are served full-size into a 64px thumbnail.** The strip and the carousel request the same object, so a page with twenty 5 MB photos downloads 100 MB. Wants either stored derivatives at upload time or an image-resizing route
+- [ ] `PhotoUploadDialog` has no per-file retry — a failed tile keeps its message but "Upload" re-sends every non-done file rather than just that one
+- [ ] The unit strip opens photos in a new tab rather than the in-app viewer, because `UnitViewDialog` is already a dialog and stacking a second one on it reads badly. A gallery inside that dialog would be better than either
+- [ ] Unit photos still cannot be **deleted** from the UI — only property photos can. The route supports it; the strip has no affordance
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

@@ -23,12 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ACCEPTED_FILE_EXTENSIONS,
-  ACCEPTED_FILE_LABEL,
-  ACCEPTED_FILE_TYPES,
+  acceptedTypesFor,
   allowsMultiple,
   ASSET_TYPE_LABELS,
   formatFileSize,
+  labelForAcceptedTypes,
   MAX_FILE_BYTES,
   type DocumentSubject,
 } from "@/lib/document-options";
@@ -80,6 +79,18 @@ export function DocumentUploadDialog({
   const [assetType, setAssetType] = React.useState<FileAssetType>(
     assetTypes.find((type) => !takenTypes.has(type)) ?? assetTypes[0]
   );
+
+  // Photo types take images only, everything else takes PDFs too — so the
+  // accepted table follows the dropdown rather than being fixed for the dialog.
+  const accepted = acceptedTypesFor(assetType);
+  const acceptedLabel = labelForAcceptedTypes(accepted);
+  const acceptAttribute = Object.values(accepted)
+    .map((type) => type.extension)
+    .join(",");
+
+  // Switching the type after picking the file can invalidate it — derived
+  // rather than cleared in an effect, which this codebase lints against.
+  const typeMismatch = file !== null && !(file.type in accepted);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [dragging, setDragging] = React.useState(false);
@@ -87,8 +98,8 @@ export function DocumentUploadDialog({
   function chooseFile(candidate: File) {
     setError(null);
 
-    if (!(candidate.type in ACCEPTED_FILE_TYPES)) {
-      setError(`That is not a supported file. Upload a ${ACCEPTED_FILE_LABEL}.`);
+    if (!(candidate.type in accepted)) {
+      setError(`That is not a supported file. Upload a ${acceptedLabel}.`);
       setFile(null);
       return;
     }
@@ -241,7 +252,7 @@ export function DocumentUploadDialog({
                 <UploadIcon className="size-6 text-muted-foreground" />
                 <span className="font-medium">Drop the file here</span>
                 <span className="text-xs text-muted-foreground">
-                  or click to browse — {ACCEPTED_FILE_LABEL}, up to{" "}
+                  or click to browse — {acceptedLabel}, up to{" "}
                   {formatFileSize(MAX_FILE_BYTES)}
                 </span>
               </button>
@@ -250,7 +261,7 @@ export function DocumentUploadDialog({
             <input
               ref={inputRef}
               type="file"
-              accept={ACCEPTED_FILE_EXTENSIONS}
+              accept={acceptAttribute}
               className="hidden"
               onChange={(event) => {
                 const chosen = event.target.files?.[0];
@@ -258,10 +269,11 @@ export function DocumentUploadDialog({
               }}
             />
 
-            {error && (
+            {(error ?? (typeMismatch ? `A ${ASSET_TYPE_LABELS[assetType].toLowerCase()} must be a ${acceptedLabel} file — choose another.` : null)) && (
               <p className="flex items-start gap-2 text-sm text-destructive">
                 <CircleAlertIcon className="mt-0.5 size-4 shrink-0" />
-                {error}
+                {error ??
+                  `A ${ASSET_TYPE_LABELS[assetType].toLowerCase()} must be a ${acceptedLabel} file — choose another.`}
               </p>
             )}
           </div>
@@ -275,7 +287,7 @@ export function DocumentUploadDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || !file}>
+            <Button type="submit" disabled={pending || !file || typeMismatch}>
               {pending ? "Uploading…" : "Upload document"}
             </Button>
           </DialogFooter>

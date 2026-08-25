@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { EyeIcon, PencilIcon, PlusIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import {
+  EyeIcon,
+  ImagePlusIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { UnitCard } from "@/components/properties/unit-card";
@@ -15,6 +22,7 @@ import {
   type UnitFormValues,
 } from "@/components/properties/unit-form-dialog";
 import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
+import { PhotoUploadDialog } from "@/components/documents/photo-upload-dialog";
 import { ImportDialog } from "@/components/import-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable, type RowAction } from "@/components/ui/data-table";
@@ -59,6 +67,12 @@ export function UnitsTable({
   const [importOpen, setImportOpen] = React.useState(false);
   const [viewing, setViewing] = React.useState<UnitRow | null>(null);
   const [editing, setEditing] = React.useState<UnitRow | null>(null);
+  /**
+   * A unit has no page of its own, so its photos are reached from the row
+   * rather than from a tab — the action opens the same dialog the property
+   * gallery uses, pointed at this unit.
+   */
+  const [photographing, setPhotographing] = React.useState<UnitRow | null>(null);
   const [deleting, setDeleting] = React.useState<UnitRow | null>(null);
   const [deletePending, setDeletePending] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
@@ -78,6 +92,11 @@ export function UnitsTable({
           setEditing(unit);
           setFormOpen(true);
         },
+      },
+      {
+        label: `Upload photos for unit ${unit.label}`,
+        icon: ImagePlusIcon,
+        onSelect: () => setPhotographing(unit),
       },
       {
         label: `Delete unit ${unit.label}`,
@@ -173,7 +192,29 @@ export function UnitsTable({
         rowActions={rowActions}
       />
 
-      <UnitViewDialog unit={viewing} onOpenChange={(open) => !open && setViewing(null)} />
+      <UnitViewDialog
+        unit={viewing}
+        onOpenChange={(open) => !open && setViewing(null)}
+        onAddPhotos={(unit) => {
+          // One dialog at a time: the viewer closes as the picker opens, so
+          // they don't stack.
+          setViewing(null);
+          setPhotographing(unit);
+        }}
+      />
+
+      {/* Remounted per unit so a previous pick never carries over. */}
+      {photographing && (
+        <PhotoUploadDialog
+          key={photographing.id}
+          open
+          onOpenChange={(open) => !open && setPhotographing(null)}
+          subjectType="unit"
+          subjectId={photographing.id}
+          assetType="UNIT_PHOTO"
+          title={`Photos for unit ${photographing.label}`}
+        />
+      )}
 
       {/* Remount on each open so the form re-seeds from initialValues, rather
           than resetting state inside an effect. */}

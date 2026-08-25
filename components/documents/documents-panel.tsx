@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { DocumentUploadDialog } from "@/components/tenants/document-upload-dialog";
-import { DocumentViewerDialog } from "@/components/tenants/document-viewer-dialog";
+import { DocumentUploadDialog } from "@/components/documents/document-upload-dialog";
+import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,26 +36,11 @@ import {
 } from "@/components/ui/table";
 import {
   ASSET_TYPE_LABELS,
-  TENANT_ASSET_TYPES,
+  type DocumentSubject,
+  type DocumentView,
 } from "@/lib/document-options";
 import { formatDate } from "@/lib/format";
 import type { FileAssetType } from "@/lib/generated/prisma/enums";
-
-/**
- * The documents held against one member — NIDA, passport, employment letter,
- * anything else scanned in. Serialised rather than passed as `DocumentRow`:
- * `createdAt` is a Date, and Dates do not survive the server/client boundary.
- */
-export type MemberDocument = {
-  id: string;
-  fileName: string;
-  fileType: string;
-  sizeBytes: number;
-  assetType: FileAssetType;
-  /** ISO string. */
-  createdAt: string;
-  uploadedByName: string | null;
-};
 
 function DocumentIcon({ fileType }: { fileType: string }) {
   if (fileType.startsWith("image/")) {
@@ -68,22 +53,34 @@ function DocumentIcon({ fileType }: { fileType: string }) {
 }
 
 /**
- * No card header: the tab this sits in is already called Documents, and a
- * heading repeating it would push the first row further down for nothing. The
- * upload button gets the toolbar row instead, where `MemberLeasesTab` puts
- * "Create lease" on the tab beside this one.
+ * The documents held against one subject — a member's NIDA, a property's title
+ * deed, later a lease's signed agreement. One component for all of them, since
+ * a document list differs only in which types it offers and which record it
+ * hangs off: two tables that drift apart is exactly what a second copy buys.
+ *
+ * No card header. Every caller already sits under a heading that says
+ * "Documents" — a tab, or a section title — and repeating the word only pushes
+ * the first row further down.
  */
-export function MemberDocumentsTab({
-  membershipId,
+export function DocumentsPanel({
+  subjectType,
+  subjectId,
   documents,
+  assetTypes,
+  emptyMessage,
+  uploadLabel = "Upload document",
 }: {
-  membershipId: string;
-  documents: MemberDocument[];
+  subjectType: DocumentSubject;
+  subjectId: string | null;
+  documents: DocumentView[];
+  assetTypes: FileAssetType[];
+  emptyMessage: string;
+  uploadLabel?: string;
 }) {
   const router = useRouter();
   const [uploadOpen, setUploadOpen] = React.useState(false);
-  const [viewing, setViewing] = React.useState<MemberDocument | null>(null);
-  const [deleting, setDeleting] = React.useState<MemberDocument | null>(null);
+  const [viewing, setViewing] = React.useState<DocumentView | null>(null);
+  const [deleting, setDeleting] = React.useState<DocumentView | null>(null);
   const [pending, setPending] = React.useState(false);
 
   async function handleDelete() {
@@ -111,7 +108,7 @@ export function MemberDocumentsTab({
       <div className="flex justify-end">
         <Button onClick={() => setUploadOpen(true)}>
           <PlusIcon />
-          Upload document
+          {uploadLabel}
         </Button>
       </div>
 
@@ -119,8 +116,7 @@ export function MemberDocumentsTab({
         <CardContent className={documents.length > 0 ? "px-0" : undefined}>
           {documents.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              No documents yet. Upload a NIDA card, passport or employment
-              letter to keep it on file.
+              {emptyMessage}
             </p>
           ) : (
             // No scroll wrapper here: `Table` already renders its own
@@ -221,11 +217,11 @@ export function MemberDocumentsTab({
         key={String(uploadOpen)}
         open={uploadOpen}
         onOpenChange={setUploadOpen}
-        subjectType="membership"
-        subjectId={membershipId}
-        assetTypes={TENANT_ASSET_TYPES}
+        subjectType={subjectType}
+        subjectId={subjectId}
+        assetTypes={assetTypes}
         existingTypes={documents.map((document) => document.assetType)}
-        title="Upload document"
+        title={uploadLabel}
       />
 
       <Dialog

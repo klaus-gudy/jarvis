@@ -3,14 +3,15 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
+import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { MemberLeasesTab } from "@/components/members/member-leases-tab";
-import { MemberDocumentsTab } from "@/components/tenants/member-documents-tab";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { TENANT_ASSET_TYPES } from "@/lib/document-options";
 import { listDocuments } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { getLeaseOptions } from "@/lib/leases";
@@ -235,8 +236,11 @@ export default async function MemberDetailPage({
         </TabsContent>
 
         <TabsContent value="documents" className="pt-5">
-          <MemberDocumentsTab
-            membershipId={member.membershipId}
+          <DocumentsPanel
+            subjectType="membership"
+            subjectId={member.membershipId}
+            assetTypes={TENANT_ASSET_TYPES}
+            emptyMessage="No documents yet. Upload a NIDA card, passport or employment letter to keep it on file."
             documents={documents.map((document) => ({
               ...document,
               // Dates must be serialisable to cross the server/client boundary.

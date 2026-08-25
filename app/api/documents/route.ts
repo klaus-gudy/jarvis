@@ -2,10 +2,10 @@ import { revalidatePath } from "next/cache";
 
 import { requireActiveOrg } from "@/lib/api-auth";
 import {
-  ACCEPTED_FILE_LABEL,
-  ACCEPTED_FILE_TYPES,
+  acceptedTypesFor,
   ASSET_TYPE_LABELS,
   DOCUMENT_SUBJECTS,
+  labelForAcceptedTypes,
   MAX_FILE_BYTES,
   type DocumentSubject,
 } from "@/lib/document-options";
@@ -100,9 +100,13 @@ export async function POST(request: Request) {
   if (file.size > MAX_FILE_BYTES) {
     return Response.json({ error: "That file is too large" }, { status: 413 });
   }
-  if (!(file.type in ACCEPTED_FILE_TYPES)) {
+  // Narrower for photo types than for documents: a PDF filed as a photo would
+  // land in a carousel that cannot draw it. `acceptedTypesFor` is the same
+  // table the upload dialog builds its `accept` from, so the two cannot drift.
+  const accepted = acceptedTypesFor(parsed.data.assetType);
+  if (!(file.type in accepted)) {
     return Response.json(
-      { error: `Upload a ${ACCEPTED_FILE_LABEL} file` },
+      { error: `Upload a ${labelForAcceptedTypes(accepted)} file` },
       { status: 415 }
     );
   }
@@ -147,8 +151,17 @@ export async function POST(request: Request) {
       );
     }
 
-    if (parsed.data.subjectType === "membership" && parsed.data.subjectId) {
-      revalidatePath(`/members/${parsed.data.subjectId}`);
+    // Next's dynamic client cache holds a rendered segment for 30s
+    // (next.config.ts), so the page the upload came from needs evicting or the
+    // new row won't be there when the user navigates back to it.
+    const { subjectType, subjectId } = parsed.data;
+    if (subjectId) {
+      if (subjectType === "membership") revalidatePath(`/members/${subjectId}`);
+      if (subjectType === "property") revalidatePath(`/properties/${subjectId}`);
+      // A unit is rendered inside its property's page and the request carries
+      // no property id, so the segment is revalidated rather than fetching the
+      // parent purely to name one path.
+      if (subjectType === "unit") revalidatePath("/properties", "layout");
     }
 
     return Response.json({ document: result.document }, { status: 201 });

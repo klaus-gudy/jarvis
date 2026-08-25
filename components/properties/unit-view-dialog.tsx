@@ -1,9 +1,10 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, ImagePlusIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -23,9 +24,12 @@ import type { UnitRow } from "@/components/properties/unit-columns";
 export function UnitViewDialog({
   unit,
   onOpenChange,
+  onAddPhotos,
 }: {
   unit: UnitRow | null;
   onOpenChange: (open: boolean) => void;
+  /** Hands the unit back so the table can open the picker for it. */
+  onAddPhotos: (unit: UnitRow) => void;
 }) {
   return (
     <Dialog open={unit !== null} onOpenChange={onOpenChange}>
@@ -37,6 +41,58 @@ export function UnitViewDialog({
 
         {unit && (
           <div className="space-y-4">
+            {/* Photos first — a unit is a room, and a picture says more about
+                it than the rent does. This is also the only place they can be
+                seen: a unit has no page of its own. */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  Photos
+                  {unit.photos.length > 0 && (
+                    <span className="ml-1.5 text-muted-foreground tabular-nums">
+                      {unit.photos.length}
+                    </span>
+                  )}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAddPhotos(unit)}
+                >
+                  <ImagePlusIcon />
+                  Add photos
+                </Button>
+              </div>
+
+              {unit.photos.length === 0 ? (
+                <p className="rounded-lg border border-dashed py-6 text-center text-sm text-muted-foreground">
+                  No photos yet.
+                </p>
+              ) : (
+                <ul className="flex gap-2 overflow-x-auto pb-1">
+                  {unit.photos.map((photo) => (
+                    <li key={photo.id} className="shrink-0">
+                      {/* Opens the full image in a new tab rather than a second
+                          dialog stacked on this one. */}
+                      <a
+                        href={`/api/documents/${photo.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block size-20 overflow-hidden rounded-md border transition-colors hover:border-primary"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/api/documents/${photo.id}`}
+                          alt={photo.fileName}
+                          className="size-full object-cover"
+                        />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <div className="rounded-lg border">
               <dl>
                 <DetailRow label="Unit name" value={unit.label} />

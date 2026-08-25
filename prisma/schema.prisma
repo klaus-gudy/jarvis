@@ -385,6 +385,7 @@ enum FileAssetType {
 
   // Unit
   UNIT_DOCUMENT
+  UNIT_PHOTO
 
   // Tenant (Membership)
   NIDA
