@@ -229,6 +229,7 @@ export function LeaseTemplatesView({
         key={String(creating)}
         open={creating}
         onOpenChange={setCreating}
+        lockedDefault={templates.length === 0}
         submitLabel="Next"
         onSubmit={(details) => {
           const query = new URLSearchParams({
@@ -237,6 +238,7 @@ export function LeaseTemplatesView({
             ...(details.description
               ? { description: details.description }
               : {}),
+            ...(details.isDefault ? { isDefault: "1" } : {}),
           });
           router.push(`/settings/lease-templates/new?${query}`);
         }}

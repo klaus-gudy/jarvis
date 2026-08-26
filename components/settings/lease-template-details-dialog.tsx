@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export type LeaseTemplateDetails = {
   name: string;
   language: LeaseTemplateLanguage;
   description: string;
+  isDefault: boolean;
 };
 
 /**
@@ -51,8 +53,15 @@ export function LeaseTemplateDetailsDialog({
   initial,
   submitLabel,
   onSubmit,
-  /** Reopened from the editor to change these three, rather than to start one. */
+  /** Reopened from the editor to change these, rather than to start one. */
   editing = false,
+  /**
+   * The default cannot be moved by demoting this template, only by promoting
+   * another — true on an organization's first template and on the one already
+   * in force. Shown as a checked, disabled box rather than silently overruled
+   * by the server.
+   */
+  lockedDefault = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +69,7 @@ export function LeaseTemplateDetailsDialog({
   submitLabel: string;
   onSubmit: (details: LeaseTemplateDetails) => void;
   editing?: boolean;
+  lockedDefault?: boolean;
 }) {
   const [name, setName] = React.useState(initial?.name ?? "");
   const [language, setLanguage] = React.useState<LeaseTemplateLanguage>(
@@ -68,10 +78,16 @@ export function LeaseTemplateDetailsDialog({
   const [description, setDescription] = React.useState(
     initial?.description ?? ""
   );
+  const [isDefault, setIsDefault] = React.useState(initial?.isDefault ?? false);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSubmit({ name: name.trim(), language, description: description.trim() });
+    onSubmit({
+      name: name.trim(),
+      language,
+      description: description.trim(),
+      isDefault: lockedDefault || isDefault,
+    });
   }
 
   return (
@@ -82,11 +98,12 @@ export function LeaseTemplateDetailsDialog({
             <DialogTitle>
               {editing ? "Template details" : "New lease template"}
             </DialogTitle>
-            <DialogDescription>
-              {editing
-                ? "How this template is labelled in the list. The contract itself is edited behind this."
-                : "Name it and pick its language. You’ll write the contract itself on the next screen."}
-            </DialogDescription>
+            {!editing && (
+              <DialogDescription>
+                Name it and pick its language. You’ll write the contract itself
+                on the next screen.
+              </DialogDescription>
+            )}
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -140,9 +157,27 @@ export function LeaseTemplateDetailsDialog({
                 rows={3}
                 className="min-h-20"
               />
-              <FieldDescription>
-                Optional — shown in the list, to tell two templates apart.
-              </FieldDescription>
+            </Field>
+
+            <Field orientation="horizontal">
+              <Checkbox
+                id="details-default"
+                checked={lockedDefault || isDefault}
+                disabled={lockedDefault}
+                onCheckedChange={(checked) => setIsDefault(checked)}
+              />
+              <FieldLabel htmlFor="details-default" className="font-normal">
+                Use this template by default for new contracts
+                {lockedDefault && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    —{" "}
+                    {editing
+                      ? "already the default; promote another to move it"
+                      : "your first template always is"}
+                  </span>
+                )}
+              </FieldLabel>
             </Field>
           </div>
 

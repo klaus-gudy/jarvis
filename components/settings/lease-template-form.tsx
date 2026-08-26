@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PencilIcon } from "lucide-react";
+import { EyeIcon, PencilIcon, SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -19,13 +19,13 @@ import {
   editorHtmlToBody,
   type RichTextEditorHandle,
 } from "@/components/settings/rich-text-editor";
-import { TemplatePreview } from "@/components/settings/template-preview";
+import {
+  TemplatePreview,
+  type PreviewMode,
+} from "@/components/settings/template-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FieldError } from "@/components/ui/field";
 import { tokensToChips, usedPlaceholders } from "@/lib/lease-placeholders";
 import {
   languageLabel,
@@ -68,6 +68,7 @@ export function LeaseTemplateForm({
       initialDetails?.language ??
       "en",
     description: template?.description ?? initialDetails?.description ?? "",
+    isDefault: template?.isDefault ?? initialDetails?.isDefault ?? false,
   });
 
   /**
@@ -91,7 +92,6 @@ export function LeaseTemplateForm({
     []
   );
 
-  const [isDefault, setIsDefault] = React.useState(template?.isDefault ?? false);
   const [detailsOpen, setDetailsOpen] = React.useState(
     // Landing on /new without going through the dialog — a typed URL, a stale
     // bookmark — asks for the details here rather than dead-ending.
@@ -100,10 +100,18 @@ export function LeaseTemplateForm({
 
   /**
    * The default can only be moved by promoting another template, never by
-   * demoting this one — so the box is checked and inert on the organization's
-   * first template and on the one already in force.
+   * demoting this one. Asked for in the details dialog now, where the rest of
+   * what a template *is* lives.
    */
   const lockedDefault = editing ? template.isDefault : isFirstTemplate;
+
+  /**
+   * One button, two states — the feedback's shape. The mode sits where the
+   * page's other action sat, and `previewMode` only has a control to itself
+   * while previewing, since it means nothing in the editor.
+   */
+  const [mode, setMode] = React.useState<"edit" | "preview">("edit");
+  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("tokens");
 
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -133,7 +141,7 @@ export function LeaseTemplateForm({
           description: details.description || null,
           language: details.language,
           body,
-          isDefault,
+          isDefault: details.isDefault,
         }),
       }
     );
@@ -159,120 +167,121 @@ export function LeaseTemplateForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-xl font-semibold">
-              {details.name || "Untitled template"}
-            </h1>
-            <Badge variant="outline" className="rounded-full font-normal">
-              {languageLabel(details.language)}
-            </Badge>
-          </div>
-          {details.description && (
-            <p className="text-sm text-muted-foreground">
-              {details.description}
-            </p>
-          )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h1 className="truncate text-xl font-semibold">
+            {details.name || "Untitled template"}
+          </h1>
+          <Badge variant="outline" className="rounded-full font-normal">
+            {languageLabel(details.language)}
+          </Badge>
+          {/*
+            The description is deliberately absent: it exists to tell two rows
+            of the list apart, and on the page for one template it is a line of
+            text that never earns its place.
+          */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Template details"
+            title="Template details"
+            className="text-muted-foreground"
+            onClick={() => setDetailsOpen(true)}
+          >
+            <SettingsIcon />
+          </Button>
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="bg-card"
-          onClick={() => setDetailsOpen(true)}
-        >
-          <PencilIcon />
-          Edit details
-        </Button>
+        <div className="flex items-center gap-2">
+          {/*
+            Only while previewing: which values fill the gaps is a question the
+            editor cannot answer, so the control does not exist there.
+          */}
+          {mode === "preview" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="bg-card"
+              onClick={() =>
+                setPreviewMode((current) =>
+                  current === "tokens" ? "sample" : "tokens"
+                )
+              }
+            >
+              {previewMode === "tokens" ? "Sample data" : "Placeholders"}
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="bg-card"
+            onClick={() =>
+              setMode((current) => (current === "edit" ? "preview" : "edit"))
+            }
+          >
+            {mode === "edit" ? <EyeIcon /> : <PencilIcon />}
+            {mode === "edit" ? "Preview" : "Edit"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-4">
-          <Tabs defaultValue="edit">
-            <TabsList variant="line">
-              <TabsTrigger value="edit">Edit</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-            </TabsList>
+          {/*
+            Both stay mounted and the inactive one is hidden. The editor is
+            uncontrolled, so unmounting it on a mode switch and remounting it on
+            the way back would reseed from the *original* body and silently
+            discard everything typed since.
+          */}
+          <div hidden={mode !== "edit"}>
+            <RichTextEditor
+              ref={editorRef}
+              initialHtml={initialEditorHtml}
+              onChange={handleEditorChange}
+              onRequestVariable={() => panelRef.current?.focusSearch()}
+              ariaLabel="Contract"
+            />
+            <FieldError
+              errors={fieldErrors.body?.map((m) => ({ message: m }))}
+            />
+          </div>
 
-            {/*
-              `keepMounted`-by-hand: the editor is uncontrolled, so unmounting
-              it on a tab switch and remounting it on the way back would reseed
-              from the *original* body and silently discard the edits made
-              since. Both panels stay mounted; only the inactive one is hidden.
-            */}
-            <TabsContent value="edit" className="pt-3" keepMounted>
-              <RichTextEditor
-                ref={editorRef}
-                initialHtml={initialEditorHtml}
-                onChange={handleEditorChange}
-                onRequestVariable={() => panelRef.current?.focusSearch()}
-                ariaLabel="Contract"
-              />
-              <FieldError
-                errors={fieldErrors.body?.map((m) => ({ message: m }))}
-              />
-            </TabsContent>
+          <div hidden={mode !== "preview"}>
+            <TemplatePreview body={body} mode={previewMode} />
+          </div>
 
-            <TabsContent value="preview" className="pt-3" keepMounted>
-              <TemplatePreview body={body} />
-            </TabsContent>
-          </Tabs>
+          {formError && <FieldError>{formError}</FieldError>}
+          {fieldErrors.name && (
+            <FieldError
+              errors={fieldErrors.name.map((m) => ({ message: m }))}
+            />
+          )}
 
-          <Card>
-            <CardContent className="space-y-4">
-              <Field orientation="horizontal">
-                <Checkbox
-                  id="template-default"
-                  checked={lockedDefault || isDefault}
-                  disabled={lockedDefault}
-                  onCheckedChange={(checked) => setIsDefault(checked)}
-                />
-                <FieldLabel htmlFor="template-default" className="font-normal">
-                  Use this template by default for new contracts
-                  {lockedDefault && (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      —{" "}
-                      {editing
-                        ? "already the default; promote another template to move it"
-                        : "your first template always is"}
-                    </span>
-                  )}
-                </FieldLabel>
-              </Field>
-
-              {formError && <FieldError>{formError}</FieldError>}
-              {fieldErrors.name && (
-                <FieldError
-                  errors={fieldErrors.name.map((m) => ({ message: m }))}
-                />
-              )}
-
-              <div className="flex justify-end gap-2 border-t pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  nativeButton={false}
-                  disabled={pending}
-                  render={<Link href={LIST_URL} />}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={pending || details.name.trim().length === 0}
-                >
-                  {pending
-                    ? "Saving…"
-                    : editing
-                      ? "Save changes"
-                      : "Create template"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              nativeButton={false}
+              disabled={pending}
+              render={<Link href={LIST_URL} />}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={pending || details.name.trim().length === 0}
+            >
+              {pending
+                ? "Saving…"
+                : editing
+                  ? "Save changes"
+                  : "Create template"}
+            </Button>
+          </div>
         </div>
 
         <div className="lg:sticky lg:top-4">
@@ -291,6 +300,7 @@ export function LeaseTemplateForm({
         onOpenChange={setDetailsOpen}
         initial={details}
         editing
+        lockedDefault={lockedDefault}
         submitLabel="Save details"
         onSubmit={(next) => {
           setDetails(next);

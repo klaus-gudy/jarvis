@@ -67,6 +67,7 @@ export default async function NewLeaseTemplatePage({
           name: single("name") ?? "",
           language: readLanguage(single("language")),
           description: single("description") ?? "",
+          isDefault: single("isDefault") === "1",
         }}
       />
     </div>

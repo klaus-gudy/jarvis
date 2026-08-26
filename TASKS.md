@@ -1113,6 +1113,22 @@ Feedback pass. The editor was HTML in a `<textarea>` with the token syntax on sh
 - [ ] **No column/row controls for tables.** The button inserts a 2×2; growing it means the browser's own context menu
 - [ ] Everything still open from Phase 75: no UI generates a contract, no versioning, `tenant_nationality` unbackfilled
 
+## Phase 77 — Feedback: one mode button, details in the dialog, captions gone
+
+- [x] **Edit and Preview are one button**, in the slot the details button used to occupy — it reads "Preview" while editing and "Edit" while previewing. A second button appears *only* in preview, flipping between **Placeholders** and **Sample data**: which values fill the gaps is a question the editor cannot answer, so the control does not exist there
+- [x] `TemplatePreview` takes an optional `mode`. Supplied, it is controlled and renders no buttons of its own — the editor owns the switch. Left out, it keeps its own pair, which is what the view dialog (the eye action) still wants
+- [x] The two panels are **hidden, not unmounted**. Same reason the tabs were `keepMounted`: the editor is uncontrolled, so remounting it would reseed from the *original* body and silently discard everything typed since
+- [x] **Template details moved to a gear beside the title.** The page's one prominent action is now the mode switch; the things that change about once a template's life are behind an icon
+- [x] **The description no longer appears on the editor page.** It exists to tell two rows of the list apart, and on the page for one template it is a line that never earns its place. Still captured in the dialog, still a column in the table
+- [x] **"Use this template by default" moved out of the editor into the create dialog**, joining the rest of what a template *is*. Carried through the Next hand-off as `?isDefault=1`, and the locked case (first template, or the one already in force) shows as a checked disabled box there instead. The card that held it is gone; Cancel/Save is a plain row under the document
+- [x] Captions removed: "How this template is labelled in the list…" and "Optional — shown in the list, to tell two templates apart". "Sets the wording the contract starts from" was kept — it explains the starter swap, which is not otherwise discoverable
+- [x] Verified in the browser end to end: dialog with the default box checked → Next → editor header showing title, badge and gear only → Preview → Sample data → Placeholders → Edit → gear reopens with all four values including the checkbox → save landed **as the default**, with the previous default's star cleared. Test template deleted and the original default restored afterwards
+- [x] `tsc`, lint (0 errors) and a fresh-tab console with no errors
+
+### Not done
+- [ ] **`npm run build` while `next dev` is running corrupts the dev server** — it overwrites `.next` underneath it, and the running server then serves stale chunks (this pass surfaced as a phantom `ReferenceError: Tabs is not defined` for code that no longer existed). Fix is `rm -rf .next` and restart. Worth remembering before blaming a build error on the source
+- [ ] Everything still open from Phases 75 and 76: `execCommand` deprecation, no undo/redo buttons, no contract generation UI, no versioning, no preview against a real lease
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

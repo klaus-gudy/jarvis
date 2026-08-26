@@ -11,7 +11,8 @@ import {
   samplePlaceholderValues,
 } from "@/lib/lease-placeholders";
 
-type Mode = "sample" | "tokens";
+export type PreviewMode = "sample" | "tokens";
+type Mode = PreviewMode;
 
 /**
  * How the contract will read, without needing a lease to read it against.
@@ -46,8 +47,21 @@ const TOKEN_VALUES = Object.fromEntries(
   ])
 );
 
-export function TemplatePreview({ body }: { body: string }) {
-  const [mode, setMode] = React.useState<Mode>("tokens");
+export function TemplatePreview({
+  body,
+  mode: controlledMode,
+}: {
+  body: string;
+  /**
+   * Supplied when the surrounding page owns the switch — the editor puts it in
+   * the header beside Edit/Preview rather than repeating it above the paper.
+   * Left out, the preview carries its own pair of buttons, which is what the
+   * view dialog wants.
+   */
+  mode?: Mode;
+}) {
+  const [internalMode, setInternalMode] = React.useState<Mode>("tokens");
+  const mode = controlledMode ?? internalMode;
 
   const { srcDoc, unknown } = React.useMemo(() => {
     const rendered = renderLeaseTemplate(body, {
@@ -64,22 +78,24 @@ export function TemplatePreview({ body }: { body: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-          <ModeButton
-            active={mode === "tokens"}
-            onClick={() => setMode("tokens")}
-          >
-            Placeholders
-          </ModeButton>
-          <ModeButton
-            active={mode === "sample"}
-            onClick={() => setMode("sample")}
-          >
-            Sample data
-          </ModeButton>
+      {controlledMode === undefined && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-lg bg-muted p-0.5">
+            <ModeButton
+              active={mode === "tokens"}
+              onClick={() => setInternalMode("tokens")}
+            >
+              Placeholders
+            </ModeButton>
+            <ModeButton
+              active={mode === "sample"}
+              onClick={() => setInternalMode("sample")}
+            >
+              Sample data
+            </ModeButton>
+          </div>
         </div>
-      </div>
+      )}
 
       {unknown.length > 0 && (
         <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
