@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  EyeIcon,
   PencilIcon,
   PlusIcon,
   ScrollTextIcon,
@@ -14,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { LeaseTemplateCard } from "@/components/settings/lease-template-card";
+import { LeaseTemplateViewDialog } from "@/components/settings/lease-template-view-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,11 +42,37 @@ export function LeaseTemplatesView({
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = React.useState<LeaseTemplateRow | null>(null);
+  const [viewing, setViewing] = React.useState<{
+    template: LeaseTemplateRow;
+    body: string;
+  } | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  /**
+   * Fetched when the action fires, rather than carrying every body in the
+   * table's data: a list of ten templates would otherwise ship ten contracts'
+   * worth of HTML to the client to render four columns of metadata.
+   */
+  const openView = React.useCallback(async (template: LeaseTemplateRow) => {
+    const response = await fetch(`/api/lease-templates/${template.id}`);
+    if (!response.ok) {
+      toast.error("Could not open this template");
+      return;
+    }
+    const data = await response.json();
+    setViewing({ template, body: data.template.body });
+  }, []);
+
   const rowActions = React.useCallback(
     (template: LeaseTemplateRow): RowAction[] => [
+      // Leads, because reading a template is the commoner errand and a
+      // double-click on the row is not an affordance anyone discovers.
+      {
+        label: `View ${template.name}`,
+        icon: EyeIcon,
+        onSelect: () => void openView(template),
+      },
       {
         label: `Edit ${template.name}`,
         icon: PencilIcon,
@@ -60,7 +88,7 @@ export function LeaseTemplatesView({
         },
       },
     ],
-    []
+    [openView]
   );
 
   const columns = React.useMemo<ColumnDef<LeaseTemplateRow>[]>(
@@ -73,23 +101,23 @@ export function LeaseTemplatesView({
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <ScrollTextIcon className="size-4" aria-hidden />
             </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="truncate font-medium">{row.original.name}</span>
-                {row.original.isDefault && (
-                  <StarIcon
-                    className="size-3.5 shrink-0 fill-stat-accent text-stat-accent"
-                    aria-label="Default template"
-                  />
-                )}
-              </div>
-              {row.original.description && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {row.original.description}
-                </p>
-              )}
-            </div>
+            <span className="truncate font-medium">{row.original.name}</span>
+            {row.original.isDefault && (
+              <StarIcon
+                className="size-3.5 shrink-0 fill-stat-accent text-stat-accent"
+                aria-label="Default template"
+              />
+            )}
           </div>
+        ),
+      },
+      {
+        accessorKey: "description",
+        header: "Description",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {row.original.description ?? "—"}
+          </span>
         ),
       },
       {
@@ -157,12 +185,7 @@ export function LeaseTemplatesView({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          The contract wording your leases are generated from. Write it once
-          with placeholders, and every lease fills in its own tenant, unit and
-          terms.
-        </p>
+      <div className="flex justify-end">
         <Button
           nativeButton={false}
           render={<Link href="/settings/lease-templates/new" />}
@@ -195,6 +218,12 @@ export function LeaseTemplatesView({
         getRowHref={(template) => `/settings/lease-templates/${template.id}`}
         renderCard={(template) => <LeaseTemplateCard template={template} />}
         rowActions={rowActions}
+      />
+
+      <LeaseTemplateViewDialog
+        template={viewing?.template ?? null}
+        body={viewing?.body ?? ""}
+        onOpenChange={(open) => !open && setViewing(null)}
       />
 
       <Dialog

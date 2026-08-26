@@ -1063,6 +1063,15 @@ A `Settings` group in the sidebar with `Lease templates` under it: contract word
 - [x] Verified in the browser: the submenu in both themes, on desktop and in the mobile drawer; both preview modes; the language swap and its guard; insert-at-cursor; create, promote, delete with the successor taking over; mobile cards with no horizontal overflow
 - [x] `tsc`, lint (0 errors, 3 pre-existing warnings) clean
 
+### Feedback pass
+
+- [x] **The page caption is gone.** "The contract wording your leases are generated from…" explained the feature to someone who had already navigated to it; the table's own columns say the same thing in less space
+- [x] **Submenu items are the same size as top-level ones**, set in from them rather than shrunk. shadcn's `SidebarMenuSubButton` ships `h-7` against this app's `h-10` menu buttons, which read as a different and lesser kind of control. Now `h-10` at the call site, exactly as `SidebarMenuButton` sets its own height there. Measured in the browser: 40px tall and 14px text on both, with the sub item indented 25px
+- [x] **A View action (eye) on every row**, leading the three. Double-clicking a row already opened the template, but a double-click is not an affordance anyone finds. It opens a **read-only dialog** rather than the editor — the same split the Units table makes between its view dialog and its form, so the eye and the pencil never mean the same thing
+- [x] The dialog **fetches the body when the action fires**, not with the row. `getLeaseTemplates` already reads every body to count placeholders; carrying them into the client would ship a list of contracts to render four columns of metadata
+- [x] **Description is its own column**, not a second line under the name. It was competing with the template name for the same cell, and a table that has room for a column should use one
+- [x] `tsc`, lint (0 errors) clean; verified in both themes
+
 ### Not done
 - [ ] **Nothing in the UI generates a contract yet.** `GET /api/leases/[id]/contract` works and is verified, but no button on the lease page calls it, and the result is not filed as a `FileAsset` against the lease. That is the next phase, and it is where PDF output and a signature flow belong
 - [ ] **The body is raw HTML in a `<textarea>`.** No rich-text editor, no syntax highlighting, no validation that the markup is well-formed — a stray `<div>` is only visible in the preview. Fine for the person who pastes a Word export, hostile to anyone else

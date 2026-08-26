@@ -157,7 +157,11 @@ function NavGroup({
         <SidebarMenuSub>
           {item.items?.map((child) => (
             <SidebarMenuSubItem key={child.url}>
+              {/* h-10 to match `SidebarMenuButton` above: a submenu item is the
+                  same kind of thing as a top-level one, set in from it — the
+                  default h-7 made it read as a different, lesser control. */}
               <SidebarMenuSubButton
+                className="h-10"
                 isActive={child.url === activeSubItemUrl}
                 onClick={onNavigate}
                 render={<Link href={child.url} />}
