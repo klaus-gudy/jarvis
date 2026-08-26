@@ -200,6 +200,10 @@ export default async function MemberDetailPage({
                       )
                     }
                   />
+                  <DetailRow
+                    label="Nationality"
+                    value={orDash(profile.nationality)}
+                  />
                 </dl>
               </CardContent>
             </Card>

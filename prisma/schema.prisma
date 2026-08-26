@@ -30,6 +30,7 @@ model Organization {
   notifications  NotificationLog[]
   fileAssets     FileAsset[]
   fileAssetTypes FileAssetType[]
+  leaseTemplates LeaseTemplate[]
 }
 
 /**
@@ -233,6 +234,12 @@ model MemberProfile {
   id                       String   @id @default(cuid())
   occupation               String?
   nidaNumber               String?
+  /**
+   * Named on a lease contract beside the NIDA number, which is why it exists:
+   * `{{tenant_nationality}}` is a lease-template placeholder and had nothing
+   * to resolve against.
+   */
+  nationality              String?
   employer                 String?
   emergencyContactName     String?
   emergencyContactPhone    String?
@@ -576,4 +583,43 @@ model FileAsset {
   @@index([leaseId])
   @@index([invoiceId])
   @@index([paymentId])
+}
+
+/**
+ * A reusable lease contract, written once and filled in per lease.
+ * `body` is HTML carrying `{{placeholder}}` tokens — the token set is declared
+ * in `lib/lease-placeholders.ts`, which is also what resolves them against the
+ * database when a contract is generated. Nothing about the token list lives in
+ * this table: a template stores prose, not a schema.
+ * Scoped to an organization, with no system-wide rows. A lease agreement is a
+ * legal document whose wording is the landlord's own — a shared default that
+ * silently governed everyone's contracts is the wrong kind of convenience.
+ */
+model LeaseTemplate {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  /**
+   * BCP-47-ish code from `LEASE_TEMPLATE_LANGUAGES` (`en`, `sw`). A string
+   * rather than an enum: the list is presentation, and Phase 70 already paid
+   * for turning an enum that kept growing into something that can grow.
+   */
+  language    String  @default("en")
+  body        String
+
+  /**
+   * The one offered first when a contract is generated. At most one per
+   * organization; enforced in `lib/lease-templates.ts` writes, which clear the
+   * flag on every sibling inside the same transaction.
+   */
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }

@@ -6,11 +6,15 @@ import { prisma } from "@/lib/prisma";
 const OWNER_ROLE_NAME = "Owner";
 
 /**
- * Properties don't store an owner — it is whoever holds the Owner role in the
- * organization. Cached so one lookup serves a whole render rather than firing
- * once per property card.
+ * Whoever holds the Owner role, as a person rather than a label — the lease
+ * contract names them alongside their phone and email, which
+ * `getOrganizationOwnerName` throws away. Cached, so the two together are one
+ * query.
+ *
+ * Null when the role has been renamed or its last holder removed; callers
+ * decide what to say instead.
  */
-export const getOrganizationOwnerName = cache(async (organizationId: string) => {
+export const getOrganizationOwner = cache(async (organizationId: string) => {
   const ownerMembership = await prisma.membership.findFirst({
     where: {
       organizationId,
@@ -21,11 +25,19 @@ export const getOrganizationOwnerName = cache(async (organizationId: string) => 
     include: { user: { select: { name: true, email: true, phone: true } } },
   });
 
+  return ownerMembership?.user ?? null;
+});
+
+/**
+ * Properties don't store an owner — it is whoever holds the Owner role in the
+ * organization. Cached so one lookup serves a whole render rather than firing
+ * once per property card.
+ */
+export const getOrganizationOwnerName = cache(async (organizationId: string) => {
+  const owner = await getOrganizationOwner(organizationId);
+
   // email is optional now, so an owner could have neither name nor email.
-  const ownerLabel =
-    ownerMembership?.user.name ??
-    ownerMembership?.user.email ??
-    ownerMembership?.user.phone;
+  const ownerLabel = owner?.name ?? owner?.email ?? owner?.phone;
   if (ownerLabel) return ownerLabel;
 
   // No Owner-role member (renamed or removed) — the organization itself is the

@@ -683,6 +683,13 @@ function SidebarMenuSubItem({
   )
 }
 
+/**
+ * Hover and active states use the same tokens as `SidebarMenuButton` rather
+ * than the `--sidebar-accent` pair shadcn ships with. This theme's
+ * `--sidebar-accent` is a mid blue and its `--sidebar-accent-foreground` is
+ * gold, so an active sub-item rendered a gold label on a blue pill — legible
+ * as neither. Nothing had a submenu until Settings, so this was never seen.
+ */
 function SidebarMenuSubButton({
   render,
   size = "md",
@@ -699,7 +706,7 @@ function SidebarMenuSubButton({
     props: mergeProps<"a">(
       {
         className: cn(
-          "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",
+          "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 active:bg-accent active:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-primary data-active:font-medium data-active:text-primary-foreground data-active:hover:bg-primary/80 data-active:hover:text-primary-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
           className
         ),
       },

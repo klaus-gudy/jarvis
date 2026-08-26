@@ -31,6 +31,7 @@ const FIELDS: {
   { key: "occupation", label: "Occupation", placeholder: "Teacher" },
   { key: "employer", label: "Employer", placeholder: "Shule ya Msingi" },
   { key: "nidaNumber", label: "NIDA number", placeholder: "19900101-12345-00001-01" },
+  { key: "nationality", label: "Nationality", placeholder: "Tanzanian" },
   {
     key: "emergencyContactName",
     label: "Emergency contact",
@@ -57,6 +58,7 @@ export function ProfileEditDialog({
   const [values, setValues] = React.useState<Values>({
     occupation: profile.occupation ?? "",
     nidaNumber: profile.nidaNumber ?? "",
+    nationality: profile.nationality ?? "",
     employer: profile.employer ?? "",
     emergencyContactName: profile.emergencyContactName ?? "",
     emergencyContactPhone: profile.emergencyContactPhone ?? "",

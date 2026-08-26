@@ -119,6 +119,7 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
 export type MemberProfileFields = {
   occupation: string | null;
   nidaNumber: string | null;
+  nationality: string | null;
   employer: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
@@ -128,6 +129,7 @@ export type MemberProfileFields = {
 const EMPTY_PROFILE: MemberProfileFields = {
   occupation: null,
   nidaNumber: null,
+  nationality: null,
   employer: null,
   emergencyContactName: null,
   emergencyContactPhone: null,
@@ -204,6 +206,7 @@ export async function getTenantDetail(
       ? {
           occupation: membership.profile.occupation,
           nidaNumber: membership.profile.nidaNumber,
+          nationality: membership.profile.nationality,
           employer: membership.profile.employer,
           emergencyContactName: membership.profile.emergencyContactName,
           emergencyContactPhone: membership.profile.emergencyContactPhone,

@@ -22,6 +22,7 @@ const optionalText = (max: number) =>
 export const updateMemberProfileSchema = z.object({
   occupation: optionalText(80),
   nidaNumber: optionalText(40),
+  nationality: optionalText(60),
   employer: optionalText(120),
   emergencyContactName: optionalText(100),
   emergencyContactPhone: optionalTzPhoneSchema,
