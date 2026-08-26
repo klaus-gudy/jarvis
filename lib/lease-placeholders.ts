@@ -309,6 +309,44 @@ export function placeholderToken(key: string) {
   return `{{${key}}}`;
 }
 
+/** The human name for a token, for the editor's chips and the panel's list. */
+export function placeholderLabel(key: string) {
+  return PLACEHOLDERS_BY_KEY.get(key)?.label ?? key;
+}
+
+/**
+ * The attribute an editor chip carries its key in. One constant, because the
+ * editor writes it and the serializer reads it, and a typo across the two
+ * would silently turn every variable into plain text.
+ */
+export const VARIABLE_ATTR = "data-variable";
+
+/** Markup for one chip. Atomic — `contenteditable="false"` so it deletes whole. */
+export function variableChipHtml(key: string) {
+  return `<span class="jarvis-var" ${VARIABLE_ATTR}="${escapeHtml(
+    key
+  )}" contenteditable="false">${escapeHtml(placeholderLabel(key))}</span>`;
+}
+
+/** `<style>` blocks, which the document stylesheet replaced. See `lib/lease-document-style.ts`. */
+const STYLE_BLOCK = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
+
+/**
+ * Stored body → what the editor shows. Every *known* token becomes a chip
+ * displaying its label; the author never sees `{{tenant_name}}`, only "Tenant
+ * full name" as one solid object.
+ *
+ * An unknown token is deliberately left as literal text. It is a typo, and a
+ * typo that renders as a chip is a typo nobody finds.
+ */
+export function tokensToChips(body: string) {
+  return body
+    .replace(STYLE_BLOCK, "")
+    .replace(TOKEN_PATTERN, (token, key: string) =>
+      PLACEHOLDERS_BY_KEY.has(key) ? variableChipHtml(key) : token
+    );
+}
+
 /** Resolves every token against a context, ready to hand to `renderLeaseTemplate`. */
 export function placeholderValues(
   context: LeaseContractContext

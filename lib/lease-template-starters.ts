@@ -10,66 +10,13 @@ import type { LeaseTemplateLanguage } from "@/lib/lease-template-options";
  * ordinary shape of a Tanzanian residential tenancy, and every organization is
  * expected to rewrite them to match what it actually agrees with its tenants.
  *
- * Styles live in a `<style>` block rather than on every element. Both preview
- * and generated output render a body inside a sandboxed iframe, so the rules
- * cannot reach the app's own page — see `sanitizeTemplateHtml`.
+ * A starter is content only. How a contract is typeset lives in
+ * `lib/lease-document-style.ts`, which the editor surface and the preview
+ * iframe both read — a `<style>` block at the top of the body would be CSS the
+ * author can see and delete from inside a WYSIWYG editor.
  */
 
-const SHARED_STYLE = `<style>
-  .contract {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 48px 56px;
-    font-family: "Times New Roman", Times, serif;
-    font-size: 15px;
-    line-height: 1.75;
-    color: #1a1a1a;
-    text-align: justify;
-  }
-  .contract h1 {
-    font-size: 17px;
-    text-align: center;
-    text-transform: uppercase;
-    text-decoration: underline;
-    letter-spacing: 0.02em;
-    margin: 0 0 20px;
-  }
-  .contract h2 {
-    font-size: 15px;
-    text-align: center;
-    letter-spacing: 0.08em;
-    margin: 28px 0 12px;
-  }
-  .contract h3 {
-    font-size: 15px;
-    text-decoration: underline;
-    margin: 28px 0 10px;
-  }
-  .contract p { margin: 0 0 12px; }
-  .contract ol { padding-left: 22px; margin: 0 0 16px; }
-  .contract li { margin-bottom: 10px; }
-  .contract .meta { text-align: center; margin-bottom: 24px; }
-  .contract .party { font-weight: bold; }
-  .contract .signatures {
-    margin-top: 40px;
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .contract .signatures td {
-    width: 50%;
-    padding: 10px 16px 28px 0;
-    vertical-align: top;
-  }
-  .contract .rule {
-    border-bottom: 1px solid #333;
-    height: 26px;
-    margin-bottom: 4px;
-  }
-  .contract .ref { text-align: right; font-size: 13px; color: #555; }
-</style>`;
-
-const ENGLISH = `${SHARED_STYLE}
-<div class="contract">
+const ENGLISH = `<div class="contract">
   <p class="ref">Contract No. {{contract_number}}</p>
 
   <h1>House Tenancy Agreement</h1>
@@ -202,8 +149,7 @@ const ENGLISH = `${SHARED_STYLE}
   </table>
 </div>`;
 
-const SWAHILI = `${SHARED_STYLE}
-<div class="contract">
+const SWAHILI = `<div class="contract">
   <p class="ref">Mkataba Na. {{contract_number}}</p>
 
   <h1>Mkataba wa Kupangisha Nyumba</h1>

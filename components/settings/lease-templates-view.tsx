@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -15,6 +14,7 @@ import {
 import { toast } from "sonner";
 
 import { LeaseTemplateCard } from "@/components/settings/lease-template-card";
+import { LeaseTemplateDetailsDialog } from "@/components/settings/lease-template-details-dialog";
 import { LeaseTemplateViewDialog } from "@/components/settings/lease-template-view-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ export function LeaseTemplatesView({
   } | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [creating, setCreating] = React.useState(false);
 
   /**
    * Fetched when the action fires, rather than carrying every body in the
@@ -186,10 +187,13 @@ export function LeaseTemplatesView({
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button
-          nativeButton={false}
-          render={<Link href="/settings/lease-templates/new" />}
-        >
+        {/*
+          A dialog, not a link straight to the editor: a template needs a name
+          before it needs prose, and asking for it here leaves the next screen
+          free to be a page of contract rather than a form with a document
+          stapled underneath.
+        */}
+        <Button onClick={() => setCreating(true)}>
           <PlusIcon />
           New template
         </Button>
@@ -218,6 +222,24 @@ export function LeaseTemplatesView({
         getRowHref={(template) => `/settings/lease-templates/${template.id}`}
         renderCard={(template) => <LeaseTemplateCard template={template} />}
         rowActions={rowActions}
+      />
+
+      {/* Remounted per open so it starts blank rather than holding the last try. */}
+      <LeaseTemplateDetailsDialog
+        key={String(creating)}
+        open={creating}
+        onOpenChange={setCreating}
+        submitLabel="Next"
+        onSubmit={(details) => {
+          const query = new URLSearchParams({
+            name: details.name,
+            language: details.language,
+            ...(details.description
+              ? { description: details.description }
+              : {}),
+          });
+          router.push(`/settings/lease-templates/new?${query}`);
+        }}
       />
 
       <LeaseTemplateViewDialog

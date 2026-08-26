@@ -1084,6 +1084,35 @@ A `Settings` group in the sidebar with `Lease templates` under it: contract word
 - [ ] Two templates were left in the working organization (the English and Swahili starters, saved as real rows) rather than deleted like other test data — they are usable content, not fixtures. Delete them if they are in the way
 - [ ] The dev server **had to be restarted** for the new model, the same stale-`globalThis`-client note as Phases 64, 69, 70 and 72
 
+## Phase 76 — The template editor becomes a document, not a textarea
+
+Feedback pass. The editor was HTML in a `<textarea>` with the token syntax on show; it is now a page you type into.
+
+- [x] **Creating a template starts in a dialog** — name, language, and a `Textarea` description — with a **Next** button that carries all three to `/settings/lease-templates/new` in the query string. The editor page shows only the name (plus a language badge and the description under it) and an **Edit details** button that reopens the same dialog. The three fields used to sit above the contract, where they competed with it for the top of the screen and were re-read on every visit despite changing about once
+- [x] Landing on `/new` with no name — a typed URL, a stale bookmark — **opens the dialog on the page** rather than dead-ending on a nameless form
+- [x] **`components/settings/rich-text-editor.tsx`** — a `contenteditable` surface with the toolbar from the reference: block format, font, size, B/I/U/S, colour, highlight, four alignments, both lists, a table, and `{ } Variable`. Built on `document.execCommand` rather than adding ProseMirror: nothing in the project has an editor library, and what a lease template needs is formatted prose, a table and some variables. The deprecation is real and noted below
+- [x] **The editor is uncontrolled.** Writing `innerHTML` on every render puts the caret back at the start of the document on every keystroke, so the DOM is seeded once and changes flow one way, outwards. Toolbar buttons `preventDefault` on mousedown and a `selectionchange` listener remembers the last range inside the editor, so a click in the toolbar or the variables panel acts on the selection it looked like it would
+- [x] **Tokens are never shown to the author.** `tokensToChips` turns every known `{{key}}` into an atomic `contenteditable="false"` chip showing its *label* ("Owner full name"); `editorHtmlToBody` walks the DOM on the way back and turns each chip into `{{key}}`. The stored format is unchanged, so the API, `renderLeaseTemplate` and contract generation needed no edits at all. An **unknown** token stays literal text on purpose — it is a typo, and a typo that renders as a chip is one nobody finds
+- [x] Verified the round trip against the database: a template written entirely in the WYSIWYG stored 27 token occurrences / 24 distinct, **no `data-variable` anywhere in the stored body**, the signature table intact, and a bold applied through the toolbar preserved. Generating a contract from that body still filled in `L-ZVM9T`, `Chris patt`, `Jackson Mayunga`, `C2`, `Java`, `TZS 600,000`
+- [x] **The `<style>` block is gone from template bodies.** How a contract is typeset now lives in `lib/lease-document-style.ts`, read by both the editor surface and the preview iframe. A body carrying its own stylesheet was fine when it was edited as HTML and became CSS the author could see and delete the moment it became a document. Bodies saved before this keep their block — it is stripped on load into the editor, where the shared sheet covers it
+- [x] **The signature table ships in every template** (it is in both starters) and survives the round trip — the editor draws a dashed outline on table cells so the block is visible while being edited, and nothing stops it being deleted
+- [x] **The variables panel is searchable and shows names only.** No `{{…}}` in the list: the token is a storage format, not something an author should have to read or type. Clicking a name drops the chip in at the caret; a gold dot marks the ones already used. The toolbar's `{ } Variable` button focuses the search rather than duplicating the whole list in a popover
+- [x] **Preview defaults to Placeholders**, with **Sample data** as the second button — a template is read to check its wiring far more often than to admire example prose
+- [x] Captions removed: the list page's "The contract wording your leases are generated from…" paragraph and both preview-mode explanations
+- [x] **Description is its own column** in the table, no longer a second line under the template name
+- [x] **A View row action** (the eye, leading) — the body is fetched when the action fires rather than carried on every row, so a list of ten templates doesn't ship ten contracts' worth of HTML to render four columns of metadata
+- [x] Verified in the browser: the dialog → Next → editor hand-off carrying all three values; insert-at-caret from a filtered search; bold through the toolbar landing as `font-weight: bold` on the selected word; both preview modes; the Swahili template loading with its old `<style>` block stripped and 28 chips; dark mode (the page stays white paper while the chrome goes dark); mobile with no horizontal overflow; no console errors
+- [x] `tsc`, lint (0 errors) clean
+
+### Not done
+- [ ] **`document.execCommand` is deprecated.** Every browser still implements it and nothing suggests removal, but it is the load-bearing part of this editor and it is not coming back. The moment this surface wants comments, revision marks, collaborative cursors or reliable undo grouping, it should become ProseMirror rather than grow
+- [ ] **No undo/redo buttons**, and `execCommand`'s undo stack is the browser's — ctrl-Z works inside the document, but a toolbar action and a keystroke are not always one step
+- [ ] **Editing an old template silently drops its `<style>` block** on the next save. Nothing is lost visually (the shared sheet replaced it) but it is a one-way conversion, unannounced
+- [ ] **No preview against a real lease from the editor.** Still example values only; the API is the only way to see a contract with actual data
+- [ ] The toolbar's font and size dropdowns **do not reflect the caret** — they are actions, not state, so they always read "Font" and "Size" rather than what is under the cursor
+- [ ] **No column/row controls for tables.** The button inserts a 2×2; growing it means the browser's own context menu
+- [ ] Everything still open from Phase 75: no UI generates a contract, no versioning, `tenant_nationality` unbackfilled
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

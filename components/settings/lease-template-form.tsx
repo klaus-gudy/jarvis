@@ -3,36 +3,35 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PencilIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { PlaceholderPanel } from "@/components/settings/placeholder-panel";
+import {
+  LeaseTemplateDetailsDialog,
+  type LeaseTemplateDetails,
+} from "@/components/settings/lease-template-details-dialog";
+import {
+  PlaceholderPanel,
+  type PlaceholderPanelHandle,
+} from "@/components/settings/placeholder-panel";
+import {
+  RichTextEditor,
+  editorHtmlToBody,
+  type RichTextEditorHandle,
+} from "@/components/settings/rich-text-editor";
 import { TemplatePreview } from "@/components/settings/template-preview";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { usedPlaceholders } from "@/lib/lease-placeholders";
+import { tokensToChips, usedPlaceholders } from "@/lib/lease-placeholders";
 import {
-  LEASE_TEMPLATE_LANGUAGES,
   languageLabel,
   type LeaseTemplateLanguage,
 } from "@/lib/lease-template-options";
-import { isStarterBody, starterBody } from "@/lib/lease-template-starters";
+import { starterBody } from "@/lib/lease-template-starters";
 import type { LeaseTemplateDetail } from "@/lib/lease-templates";
 
 type FieldErrors = Partial<Record<string, string[]>>;
@@ -42,40 +41,67 @@ const LIST_URL = "/settings/lease-templates";
 /**
  * Writing or editing one template.
  *
- * A page rather than a dialog: a tenancy agreement is several screens of prose
- * with a reference panel beside it, and neither survives being put in a box you
- * can dismiss by clicking beside it.
+ * The page is the document. Name, language and description were asked for in
+ * the dialog that got you here, so they appear as a heading and a badge rather
+ * than as three fields competing with the contract for the top of the screen —
+ * `Edit details` reopens that dialog for the once-in-a-while case.
  */
 export function LeaseTemplateForm({
   template,
   isFirstTemplate = false,
+  initialDetails,
 }: {
   /** Absent when creating. */
   template?: LeaseTemplateDetail;
   /** True when the organization has no template yet — this one has to be the default. */
   isFirstTemplate?: boolean;
+  /** Carried over from the New-template dialog. */
+  initialDetails?: Partial<LeaseTemplateDetails>;
 }) {
   const router = useRouter();
   const editing = template !== undefined;
 
-  const [name, setName] = React.useState(template?.name ?? "");
-  const [description, setDescription] = React.useState(
-    template?.description ?? ""
-  );
-  const [language, setLanguage] = React.useState<LeaseTemplateLanguage>(
-    (template?.language as LeaseTemplateLanguage) ?? "en"
-  );
+  const [details, setDetails] = React.useState<LeaseTemplateDetails>({
+    name: template?.name ?? initialDetails?.name ?? "",
+    language:
+      (template?.language as LeaseTemplateLanguage) ??
+      initialDetails?.language ??
+      "en",
+    description: template?.description ?? initialDetails?.description ?? "",
+  });
+
+  /**
+   * The stored form: HTML with `{{token}}`s in it. The editor works in a
+   * different shape (tokens as chips) and hands this back on every change, so
+   * the server contract and every preview are unaffected by there being an
+   * editor at all.
+   */
   const [body, setBody] = React.useState(
-    template?.body ?? starterBody("en")
+    () => template?.body ?? starterBody(details.language)
   );
+
+  /**
+   * Seeded once. The editor is uncontrolled — see `RichTextEditor` — so this is
+   * what it reads on mount, not a value pushed on every keystroke.
+   */
+  const initialEditorHtml = React.useMemo(
+    () => tokensToChips(template?.body ?? starterBody(details.language)),
+    // Deliberately empty: reseeding on a body change would fight the caret.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const [isDefault, setIsDefault] = React.useState(template?.isDefault ?? false);
+  const [detailsOpen, setDetailsOpen] = React.useState(
+    // Landing on /new without going through the dialog — a typed URL, a stale
+    // bookmark — asks for the details here rather than dead-ending.
+    !editing && !initialDetails?.name
+  );
 
   /**
    * The default can only be moved by promoting another template, never by
    * demoting this one — so the box is checked and inert on the organization's
-   * first template and on the one already in force. Shown rather than
-   * silently overridden by the server, which is what a disabled checkbox is
-   * for.
+   * first template and on the one already in force.
    */
   const lockedDefault = editing ? template.isDefault : isFirstTemplate;
 
@@ -83,55 +109,12 @@ export function LeaseTemplateForm({
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
 
-  const bodyRef = React.useRef<HTMLTextAreaElement>(null);
+  const editorRef = React.useRef<RichTextEditorHandle>(null);
+  const panelRef = React.useRef<PlaceholderPanelHandle>(null);
   const used = React.useMemo(() => new Set(usedPlaceholders(body)), [body]);
 
-  /**
-   * Switching language swaps the starter — but only while the body still *is* a
-   * starter. Once a word of it has been edited it is someone's work, and
-   * replacing that because a dropdown moved would be the worst bug this page
-   * could have.
-   */
-  function handleLanguageChange(next: LeaseTemplateLanguage) {
-    setLanguage(next);
-    if (isStarterBody(body)) setBody(starterBody(next));
-  }
-
-  /**
-   * Where the caret belongs once React has committed an inserted token.
-   * Restoring it inside the click handler doesn't work: the textarea is
-   * controlled, so React writes `value` afterwards and takes the selection
-   * with it — the caret ended up at 0, and a second insert landed *before* the
-   * first. Held here and applied from an effect, which runs after the commit.
-   */
-  const pendingCaret = React.useRef<number | null>(null);
-
-  React.useEffect(() => {
-    const caret = pendingCaret.current;
-    if (caret === null) return;
-    pendingCaret.current = null;
-
-    const textarea = bodyRef.current;
-    if (!textarea) return;
-    textarea.focus();
-    textarea.setSelectionRange(caret, caret);
-  }, [body]);
-
-  function insertToken(token: string) {
-    const textarea = bodyRef.current;
-    if (!textarea) {
-      // The Preview tab is showing, so the textarea isn't mounted. The panel
-      // still promises a copy, so give one.
-      void navigator.clipboard?.writeText(token);
-      toast.success(`${token} copied`);
-      return;
-    }
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    // Straight after the token, not at the end of a two-hundred-line document.
-    pendingCaret.current = start + token.length;
-    setBody((current) => current.slice(0, start) + token + current.slice(end));
+  function handleEditorChange(html: string) {
+    setBody(editorHtmlToBody(html));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -146,9 +129,9 @@ export function LeaseTemplateForm({
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          description: description || null,
-          language,
+          name: details.name,
+          description: details.description || null,
+          language: details.language,
           body,
           isDefault,
         }),
@@ -156,7 +139,9 @@ export function LeaseTemplateForm({
     );
 
     if (response.ok) {
-      toast.success(editing ? "Template saved" : `“${name}” created`);
+      toast.success(
+        editing ? "Template saved" : `“${details.name}” created`
+      );
       router.push(LIST_URL);
       router.refresh();
       return;
@@ -173,157 +158,145 @@ export function LeaseTemplateForm({
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-xl font-semibold">
+              {details.name || "Untitled template"}
+            </h1>
+            <Badge variant="outline" className="rounded-full font-normal">
+              {languageLabel(details.language)}
+            </Badge>
+          </div>
+          {details.description && (
+            <p className="text-sm text-muted-foreground">
+              {details.description}
+            </p>
+          )}
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="bg-card"
+          onClick={() => setDetailsOpen(true)}
+        >
+          <PencilIcon />
+          Edit details
+        </Button>
+      </div>
+
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="template-name" required>
-                  Template name
-                </FieldLabel>
-                <Input
-                  id="template-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Residential tenancy agreement"
-                  required
-                  autoFocus
-                />
-                <FieldError
-                  errors={fieldErrors.name?.map((m) => ({ message: m }))}
-                />
-              </Field>
+        <div className="space-y-4">
+          <Tabs defaultValue="edit">
+            <TabsList variant="line">
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
 
-              <Field>
-                <FieldLabel htmlFor="template-language">Language</FieldLabel>
-                <Select
-                  value={language}
-                  onValueChange={(next) =>
-                    next && handleLanguageChange(next as LeaseTemplateLanguage)
-                  }
-                >
-                  <SelectTrigger id="template-language" className="w-full">
-                    <SelectValue>
-                      {(selected: string) => languageLabel(selected)}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LEASE_TEMPLATE_LANGUAGES.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError
-                  errors={fieldErrors.language?.map((m) => ({ message: m }))}
-                />
-              </Field>
-            </div>
-
-            <Field>
-              <FieldLabel htmlFor="template-description">Description</FieldLabel>
-              <Input
-                id="template-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Standard 12-month let for furnished units"
+            {/*
+              `keepMounted`-by-hand: the editor is uncontrolled, so unmounting
+              it on a tab switch and remounting it on the way back would reseed
+              from the *original* body and silently discard the edits made
+              since. Both panels stay mounted; only the inactive one is hidden.
+            */}
+            <TabsContent value="edit" className="pt-3" keepMounted>
+              <RichTextEditor
+                ref={editorRef}
+                initialHtml={initialEditorHtml}
+                onChange={handleEditorChange}
+                onRequestVariable={() => panelRef.current?.focusSearch()}
+                ariaLabel="Contract"
               />
-              <FieldDescription>
-                Optional — shown in the list, to tell two templates apart.
-              </FieldDescription>
               <FieldError
-                errors={fieldErrors.description?.map((m) => ({ message: m }))}
+                errors={fieldErrors.body?.map((m) => ({ message: m }))}
               />
-            </Field>
+            </TabsContent>
 
-            <Tabs defaultValue="editor">
-              <TabsList variant="line">
-                <TabsTrigger value="editor">Contract</TabsTrigger>
-                <TabsTrigger value="preview">Preview</TabsTrigger>
-              </TabsList>
+            <TabsContent value="preview" className="pt-3" keepMounted>
+              <TemplatePreview body={body} />
+            </TabsContent>
+          </Tabs>
 
-              <TabsContent value="editor" className="pt-3">
-                <Field>
-                  <FieldLabel htmlFor="template-body" required>
-                    Contract body
-                  </FieldLabel>
-                  <Textarea
-                    id="template-body"
-                    ref={bodyRef}
-                    value={body}
-                    onChange={(event) => setBody(event.target.value)}
-                    // field-sizing-content on the shared Textarea grows with a
-                    // whole contract; a fixed height with its own scrollbar
-                    // keeps the Save button reachable.
-                    className="h-[60vh] resize-y overflow-auto font-mono text-xs !text-xs"
-                    spellCheck={false}
-                    required
-                  />
-                  <FieldDescription>
-                    HTML. Click a placeholder on the right to drop it in at the
-                    cursor — it fills itself in from the lease when a contract
-                    is generated.
-                  </FieldDescription>
-                  <FieldError
-                    errors={fieldErrors.body?.map((m) => ({ message: m }))}
-                  />
-                </Field>
-              </TabsContent>
+          <Card>
+            <CardContent className="space-y-4">
+              <Field orientation="horizontal">
+                <Checkbox
+                  id="template-default"
+                  checked={lockedDefault || isDefault}
+                  disabled={lockedDefault}
+                  onCheckedChange={(checked) => setIsDefault(checked)}
+                />
+                <FieldLabel htmlFor="template-default" className="font-normal">
+                  Use this template by default for new contracts
+                  {lockedDefault && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      —{" "}
+                      {editing
+                        ? "already the default; promote another template to move it"
+                        : "your first template always is"}
+                    </span>
+                  )}
+                </FieldLabel>
+              </Field>
 
-              <TabsContent value="preview" className="pt-3">
-                <TemplatePreview body={body} />
-              </TabsContent>
-            </Tabs>
+              {formError && <FieldError>{formError}</FieldError>}
+              {fieldErrors.name && (
+                <FieldError
+                  errors={fieldErrors.name.map((m) => ({ message: m }))}
+                />
+              )}
 
-            <Field orientation="horizontal">
-              <Checkbox
-                id="template-default"
-                checked={lockedDefault || isDefault}
-                disabled={lockedDefault}
-                onCheckedChange={(checked) => setIsDefault(checked)}
-              />
-              <FieldLabel htmlFor="template-default" className="font-normal">
-                Use this template by default for new contracts
-                {lockedDefault && (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    — {editing
-                      ? "already the default; promote another template to move it"
-                      : "your first template always is"}
-                  </span>
-                )}
-              </FieldLabel>
-            </Field>
-
-            {formError && <FieldError>{formError}</FieldError>}
-
-            <div className="flex justify-end gap-2 border-t pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                nativeButton={false}
-                disabled={pending}
-                render={<Link href={LIST_URL} />}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending
-                  ? "Saving…"
-                  : editing
-                    ? "Save changes"
-                    : "Create template"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  nativeButton={false}
+                  disabled={pending}
+                  render={<Link href={LIST_URL} />}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={pending || details.name.trim().length === 0}
+                >
+                  {pending
+                    ? "Saving…"
+                    : editing
+                      ? "Save changes"
+                      : "Create template"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="lg:sticky lg:top-4">
-          <PlaceholderPanel onInsert={insertToken} used={used} />
+          <PlaceholderPanel
+            ref={panelRef}
+            onInsert={(key) => editorRef.current?.insertVariable(key)}
+            used={used}
+          />
         </div>
       </div>
+
+      {/* Remounted per open so it re-seeds from the current values. */}
+      <LeaseTemplateDetailsDialog
+        key={String(detailsOpen)}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        initial={details}
+        editing
+        submitLabel="Save details"
+        onSubmit={(next) => {
+          setDetails(next);
+          setDetailsOpen(false);
+        }}
+      />
     </form>
   );
 }

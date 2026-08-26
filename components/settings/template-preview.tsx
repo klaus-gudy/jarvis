@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
+import { CONTRACT_CSS } from "@/lib/lease-document-style";
 import {
   LEASE_PLACEHOLDERS,
   placeholderToken,
@@ -22,8 +23,8 @@ type Mode = "sample" | "tokens";
  * in the highlighting.
  */
 const PREVIEW_STYLE = `
-  html { background: #fff; }
-  body { margin: 0; color: #1a1a1a; font-family: "Times New Roman", Times, serif; }
+  html, body { background: #fff; margin: 0; }
+  ${CONTRACT_CSS}
   mark.jarvis-ph {
     background: #fdf0c4;
     color: inherit;
@@ -46,7 +47,7 @@ const TOKEN_VALUES = Object.fromEntries(
 );
 
 export function TemplatePreview({ body }: { body: string }) {
-  const [mode, setMode] = React.useState<Mode>("sample");
+  const [mode, setMode] = React.useState<Mode>("tokens");
 
   const { srcDoc, unknown } = React.useMemo(() => {
     const rendered = renderLeaseTemplate(body, {
@@ -56,34 +57,28 @@ export function TemplatePreview({ body }: { body: string }) {
     });
 
     return {
-      srcDoc: `<!doctype html><html><head><meta charset="utf-8"><style>${PREVIEW_STYLE}</style></head><body>${rendered.html}</body></html>`,
+      srcDoc: `<!doctype html><html><head><meta charset="utf-8"><style>${PREVIEW_STYLE}</style></head><body class="jarvis-doc">${rendered.html}</body></html>`,
       unknown: rendered.unknown,
     };
   }, [body, mode]);
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-          <ModeButton
-            active={mode === "sample"}
-            onClick={() => setMode("sample")}
-          >
-            Sample data
-          </ModeButton>
           <ModeButton
             active={mode === "tokens"}
             onClick={() => setMode("tokens")}
           >
             Placeholders
           </ModeButton>
+          <ModeButton
+            active={mode === "sample"}
+            onClick={() => setMode("sample")}
+          >
+            Sample data
+          </ModeButton>
         </div>
-
-        <p className="text-xs text-muted-foreground">
-          {mode === "sample"
-            ? "Example values — a real lease fills these from its own record."
-            : "Every token this template will ask the database for."}
-        </p>
       </div>
 
       {unknown.length > 0 && (
