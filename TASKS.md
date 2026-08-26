@@ -1129,6 +1129,33 @@ Feedback pass. The editor was HTML in a `<textarea>` with the token syntax on sh
 - [ ] **`npm run build` while `next dev` is running corrupts the dev server** — it overwrites `.next` underneath it, and the running server then serves stale chunks (this pass surfaced as a phantom `ReferenceError: Tabs is not defined` for code that no longer existed). Fix is `rm -rf .next` and restart. Worth remembering before blaming a build error on the source
 - [ ] Everything still open from Phases 75 and 76: `execCommand` deprecation, no undo/redo buttons, no contract generation UI, no versioning, no preview against a real lease
 
+## Phase 78 — Feedback: shorter copy, tooltip, a leaner toolbar, visible lists and tables, unsaved-changes bar
+
+- [x] **"already the default; promote another to move it" → "already the default"**, in both the create dialog and the edit-details dialog (one component, `LeaseTemplateDetailsDialog`, serves both)
+- [x] **The placeholder panel's footer caption is now a tooltip** on an info glyph beside "Variables" — `Tooltip`/`TooltipTrigger`/`TooltipContent` from `components/ui/tooltip.tsx`, the root layout's existing `TooltipProvider`. The panel is shorter by a paragraph that only mattered the first time anyone saw it
+- [x] **Font and text colour removed from the toolbar.** A contract has one voice, not five typefaces, and colour was the one control with no place in a printed agreement. Highlight (a single fixed gold) stays — marking a clause for attention is a different thing from choosing an arbitrary colour
+- [x] **Fixed: bulleted lists, numbered lists and tables rendered nothing.** Two separate causes, both in `lib/lease-document-style.ts`:
+  - Tailwind's Preflight sets `list-style: none` on every `ul`/`ol` **in the app's own page** — invisible to the preview iframe (a separate document Tailwind never reaches) but stripping every bullet and number inside the editor, which shares the page. `.jarvis-doc ul { list-style: disc }` / `ol { list-style: decimal }` restates the browser default explicitly, scoped so nothing outside the document surface is touched
+  - A plain `<table>` has no visible border in any browser by default — the insert wasn't broken, there was just nothing to see. `.jarvis-doc table td/th` now carries a real `1px solid #999`; `.signatures` (both starters' sign-off block) is explicitly exempted, since it lays out with the `.rule` underline rather than a grid and was never meant to show cell lines. The editor's old dashed-outline-on-`td` override is gone — the real border does that job in both the editor and the preview now, so it no longer needs a separate, weaker one
+- [x] **A top "Unsaved changes" bar**, Reset + Save/Create, appearing only when `mode === "edit"` **and** something has actually changed. "Changed" compares the live `body` and `details` against a baseline captured once at mount via a lazy `useState` initializer — not a `useRef`, because the new React Compiler lint rule (`react-hooks/refs`) flags reading `ref.current` during render, and `isDirty` is computed every render. Reset restores both to that baseline and bumps `RichTextEditor`'s `documentKey`, which forces it to reseed from the *same* `initialEditorHtml` it started with — no second copy of the starting HTML needed
+- [x] The bottom Cancel/Save row is unchanged and still the reliable path; the top bar is a shortcut that only exists when it has something to say
+- [x] Verified in the browser: tooltip fires on hover; a numbered list (existing, in the starter) renders `1. 2. 3.`; a bulleted list created live from the toolbar renders a disc; a table inserted from the toolbar shows a real grid while the signature table stays borderless; typing produces the top bar, Reset removes it and reverts the document exactly (table and list both gone, content back to the untouched starter); Preview shows no top bar regardless of edits; a fresh tab's console has one pre-existing, unrelated `InvalidStateError` from React's page `<ViewTransition>` under rapid programmatic navigation (see the 2026-08-13 decision log entries) and nothing else
+- [x] `tsc`, lint (0 errors, the same 3 pre-existing warnings) and a clean `npm run build` with the dev server stopped first
+
+### Not done
+- [ ] Everything already open from Phases 75–77: `execCommand` deprecation, no undo/redo buttons, no contract generation UI, no versioning, no preview against a real lease, no font/size reflecting the caret position
+
+## Phase 79 — Feedback: one action row, no bottom footer
+
+- [x] **The bottom Cancel / Save row is gone.** Every action for the page now lives on the header row, level with the title — Reset (when there's something to throw away), the Preview/Sample-data toggle, and Save/Create, in that order, ending with Save as the page's one primary action
+- [x] **Save had to stop being conditional on `isDirty`** once it lost its second, always-visible copy at the bottom: a brand-new template built entirely from the untouched starter is still something to save, even though nothing has technically *changed*. It is now always present, disabled only when there's a name but no organization-facing reason to submit — `pending`, an empty name, or (editing an existing template specifically) no pending changes. Reset stays conditional on `isDirty`, since resetting nothing is a button with no job
+- [x] Leaving the page without saving is still one click away via the existing "← All templates" link at the top of the page — that was never the removed button's job, so nothing was lost by dropping it
+- [x] Verified in the browser: an unmodified existing template shows Preview + a disabled Save, no Reset, no bottom row; typing produces Reset and an enabled Save on the same row as Preview; Reset removes both the edit and itself, restoring the exact original content; a brand-new template (untouched starter) shows an *enabled* "Create template" immediately, with no dead-end requiring an edit first
+- [x] `tsc`, lint (0 errors, same 3 pre-existing warnings) and a clean `npm run build` with the dev server stopped first
+
+### Not done
+- [ ] Everything already open from Phases 75–78.
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

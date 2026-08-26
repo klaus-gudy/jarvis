@@ -177,19 +177,6 @@ export const RichTextEditor = React.forwardRef<
           </SelectContent>
         </Select>
 
-        <Select value="" onValueChange={(next) => next && run("fontName", next)}>
-          <SelectTrigger size="sm" className="w-[5.5rem] bg-background">
-            <SelectValue placeholder="Font">{() => "Font"}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {FONTS.map((font) => (
-              <SelectItem key={font} value={font}>
-                {font}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <Select value="" onValueChange={(next) => next && run("fontSize", next)}>
           <SelectTrigger size="sm" className="w-[3.75rem] bg-background">
             <SelectValue placeholder="Size">{() => "Size"}</SelectValue>
@@ -219,25 +206,6 @@ export const RichTextEditor = React.forwardRef<
         </ToolButton>
 
         <Divider />
-
-        {/*
-          A native colour input rather than a swatch popover: it is one element,
-          it is keyboard reachable, and every platform already knows how to show
-          its own picker.
-        */}
-        <label
-          className="flex size-7 cursor-pointer items-center justify-center rounded-md hover:bg-accent/20"
-          title="Text colour"
-        >
-          <span className="size-4 rounded-xs border border-foreground/30 bg-foreground" />
-          <input
-            type="color"
-            className="sr-only"
-            defaultValue="#1a1a1a"
-            onMouseDown={() => restoreSelection()}
-            onChange={(event) => run("foreColor", event.target.value)}
-          />
-        </label>
 
         <ToolButton
           label="Highlight"
@@ -336,8 +304,6 @@ const BLOCK_FORMATS = [
   { value: "h2", label: "Centred heading" },
   { value: "h3", label: "Section heading" },
 ];
-
-const FONTS = ["Times New Roman", "Georgia", "Arial", "Calibri", "Courier New"];
 
 /** `fontSize` takes 1–7, so the labels are the nearest familiar point sizes. */
 const FONT_SIZES = [

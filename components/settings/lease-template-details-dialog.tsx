@@ -171,10 +171,7 @@ export function LeaseTemplateDetailsDialog({
                 {lockedDefault && (
                   <span className="text-muted-foreground">
                     {" "}
-                    —{" "}
-                    {editing
-                      ? "already the default; promote another to move it"
-                      : "your first template always is"}
+                    — {editing ? "already the default" : "your first template always is"}
                   </span>
                 )}
               </FieldLabel>

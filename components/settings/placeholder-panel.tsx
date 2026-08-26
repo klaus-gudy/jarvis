@@ -1,10 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { SearchIcon } from "lucide-react";
+import { InfoIcon, SearchIcon } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   LEASE_PLACEHOLDERS,
   PLACEHOLDER_GROUP_ORDER,
@@ -59,9 +64,23 @@ export const PlaceholderPanel = React.forwardRef<
     <Card className="gap-0 py-0">
       <CardContent className="px-0">
         <div className="space-y-2.5 px-4 py-3.5">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Variables
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Variables
+            </p>
+            <Tooltip>
+              <TooltipTrigger
+                className="flex size-4 items-center justify-center rounded-full text-muted-foreground/70 hover:text-muted-foreground"
+                aria-label="How variables work"
+              >
+                <InfoIcon className="size-3.5" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-56">
+                Click one to drop it in at the cursor. Each fills itself in
+                from the lease when a contract is generated.
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <div className="relative">
             <SearchIcon
               className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -124,11 +143,6 @@ export const PlaceholderPanel = React.forwardRef<
             })
           )}
         </div>
-
-        <p className="border-t px-4 py-3 text-xs text-muted-foreground">
-          Click one to drop it in at the cursor. Each fills itself in from the
-          lease when a contract is generated.
-        </p>
       </CardContent>
     </Card>
   );

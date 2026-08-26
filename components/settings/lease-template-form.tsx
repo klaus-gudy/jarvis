@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { EyeIcon, PencilIcon, SettingsIcon } from "lucide-react";
+import { EyeIcon, PencilIcon, RotateCcwIcon, SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -92,6 +91,18 @@ export function LeaseTemplateForm({
     []
   );
 
+  /**
+   * What "unsaved changes" is measured against. A lazy `useState` initializer
+   * rather than a ref: its setter is never called, so the value is stable
+   * across renders exactly like a ref would be, but reading it during render
+   * (for `isDirty`, below) doesn't trip the rule against reading ref values
+   * outside an effect or handler.
+   */
+  const [baselineBody] = React.useState(body);
+  const [baselineDetails] = React.useState(details);
+  /** Bumped to force `RichTextEditor` to reseed from `initialEditorHtml` on Reset. */
+  const [resetCount, setResetCount] = React.useState(0);
+
   const [detailsOpen, setDetailsOpen] = React.useState(
     // Landing on /new without going through the dialog — a typed URL, a stale
     // bookmark — asks for the details here rather than dead-ending.
@@ -112,6 +123,16 @@ export function LeaseTemplateForm({
    */
   const [mode, setMode] = React.useState<"edit" | "preview">("edit");
   const [previewMode, setPreviewMode] = React.useState<PreviewMode>("tokens");
+
+  const isDirty =
+    body !== baselineBody ||
+    JSON.stringify(details) !== JSON.stringify(baselineDetails);
+
+  function handleReset() {
+    setBody(baselineBody);
+    setDetails(baselineDetails);
+    setResetCount((count) => count + 1);
+  }
 
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -193,6 +214,11 @@ export function LeaseTemplateForm({
           </Button>
         </div>
 
+        {/*
+          Every action for the page lives on this one row, level with Preview —
+          there is no second, bottom-of-page copy of Save any more, so this is
+          the only place it can be reached from.
+        */}
         <div className="flex items-center gap-2">
           {/*
             Only while previewing: which values fill the gaps is a question the
@@ -214,6 +240,21 @@ export function LeaseTemplateForm({
             </Button>
           )}
 
+          {/* Only once there is something to throw away. */}
+          {isDirty && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="bg-card"
+              onClick={handleReset}
+              disabled={pending}
+            >
+              <RotateCcwIcon />
+              Reset
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="outline"
@@ -225,6 +266,28 @@ export function LeaseTemplateForm({
           >
             {mode === "edit" ? <EyeIcon /> : <PencilIcon />}
             {mode === "edit" ? "Preview" : "Edit"}
+          </Button>
+
+          {/*
+            Always reachable, unlike Reset: a brand-new template built entirely
+            from the untouched starter is still something to save, even though
+            nothing has been *changed* yet. Disabled once an existing template
+            has no pending changes — there is nothing to resubmit.
+          */}
+          <Button
+            type="submit"
+            size="sm"
+            disabled={
+              pending ||
+              details.name.trim().length === 0 ||
+              (editing && !isDirty)
+            }
+          >
+            {pending
+              ? "Saving…"
+              : editing
+                ? "Save changes"
+                : "Create template"}
           </Button>
         </div>
       </div>
@@ -241,6 +304,7 @@ export function LeaseTemplateForm({
             <RichTextEditor
               ref={editorRef}
               initialHtml={initialEditorHtml}
+              documentKey={String(resetCount)}
               onChange={handleEditorChange}
               onRequestVariable={() => panelRef.current?.focusSearch()}
               ariaLabel="Contract"
@@ -260,28 +324,6 @@ export function LeaseTemplateForm({
               errors={fieldErrors.name.map((m) => ({ message: m }))}
             />
           )}
-
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              nativeButton={false}
-              disabled={pending}
-              render={<Link href={LIST_URL} />}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={pending || details.name.trim().length === 0}
-            >
-              {pending
-                ? "Saving…"
-                : editing
-                  ? "Save changes"
-                  : "Create template"}
-            </Button>
-          </div>
         </div>
 
         <div className="lg:sticky lg:top-4">
