@@ -67,7 +67,7 @@ export function AppSidebar({
                   <NavGroup
                     key={item.url}
                     item={item}
-                    isActive={item.url === activeItem?.url}
+                    containsActive={item.url === activeItem?.url}
                     activeSubItemUrl={activeSubItem?.url}
                     onNavigate={handleNavigate}
                   />
@@ -109,22 +109,27 @@ export function AppSidebar({
  * would make the parent inert; so a click there expands the sidebar first. That
  * keeps one interaction ("click Settings, see what's under it") true in both
  * states instead of two rules to learn.
+ *
+ * `containsActive` says you are somewhere inside this group. It opens the
+ * group; it deliberately does **not** highlight the parent. Active means "this
+ * is the page you are on", and a parent with children is never that — lighting
+ * both it and the child puts two active pills on screen for one location.
  */
 function NavGroup({
   item,
-  isActive,
+  containsActive,
   activeSubItemUrl,
   onNavigate,
 }: {
   item: NavItem
-  isActive: boolean
+  containsActive: boolean
   activeSubItemUrl: string | undefined
   onNavigate: () => void
 }) {
   const { state, setOpen, isMobile } = useSidebar()
   // Starts open when you are already inside it, so arriving on a child page by
   // any route (a link, a refresh, the back button) shows where you are.
-  const [open, setOpenGroup] = React.useState(isActive)
+  const [open, setOpenGroup] = React.useState(containsActive)
 
   function handleClick() {
     if (!isMobile && state === "collapsed") {
@@ -137,9 +142,9 @@ function NavGroup({
 
   return (
     <SidebarMenuItem>
+      {/* No `isActive`: see the note above — the highlighted item is the child. */}
       <SidebarMenuButton
         className="h-10"
-        isActive={isActive}
         tooltip={item.title}
         onClick={handleClick}
         aria-expanded={open}

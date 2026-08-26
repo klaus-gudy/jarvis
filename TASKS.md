@@ -1070,6 +1070,7 @@ A `Settings` group in the sidebar with `Lease templates` under it: contract word
 - [x] **A View action (eye) on every row**, leading the three. Double-clicking a row already opened the template, but a double-click is not an affordance anyone finds. It opens a **read-only dialog** rather than the editor — the same split the Units table makes between its view dialog and its form, so the eye and the pencil never mean the same thing
 - [x] The dialog **fetches the body when the action fires**, not with the row. `getLeaseTemplates` already reads every body to count placeholders; carrying them into the client would ship a list of contracts to render four columns of metadata
 - [x] **Description is its own column**, not a second line under the name. It was competing with the template name for the same cell, and a table that has room for a column should use one
+- [x] **A parent with children is never active.** `containsActive` now says only "you are somewhere inside this group" — it opens the group and nothing else. Active means "this is the page you are on", and lighting both Settings and Lease templates put two pills on screen for one location. Verified: the parent carries no `data-active` and a transparent background while the child carries both, in the rail and in the mobile drawer
 - [x] `tsc`, lint (0 errors) clean; verified in both themes
 
 ### Not done
