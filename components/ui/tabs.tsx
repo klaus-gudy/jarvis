@@ -24,7 +24,13 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-8 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
+  // A horizontal strip scrolls sideways rather than running off the screen:
+  // four tabs with count badges (a lease's Overview/Billing/Contract/Documents)
+  // overflow 375px, and with the strip clipped the last tab was unreachable on
+  // a phone. `no-scrollbar` because the row is short enough to swipe and a
+  // scrollbar under the tabs reads as a second underline. The active tab's own
+  // `after:` indicator sits within the box, so it survives the clip.
+  "group/tabs-list no-scrollbar inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-8 group-data-horizontal/tabs:overflow-x-auto group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
   {
     variants: {
       variant: {

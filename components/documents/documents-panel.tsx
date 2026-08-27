@@ -8,6 +8,7 @@ import {
   FileIcon,
   FileTextIcon,
   ImageIcon,
+  MoreVerticalIcon,
   PlusIcon,
   Trash2Icon,
   UploadIcon,
@@ -28,6 +29,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Table,
   TableBody,
   TableCell,
@@ -35,6 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { AssetTypeView } from "@/lib/asset-types";
 import type { DocumentView } from "@/lib/document-options";
 import { formatDate } from "@/lib/format";
@@ -96,6 +105,9 @@ export function DocumentsPanel({
   allowUpload?: boolean;
 }) {
   const router = useRouter();
+  // `useIsMobile` reports desktop on the server, so the first client render
+  // matches the server markup and only then swaps — no hydration mismatch.
+  const isMobile = useIsMobile();
   const [uploadOpen, setUploadOpen] = React.useState(false);
   // Which type the dialog should open pre-selected to — set when a row's own
   // Upload button was clicked, null for the general toolbar button. Folded
@@ -105,6 +117,9 @@ export function DocumentsPanel({
   const [presetTypeId, setPresetTypeId] = React.useState<string | null>(null);
   const [viewing, setViewing] = React.useState<DocumentView | null>(null);
   const [deleting, setDeleting] = React.useState<DocumentView | null>(null);
+  // The document whose actions sheet is open — mobile's stand-in for the row
+  // of icon buttons, which is unreachable at 28px a side on a phone.
+  const [actionsFor, setActionsFor] = React.useState<DocumentView | null>(null);
   const [pending, setPending] = React.useState(false);
 
   function openUpload(typeId: string | null) {
@@ -119,6 +134,7 @@ export function DocumentsPanel({
   const missingTypes = allowUpload
     ? assetTypes.filter((type) => !uploadedTypeIds.has(type.id))
     : [];
+  const isEmpty = documents.length + missingTypes.length === 0;
 
   async function handleDelete() {
     if (!deleting) return;
@@ -151,18 +167,104 @@ export function DocumentsPanel({
         </div>
       )}
 
-      <Card>
-        <CardContent
-          className={documents.length + missingTypes.length > 0 ? "px-0" : undefined}
-        >
-          {documents.length + missingTypes.length === 0 ? (
+      {/*
+        The desktop table has five columns and a strip of three icon buttons;
+        below 768px it either scrolls sideways or crushes to nothing, so the
+        same rows become cards — the shape every other list in the app
+        (`DataTable`'s `renderCard`) already takes on a phone. The actions move
+        into a bottom sheet for the same reason they do there.
+      */}
+      {isEmpty ? (
+        <Card>
+          <CardContent>
             <p className="py-6 text-center text-sm text-muted-foreground">
               {emptyMessage}
             </p>
-          ) : (
-            // No scroll wrapper here: `Table` already renders its own
-            // `data-slot="table-container"` with `overflow-x-auto`, and nesting
-            // a second one just creates a scroller that never scrolls.
+          </CardContent>
+        </Card>
+      ) : isMobile ? (
+        <ul className="space-y-2.5">
+          {documents.map((document) => (
+            <li
+              key={document.id}
+              className="flex items-start gap-1 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10"
+            >
+              {/* The whole card body opens the viewer, not a 16px file name —
+                  the desktop row's tap target scaled to the medium. */}
+              <button
+                type="button"
+                onClick={() => setViewing(document)}
+                className="min-w-0 flex-1 space-y-1.5 text-left outline-none"
+              >
+                <div className="flex items-center gap-2">
+                  <DocumentIcon fileType={document.fileType} />
+                  <span className="truncate text-sm font-medium">
+                    {document.fileName}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Badge variant="outline" className="font-normal">
+                    {document.assetType.label}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(new Date(document.createdAt))}
+                    {document.uploadedByName
+                      ? ` · ${document.uploadedByName}`
+                      : ""}
+                  </span>
+                </div>
+              </button>
+
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="-mr-1 shrink-0"
+                aria-label={`Actions for ${document.fileName}`}
+                onClick={() => setActionsFor(document)}
+              >
+                <MoreVerticalIcon />
+              </Button>
+            </li>
+          ))}
+
+          {missingTypes.map((type) => (
+            <li
+              key={type.id}
+              className="flex items-center gap-3 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10"
+            >
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <FileIcon className="size-4 shrink-0" />
+                  <span className="truncate text-sm italic">Not uploaded</span>
+                </div>
+                <Badge variant="outline" className="font-normal">
+                  {type.label}
+                </Badge>
+              </div>
+
+              {/* Stays a visible button rather than folding into the sheet:
+                  it is the row's only action, and burying one action behind a
+                  menu costs a tap for nothing. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => openUpload(type.id)}
+              >
+                <UploadIcon />
+                Upload
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Card>
+          <CardContent className="px-0">
+            {/* No scroll wrapper here: `Table` already renders its own
+                `data-slot="table-container"` with `overflow-x-auto`, and
+                nesting a second one just creates a scroller that never
+                scrolls. */}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -280,14 +382,84 @@ export function DocumentsPanel({
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <DocumentViewerDialog
         document={viewing}
         onClose={() => setViewing(null)}
       />
+
+      {/*
+        Mobile's replacement for the desktop row's three icon buttons. Same
+        three actions in the same order, at a size a thumb can hit — and the
+        bottom sheet is the shape `DataTable` already uses for row actions on
+        a phone, so this reads the same as every other list in the app.
+      */}
+      <Sheet
+        open={actionsFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setActionsFor(null);
+        }}
+      >
+        <SheetContent side="bottom">
+          <SheetHeader>
+            <SheetTitle className="truncate">{actionsFor?.fileName}</SheetTitle>
+            <SheetDescription className="sr-only">
+              Choose an action for this document.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col gap-1 px-4 pb-6">
+            <Button
+              variant="ghost"
+              className="h-11 justify-start gap-3 px-3 text-sm"
+              onClick={() => {
+                // Closed first: the viewer is a dialog, and two layered
+                // overlays trap focus in the wrong one.
+                const document = actionsFor;
+                setActionsFor(null);
+                setViewing(document);
+              }}
+            >
+              <EyeIcon />
+              View
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="h-11 justify-start gap-3 px-3 text-sm"
+              nativeButton={false}
+              render={
+                <a
+                  href={
+                    actionsFor
+                      ? `/api/documents/${actionsFor.id}?download`
+                      : undefined
+                  }
+                />
+              }
+              onClick={() => setActionsFor(null)}
+            >
+              <DownloadIcon />
+              Download
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="h-11 justify-start gap-3 px-3 text-sm text-destructive hover:text-destructive"
+              onClick={() => {
+                const document = actionsFor;
+                setActionsFor(null);
+                setDeleting(document);
+              }}
+            >
+              <Trash2Icon />
+              Delete
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <DocumentUploadDialog
         key={`${uploadOpen}:${presetTypeId ?? ""}`}
