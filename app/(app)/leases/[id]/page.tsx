@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { BillingTab } from "@/components/leases/billing-tab";
+import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ContractTab } from "@/components/leases/contract-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { InvoiceProgress } from "@/components/leases/invoice-progress";
@@ -50,8 +51,31 @@ export default async function LeaseDetailPage({
   ]);
   if (!lease) notFound();
 
-  const hasContract = documents.some(
-    (document) => document.assetType.id === LEASE_CONTRACT_TYPE_ID
+  /*
+    Split the same way a property splits Images from Documents: the generated
+    contract on one tab, the papers people file on the other. The predicate is
+    the seeded type's id rather than a column, because exactly one type is
+    machine-made and inventing an `isGenerated` column for it would be a
+    migration to express something a constant already says.
+  */
+  const serialise = (document: (typeof documents)[number]) => ({
+    ...document,
+    // Dates must be serialisable to cross the server/client boundary.
+    createdAt: document.createdAt.toISOString(),
+  });
+
+  const contracts = documents
+    .filter((document) => document.assetType.id === LEASE_CONTRACT_TYPE_ID)
+    .map(serialise);
+  const papers = documents
+    .filter((document) => document.assetType.id !== LEASE_CONTRACT_TYPE_ID)
+    .map(serialise);
+
+  const contractTypes = documentAssetTypes.filter(
+    (type) => type.id === LEASE_CONTRACT_TYPE_ID
+  );
+  const paperTypes = documentAssetTypes.filter(
+    (type) => type.id !== LEASE_CONTRACT_TYPE_ID
   );
 
   const { tenant, unit, property } = lease;
@@ -114,8 +138,21 @@ export default async function LeaseDetailPage({
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="contract" className="flex-none px-3">
+          <TabsTrigger value="contract" className="flex-none gap-2 px-3">
             Contract
+            {contracts.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {contracts.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex-none gap-2 px-3">
+            Documents
+            {papers.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {papers.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -325,14 +362,18 @@ export default async function LeaseDetailPage({
         <TabsContent value="contract" className="pt-5">
           <ContractTab
             leaseId={lease.id}
-            reference={lease.reference}
-            hasContract={hasContract}
-            assetTypes={documentAssetTypes}
-            documents={documents.map((document) => ({
-              ...document,
-              // Dates must be serialisable to cross the server/client boundary.
-              createdAt: document.createdAt.toISOString(),
-            }))}
+            assetTypes={contractTypes}
+            documents={contracts}
+          />
+        </TabsContent>
+
+        <TabsContent value="documents" className="pt-5">
+          <DocumentsPanel
+            subjectType="LEASE"
+            subjectId={lease.id}
+            assetTypes={paperTypes}
+            documents={papers}
+            emptyMessage="No documents yet. Upload the signed agreement, an amendment or a termination notice to keep it on file."
           />
         </TabsContent>
       </Tabs>

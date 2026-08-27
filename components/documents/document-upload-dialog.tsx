@@ -87,6 +87,15 @@ export function DocumentUploadDialog({
 
   const assetType = assetTypes.find((type) => type.id === assetTypeId) ?? null;
 
+  /**
+   * Opened from a type's own row, so the type is not a question. Shown
+   * disabled rather than hidden — the same choice `PhotoUploadDialog` makes:
+   * the field still says what is being filed, it just cannot be changed into
+   * something the row did not ask for. Reaching a different type is what the
+   * toolbar's own button is for.
+   */
+  const lockedType = initialAssetTypeId !== null;
+
   // Photo types take images only, everything else takes PDFs too — so the
   // accepted table follows the dropdown rather than being fixed for the dialog.
   const accepted = acceptedTypesFor(assetType?.isPhoto ?? false);
@@ -191,7 +200,7 @@ export function DocumentUploadDialog({
                 subject={subjectType}
                 isPhoto={false}
                 disabledTypeIds={takenTypeIds}
-                disabled={pending}
+                disabled={pending || lockedType}
                 onCreated={(created) => {
                   setAssetTypes((current) => [...current, created]);
                   setAssetTypeId(created.id);

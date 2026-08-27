@@ -2,6 +2,7 @@ import { createDocument, deleteDocument } from "@/lib/documents";
 import { CONTRACT_CSS } from "@/lib/lease-document-style";
 import { generateLeaseContract } from "@/lib/lease-templates";
 import { htmlToPdf } from "@/lib/pdf";
+import { leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -139,4 +140,50 @@ export async function generateAndStoreContract(
       message: cause instanceof Error ? cause.message : String(cause),
     };
   }
+}
+
+export type LeaseMissingContract = {
+  leaseId: string;
+  organizationId: string;
+  reference: string;
+};
+
+/**
+ * Leases with no generated contract on file.
+ *
+ * The recovery for everything the event path cannot reach on its own: leases
+ * signed before contracts existed, ones whose render dead-lettered twice, and
+ * ones created while the broker or the worker was down. Scoped through the
+ * membership, matching every other lease query — an `organizationId` narrows
+ * it to one tenancy, omitting it sweeps them all, which is what an operator
+ * running a one-off backfill actually wants.
+ */
+export async function findLeasesMissingContracts(
+  organizationId?: string,
+  limit?: number
+): Promise<LeaseMissingContract[]> {
+  const leases = await prisma.lease.findMany({
+    where: {
+      ...(organizationId
+        ? {
+            membership: { organizationId },
+            unit: { property: { organizationId } },
+          }
+        : {}),
+      // `none` rather than filtering in JS: the count of leases *with* a
+      // contract grows without bound, and this only ever wants the gap.
+      fileAssets: { none: { assetTypeId: LEASE_CONTRACT_TYPE_ID } },
+    },
+    // Oldest first, so a partial run makes predictable progress rather than
+    // re-doing the same head of the list each time.
+    orderBy: { createdAt: "asc" },
+    ...(limit ? { take: limit } : {}),
+    select: { id: true, membership: { select: { organizationId: true } } },
+  });
+
+  return leases.map((lease) => ({
+    leaseId: lease.id,
+    organizationId: lease.membership.organizationId,
+    reference: leaseReference(lease.id),
+  }));
 }

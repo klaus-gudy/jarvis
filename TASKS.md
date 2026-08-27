@@ -1185,6 +1185,44 @@ A lease is signed, an event goes on the bus, and a worker turns the default temp
 - [ ] The worker renders **one contract at a time** (`PREFETCH = 1`). Correct while a browser context is the expensive part; a bulk import creating fifty leases would queue behind it
 - [ ] Nothing generates a contract on **renewal** — `lease.renewed` exists as a mail routing key but is not a domain event, so an auto-renewed lease keeps its old contract
 
+## Phase 81 — Contract and Documents split; the event is the only path
+
+- [x] **Contract and Documents are separate tabs on a lease**, the same split a property makes between Images and Documents: one tab holds what the system produced, the other holds what people file. They are read for different reasons and only one of them is uploaded into. Both carry a count badge that hides at zero, matching the convention everywhere else
+- [x] The predicate is the seeded type's **id**, not a new column. Exactly one lease type is machine-made, and an `isGenerated` column would be a migration to express what `LEASE_CONTRACT_TYPE_ID` already says. The property page splits on `isPhoto` because *several* types share that property; this does not
+- [x] **"Generated contract" is gone from the Documents dropdown**, because `paperTypes` excludes it — so there is no way to hand-upload something into the slot the worker owns
+- [x] **The Generate button and its caption are both gone.** The contract is made when `lease.created` lands on the bus, and a button beside it would be a second way to do one thing, leaving the tab to explain which is authoritative. `POST /api/leases/[id]/contract` still exists for a backfill or a retry — it just isn't a control anyone has to think about
+- [x] `DocumentsPanel` gains **`allowUpload`** (default true). False hides the toolbar button *and* the "Not uploaded" checklist rows — those rows are an invitation to upload, and on a generated list that invitation is a dead end. The Contract tab passes false and reuses the same table, so view / download / delete are the identical code path
+- [x] **A row's Upload button now locks the type.** Opened from "Signed agreement", the dialog files a signed agreement — the field still *shows* what is being filed but cannot be changed into something the row did not ask for, the same inert-field choice `PhotoUploadDialog` made in Phase 71. Derived from `initialAssetTypeId !== null` rather than a second prop, since that already means "opened from a type's own row". The toolbar button is unaffected and still chooses freely
+- [x] Verified in the browser: Contract tab shows only `contract-L-OW5LY.pdf` with no caption and no buttons; Documents shows the five human-filed types with Upload; a row's dialog opens preset and **genuinely inert** (`disabled: true`, and clicking it yields 0 options) while the toolbar's opens with all five plus "Add a type…"; **the stored link serves** — `/api/documents/<id>` returned 200, `application/pdf`, `inline; filename="contract-L-OW5LY.pdf"`, 104,269 bytes matching `sizeBytes` exactly
+- [x] Verified the priority path again after the tab changes: creating a lease through the API filed `contract-L-R1ZQG.pdf` with **no manual step**. Also confirmed the durable queue does its job — a message for L-OW5LY had been waiting while the worker was stopped, and was processed on startup
+- [x] Test lease, its contract row and its object all removed afterwards; two real contracts remain with no orphaned objects. `tsc`, lint (0 errors) and a clean `npm run build`
+
+### Not done
+- [ ] **With no Generate button, a lease that missed its contract has no on-screen recovery.** Leases created before Phase 80, and any whose render dead-lettered, will show an empty Contract tab forever. The API endpoint is the recovery and nothing in the UI reaches it — a backfill script, or surfacing the endpoint on a failed state, is the real fix
+- [ ] Still no **generating / failed status**: an empty Contract tab means "not made yet", "being made right now" and "dead-lettered twice" indistinguishably. This is the gap the missing button makes sharper, not one it caused
+- [ ] Everything else still open from Phase 80: lease deletion orphans the object in MinIO, the worker is an unprovisioned second process, the DLQ has no drain, regeneration is unversioned, and renewal generates nothing
+
+## Phase 82 — Backfill for leases missing contracts
+
+The recovery Phase 81 left open, in both shapes: one lease from the page, every lease from the command line.
+
+- [x] **`findLeasesMissingContracts(organizationId?, limit?)`** in `lib/contracts.ts` — `fileAssets: { none: { assetTypeId: LEASE_CONTRACT_TYPE_ID } }` rather than filtering in JS, since the set of leases *with* a contract grows without bound and this only ever wants the gap. Oldest first, so a `--limit`ed run makes predictable progress instead of re-doing the same head of the list
+- [x] **`npm run backfill:contracts`** (`worker/backfill-contracts.ts`), with `--dry-run`, `--org=<id>` and `--limit=<n>`. It **publishes rather than renders**: it needs no browser, and the worker stays the only thing that makes a PDF — one code path files a contract, whether the lease was signed a minute ago or two years ago
+- [x] **Idempotent by construction.** A lease that got its contract on the first pass is no longer missing one, so a second run finds it gone. Verified: re-running the org-scoped backfill printed "every lease in organization … already has a contract"
+- [x] A failed publish **logs and carries on** rather than abandoning the rest — re-running skips whatever did get through, so a partial run is always safe to repeat
+- [x] **The Generate button is back, but only when there is no contract.** Phase 81 removed it because it duplicated the event in the normal case; that reasoning holds when a contract exists and fails when one doesn't. Present exactly when there is something to recover from, absent the rest of the time
+- [x] Verified the whole loop in the browser: with a contract on file the tab shows the record and no button; deleting it made the button appear; clicking queued it (`Queueing…` → toast), the worker rendered it, and the auto-refresh brought the row back with the count badge at 1 and the button gone again
+- [x] Verified the flags: `--dry-run` listed 8 leases and published nothing (queue depth unchanged); `--org` narrowed to 3; `--limit=2` took the first two; `--limit=abc` was refused with a message and a non-zero exit
+- [x] Ran it for real against the working organization — `L-VM24Y` and `L-265FD` queued and filed. Five contracts now on file, **five objects in the bucket, one each**: no orphans through a full delete-and-regenerate cycle
+- [x] The 5 leases still listed as missing are in organizations with **no lease template** — the worker skips those with a message naming the fix, which is correct rather than a failure
+- [x] `tsc`, lint (0 errors) and a clean `npm run build`
+
+### Not done
+- [ ] The backfill **queues, it does not wait**. `npm run backfill:contracts` finishing means the messages are on the bus, not that the PDFs exist — the worker has to be running, and the script says so rather than blocking on an unknowable
+- [ ] Still no **generating / failed status** on screen: with the button now present whenever a contract is absent, "never made" and "dead-lettered twice" still look identical, and clicking again is the only way to tell
+- [ ] The button is shown to **anyone who can see the lease** — there are no permissions on it, in a codebase where roles exist but grant nothing yet
+- [ ] Everything else still open from Phases 80–81: lease deletion orphans the object in MinIO, the worker is an unprovisioned second process, the DLQ has no drain, regeneration is unversioned, renewal generates nothing
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

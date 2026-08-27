@@ -11,7 +11,8 @@
     "studio:local": "dotenv -e .env -- prisma studio --port 5555",
     "studio:prod": "npm run studio:prod:confirm",
     "studio:prod:confirm": "dotenv -e .env.production -- prisma studio --port 5599",
-    "worker": "tsx worker/contract-worker.ts"
+    "worker": "tsx worker/contract-worker.ts",
+    "backfill:contracts": "tsx worker/backfill-contracts.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",

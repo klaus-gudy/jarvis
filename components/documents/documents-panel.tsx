@@ -79,6 +79,7 @@ export function DocumentsPanel({
   assetTypes,
   emptyMessage,
   uploadLabel = "Upload document",
+  allowUpload = true,
 }: {
   subjectType: FileAssetSubject;
   subjectId: string | null;
@@ -86,6 +87,13 @@ export function DocumentsPanel({
   assetTypes: AssetTypeView[];
   emptyMessage: string;
   uploadLabel?: string;
+  /**
+   * False for a list nobody uploads into — the lease Contract tab, whose one
+   * document is produced by the worker. Hides the toolbar button *and* the
+   * "Not uploaded" checklist rows, which would otherwise invite exactly the
+   * upload this list does not accept.
+   */
+  allowUpload?: boolean;
 }) {
   const router = useRouter();
   const [uploadOpen, setUploadOpen] = React.useState(false);
@@ -108,7 +116,9 @@ export function DocumentsPanel({
   // table. Order follows `assetTypes` itself (system types first, then this
   // organization's own alphabetically), so it reads the same as the dropdown.
   const uploadedTypeIds = new Set(documents.map((document) => document.assetType.id));
-  const missingTypes = assetTypes.filter((type) => !uploadedTypeIds.has(type.id));
+  const missingTypes = allowUpload
+    ? assetTypes.filter((type) => !uploadedTypeIds.has(type.id))
+    : [];
 
   async function handleDelete() {
     if (!deleting) return;
@@ -132,12 +142,14 @@ export function DocumentsPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button onClick={() => openUpload(null)}>
-          <PlusIcon />
-          {uploadLabel}
-        </Button>
-      </div>
+      {allowUpload && (
+        <div className="flex justify-end">
+          <Button onClick={() => openUpload(null)}>
+            <PlusIcon />
+            {uploadLabel}
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardContent
