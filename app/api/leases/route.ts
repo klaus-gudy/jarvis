@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
 import { requireActiveOrg } from "@/lib/api-auth";
+import { publishEvent } from "@/lib/events/publisher";
 import { announceLeaseCreated, createLease, getLeases } from "@/lib/leases";
 import { createLeaseSchema } from "@/lib/leases-schemas";
 
@@ -65,6 +66,23 @@ export async function POST(request: Request) {
   const { organizationId } = auth.context;
   const leaseId = result.lease.id;
   after(() => announceLeaseCreated(organizationId, leaseId));
+
+  /**
+   * The domain event, separate from the emails above. `announceLeaseCreated`
+   * says "tell these people"; this says "a lease now exists" and lets anything
+   * that cares react — today the contract worker, which renders the PDF and
+   * files it, off the request path entirely.
+   *
+   * Publishing never throws: a broker outage means the contract is generated
+   * late (or from the Contract tab by hand), not that signing a lease fails.
+   */
+  after(() =>
+    publishEvent("lease.created", {
+      organizationId,
+      leaseId,
+      occurredAt: new Date().toISOString(),
+    })
+  );
 
   revalidatePath("/leases");
   revalidatePath("/properties");

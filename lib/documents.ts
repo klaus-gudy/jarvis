@@ -211,7 +211,13 @@ function toRow(row: SelectedRow): DocumentRow {
  */
 export async function createDocument(
   organizationId: string,
-  userId: string,
+  /**
+   * Who is filing this. **Null for a document the system generated** — the
+   * contract worker is not a person, and inventing a membership for it would
+   * put a lie in `uploadedById` that every "uploaded by" line then repeats.
+   * The column is already nullable for the same reason.
+   */
+  userId: string | null,
   input: UploadDocumentInput,
   file: { name: string; type: string; bytes: Uint8Array }
 ) {
@@ -267,10 +273,12 @@ export async function createDocument(
 
   // Who is uploading, as a Membership rather than a User — `FileAsset` records
   // the membership so an uploader is scoped to the organization they did it in.
-  const uploader = await prisma.membership.findUnique({
-    where: { userId_organizationId: { userId, organizationId } },
-    select: { id: true },
-  });
+  const uploader = userId
+    ? await prisma.membership.findUnique({
+        where: { userId_organizationId: { userId, organizationId } },
+        select: { id: true },
+      })
+    : null;
 
   const { extension } = ACCEPTED_FILE_TYPES[file.type];
   const objectKey = buildObjectKey({

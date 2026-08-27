@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "studio:local": "dotenv -e .env -- prisma studio --port 5555",
     "studio:prod": "npm run studio:prod:confirm",
-    "studio:prod:confirm": "dotenv -e .env.production -- prisma studio --port 5599"
+    "studio:prod:confirm": "dotenv -e .env.production -- prisma studio --port 5599",
+    "worker": "tsx worker/contract-worker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",
@@ -30,6 +31,7 @@
     "motion": "^13.1.0",
     "next": "16.2.12",
     "next-themes": "^0.4.6",
+    "playwright": "^1.62.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "^4.16.1",
@@ -48,6 +50,7 @@
     "eslint-config-next": "16.2.12",
     "prisma": "^7.9.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   },
   "overrides": {

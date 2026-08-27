@@ -1,5 +1,7 @@
 import { requireActiveOrg } from "@/lib/api-auth";
+import { publishEvent } from "@/lib/events/publisher";
 import { generateLeaseContract } from "@/lib/lease-templates";
+import { prisma } from "@/lib/prisma";
 
 /**
  * A lease template filled in from a real lease — the other half of
@@ -58,4 +60,53 @@ export async function GET(
   }
 
   return Response.json({ contract: result.contract });
+}
+
+/**
+ * Asks for the contract to be generated and filed — the same request the
+ * `lease.created` event makes, for a lease that has none.
+ *
+ * Publishes rather than rendering here, so **Chromium stays out of the web
+ * process**: `lib/pdf.ts` needs a browser, and the only thing that should have
+ * to have one installed is `worker/contract-worker.ts`. 202, not 201: nothing
+ * has been created yet, and saying otherwise would be a lie the Contract tab
+ * then has to explain.
+ */
+export async function POST(
+  _request: Request,
+  ctx: RouteContext<"/api/leases/[id]/contract">
+) {
+  const auth = await requireActiveOrg();
+  if (!auth.ok) return auth.response;
+
+  const { organizationId } = auth.context;
+  const { id } = await ctx.params;
+
+  // Scoped through both relations, matching `getLease` — the worker would
+  // refuse a borrowed id anyway, but a 404 here says so immediately instead of
+  // accepting the request and silently doing nothing.
+  const lease = await prisma.lease.findFirst({
+    where: {
+      id,
+      membership: { organizationId },
+      unit: { property: { organizationId } },
+    },
+    select: { id: true },
+  });
+  if (!lease) return Response.json({ error: "Lease not found" }, { status: 404 });
+
+  const published = await publishEvent("lease.created", {
+    organizationId,
+    leaseId: lease.id,
+    occurredAt: new Date().toISOString(),
+  });
+
+  if (!published.ok) {
+    return Response.json(
+      { error: "Could not queue the contract. Is the message broker running?" },
+      { status: 503 }
+    );
+  }
+
+  return Response.json({ queued: true }, { status: 202 });
 }

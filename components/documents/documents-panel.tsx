@@ -10,6 +10,7 @@ import {
   ImageIcon,
   PlusIcon,
   Trash2Icon,
+  UploadIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,6 +56,18 @@ function DocumentIcon({ fileType }: { fileType: string }) {
  * a document list differs only in which types it offers and which record it
  * hangs off: two tables that drift apart is exactly what a second copy buys.
  *
+ * **Every type this subject can hold gets a row, uploaded or not.** A type
+ * with nothing on file yet shows "Not uploaded" where the file name would go,
+ * has no View/Download/Delete — there is no object behind it to act on — and
+ * offers a single Upload button instead, preselected to that type. This turns
+ * the table into the checklist it was implicitly always describing: for a
+ * property, seeing "Title deed" and "Permit" listed *before* either exists
+ * tells someone what this organization expects on file, not just what happens
+ * to be there. A type that already allows several (a lease's amendments, a
+ * property's permits) only gets the placeholder while it has zero — one
+ * upload is enough to stop prompting, the general toolbar button still
+ * reaches a second.
+ *
  * No card header. Every caller already sits under a heading that says
  * "Documents" — a tab, or a section title — and repeating the word only pushes
  * the first row further down.
@@ -76,9 +89,26 @@ export function DocumentsPanel({
 }) {
   const router = useRouter();
   const [uploadOpen, setUploadOpen] = React.useState(false);
+  // Which type the dialog should open pre-selected to — set when a row's own
+  // Upload button was clicked, null for the general toolbar button. Folded
+  // into the dialog's remount key below, since two placeholder rows opened in
+  // succession would otherwise share the same `String(uploadOpen)` key and
+  // React would reuse the first instance's state instead of reinitialising.
+  const [presetTypeId, setPresetTypeId] = React.useState<string | null>(null);
   const [viewing, setViewing] = React.useState<DocumentView | null>(null);
   const [deleting, setDeleting] = React.useState<DocumentView | null>(null);
   const [pending, setPending] = React.useState(false);
+
+  function openUpload(typeId: string | null) {
+    setPresetTypeId(typeId);
+    setUploadOpen(true);
+  }
+
+  // Every offered type with nothing on file yet — the checklist half of the
+  // table. Order follows `assetTypes` itself (system types first, then this
+  // organization's own alphabetically), so it reads the same as the dropdown.
+  const uploadedTypeIds = new Set(documents.map((document) => document.assetType.id));
+  const missingTypes = assetTypes.filter((type) => !uploadedTypeIds.has(type.id));
 
   async function handleDelete() {
     if (!deleting) return;
@@ -103,15 +133,17 @@ export function DocumentsPanel({
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button onClick={() => setUploadOpen(true)}>
+        <Button onClick={() => openUpload(null)}>
           <PlusIcon />
           {uploadLabel}
         </Button>
       </div>
 
       <Card>
-        <CardContent className={documents.length > 0 ? "px-0" : undefined}>
-          {documents.length === 0 ? (
+        <CardContent
+          className={documents.length + missingTypes.length > 0 ? "px-0" : undefined}
+        >
+          {documents.length + missingTypes.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {emptyMessage}
             </p>
@@ -199,6 +231,41 @@ export function DocumentsPanel({
                     </TableCell>
                   </TableRow>
                 ))}
+
+                {missingTypes.map((type) => (
+                  <TableRow key={type.id}>
+                    <TableCell className="font-medium">
+                      <span className="flex max-w-[22rem] items-center gap-2 text-muted-foreground">
+                        <FileIcon className="size-4 shrink-0" />
+                        <span className="italic">Not uploaded</span>
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal">
+                        {type.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        {/* The one action that makes sense here: there is no
+                            object behind this row yet, so View, Download and
+                            Delete are all omitted rather than shown disabled —
+                            a greyed-out icon still implies a document to act
+                            on. */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openUpload(type.id)}
+                        >
+                          <UploadIcon />
+                          Upload
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
@@ -211,13 +278,14 @@ export function DocumentsPanel({
       />
 
       <DocumentUploadDialog
-        key={String(uploadOpen)}
+        key={`${uploadOpen}:${presetTypeId ?? ""}`}
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         subjectType={subjectType}
         subjectId={subjectId}
         assetTypes={assetTypes}
         existingTypeIds={documents.map((document) => document.assetType.id)}
+        initialAssetTypeId={presetTypeId}
         title={uploadLabel}
       />
 

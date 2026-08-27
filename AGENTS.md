@@ -19,6 +19,7 @@ Multi-tenant property management app. See `plan.md` (architecture + decisions) a
 
 - `docker compose up -d` — start Postgres
 - `npm run dev` — dev server (port 3347)
+- `npm run worker` — contract worker; consumes `lease.created`, renders the PDF. Needs `npx playwright install chromium` once
 - `npx prisma migrate dev --name <name>` — migrate; `npx prisma generate` — regenerate client
 - `npx prisma studio --port 5555 --browser none` — data browser
 

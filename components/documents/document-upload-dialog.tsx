@@ -44,6 +44,8 @@ export function DocumentUploadDialog({
   assetTypes: initialAssetTypes,
   /** Type ids already on file for this subject — offered but greyed, not omitted, same as a disabled `RowAction`. */
   existingTypeIds = [],
+  /** Preselects a type — set when the dialog was opened from that type's own row rather than the general toolbar button. Still changeable; this only saves the obvious click. */
+  initialAssetTypeId = null,
   title,
   description,
 }: {
@@ -53,6 +55,7 @@ export function DocumentUploadDialog({
   subjectId: string | null;
   assetTypes: AssetTypeView[];
   existingTypeIds?: string[];
+  initialAssetTypeId?: string | null;
   title: string;
   description?: string;
 }) {
@@ -76,7 +79,8 @@ export function DocumentUploadDialog({
 
   const [file, setFile] = React.useState<File | null>(null);
   const [assetTypeId, setAssetTypeId] = React.useState<string>(
-    assetTypes.find((type) => !takenTypeIds.includes(type.id))?.id ??
+    initialAssetTypeId ??
+      assetTypes.find((type) => !takenTypeIds.includes(type.id))?.id ??
       assetTypes[0]?.id ??
       ""
   );

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { BillingTab } from "@/components/leases/billing-tab";
+import { ContractTab } from "@/components/leases/contract-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { InvoiceProgress } from "@/components/leases/invoice-progress";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types";
+import { listAssetTypes } from "@/lib/asset-types";
+import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contracts";
+import { listDocuments } from "@/lib/documents";
 import { getInvoiceForLease } from "@/lib/invoices";
 import { getLease, type LeaseStatus } from "@/lib/leases";
 import { cn } from "@/lib/utils";
@@ -38,11 +42,17 @@ export default async function LeaseDetailPage({
   if (!user.activeOrgId) redirect("/leases");
 
   const { id } = await params;
-  const [lease, invoice] = await Promise.all([
+  const [lease, invoice, documents, documentAssetTypes] = await Promise.all([
     getLease(user.activeOrgId, id),
     getInvoiceForLease(user.activeOrgId, id),
+    listDocuments(user.activeOrgId, "LEASE", id),
+    listAssetTypes(user.activeOrgId, "LEASE"),
   ]);
   if (!lease) notFound();
+
+  const hasContract = documents.some(
+    (document) => document.assetType.id === LEASE_CONTRACT_TYPE_ID
+  );
 
   const { tenant, unit, property } = lease;
 
@@ -313,16 +323,17 @@ export default async function LeaseDetailPage({
         </TabsContent>
 
         <TabsContent value="contract" className="pt-5">
-          <Card>
-            <CardHeader className="border-b">
-              <CardTitle className="text-base">Contract</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Contract documents for lease {lease.reference} will live here.
-              </p>
-            </CardContent>
-          </Card>
+          <ContractTab
+            leaseId={lease.id}
+            reference={lease.reference}
+            hasContract={hasContract}
+            assetTypes={documentAssetTypes}
+            documents={documents.map((document) => ({
+              ...document,
+              // Dates must be serialisable to cross the server/client boundary.
+              createdAt: document.createdAt.toISOString(),
+            }))}
+          />
         </TabsContent>
       </Tabs>
     </div>

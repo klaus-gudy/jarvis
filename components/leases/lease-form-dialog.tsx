@@ -416,11 +416,9 @@ export function LeaseFormDialog({
                     )
                   )}
                 </datalist>
-                {(tooShort || minTenure > 0) && (
+                {tooShort && (
                   <FieldDescription>
-                    {tooShort
-                      ? `Minimum tenure for this unit is ${minTenure} months.`
-                      : `Minimum ${minTenure} for this unit.`}
+                    Minimum tenure for this unit is {minTenure} months.
                   </FieldDescription>
                 )}
                 <FieldError
