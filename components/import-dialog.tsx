@@ -11,6 +11,7 @@ import {
   FileSpreadsheetIcon,
   Loader2Icon,
   UploadIcon,
+  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -98,11 +99,22 @@ export function ImportDialog<T>({
   const [dragging, setDragging] = React.useState(false);
   /** Guards the refresh so a cancelled import that created rows still updates the table. */
   const createdAny = React.useRef(false);
+  /**
+   * Set by Stop, read at the top of each iteration of the import loop.
+   *
+   * A ref rather than state because the loop is a plain `for` running inside
+   * one async call — it closes over the state it started with, so a `useState`
+   * flag set mid-run would still read false on every remaining iteration.
+   */
+  const stopRequested = React.useRef(false);
+  const [stopping, setStopping] = React.useState(false);
 
   const importable = rows.filter((row) => row.status !== "invalid");
   const invalidCount = rows.length - importable.length;
   const succeeded = rows.filter((row) => row.status === "success").length;
   const failed = rows.filter((row) => row.status === "failed").length;
+  /** Valid rows the loop never reached — non-zero only after a Stop. */
+  const untouched = importable.length - succeeded - failed;
 
   async function downloadTemplate() {
     setDownloading(true);
@@ -169,11 +181,17 @@ export function ImportDialog<T>({
   }
 
   async function runImport() {
+    stopRequested.current = false;
+    setStopping(false);
     setPhase("importing");
 
     // Sequential on purpose: duplicate labels are only detectable against rows
     // already committed, and a steady one-at-a-time trickle is what the list shows.
     for (const row of rows) {
+      // Checked between rows, never mid-request: a record whose POST is already
+      // in flight will be created whatever this flag says, and pretending
+      // otherwise would leave the list disagreeing with the database.
+      if (stopRequested.current) break;
       if (row.status === "invalid" || !row.data) continue;
 
       setRows((current) =>
@@ -225,6 +243,7 @@ export function ImportDialog<T>({
       );
     }
 
+    setStopping(false);
     setPhase("done");
     router.refresh();
   }
@@ -232,7 +251,13 @@ export function ImportDialog<T>({
   // Reports the outcome once, after the loop has settled into "done".
   React.useEffect(() => {
     if (phase !== "done") return;
-    if (failed === 0) {
+    // A stopped run is reported by what it left behind, not as a failure —
+    // stopping is a choice, and the rows that did land are still real.
+    if (stopRequested.current) {
+      toast.info(
+        `Import stopped — ${succeeded} ${noun}${succeeded === 1 ? "" : "s"} created, ${untouched} not imported`
+      );
+    } else if (failed === 0) {
       toast.success(
         `${succeeded} ${noun}${succeeded === 1 ? "" : "s"} imported`
       );
@@ -245,7 +270,21 @@ export function ImportDialog<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
+  /**
+   * Drops one row from the import before it runs.
+   *
+   * The parse is all-or-nothing — a file with one unwanted row otherwise means
+   * editing the spreadsheet and uploading it again — so the review list is
+   * where a row gets taken out. It only removes it from *this* import: the
+   * file on disk is untouched, and re-uploading brings the row back.
+   */
+  function removeRow(rowNumber: number) {
+    setRows((current) => current.filter((row) => row.rowNumber !== rowNumber));
+  }
+
   function reset() {
+    stopRequested.current = false;
+    setStopping(false);
     setPhase("choose");
     setRows([]);
     setFileName(null);
@@ -363,7 +402,11 @@ export function ImportDialog<T>({
                 <p className="text-xs text-muted-foreground">
                   {phase === "review"
                     ? `${importable.length} ready${invalidCount > 0 ? ` · ${invalidCount} skipped` : ""}`
-                    : `${succeeded} created · ${failed} failed · ${importable.length - succeeded - failed} pending`}
+                    : `${succeeded} created · ${failed} failed${
+                        untouched > 0
+                          ? ` · ${untouched} ${phase === "importing" ? "pending" : "not imported"}`
+                          : ""
+                      }`}
                 </p>
               </div>
 
@@ -417,8 +460,28 @@ export function ImportDialog<T>({
                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">
                       Row {row.rowNumber}
                     </span>
+                    {/* Review only: once the loop is running a row is either
+                        already created or about to be, and removing it from
+                        the list would hide what happened rather than undo it. */}
+                    {phase === "review" && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="-my-1 shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove row ${row.rowNumber}${row.label ? ` — ${row.label}` : ""}`}
+                        onClick={() => removeRow(row.rowNumber)}
+                      >
+                        <XIcon />
+                      </Button>
+                    )}
                   </li>
                 ))}
+
+                {rows.length === 0 && (
+                  <li className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    Every row was removed. Choose another file, or cancel.
+                  </li>
+                )}
               </ul>
             </>
           )}
@@ -427,6 +490,9 @@ export function ImportDialog<T>({
         <DialogFooter>
           {phase === "review" && (
             <>
+              <Button variant="ghost" onClick={close}>
+                Cancel
+              </Button>
               <Button variant="outline" onClick={reset}>
                 Choose another file
               </Button>
@@ -437,10 +503,28 @@ export function ImportDialog<T>({
             </>
           )}
           {phase === "importing" && (
-            <Button disabled>
-              <Loader2Icon className="animate-spin" />
-              Importing…
-            </Button>
+            <>
+              {/*
+                Stops between rows rather than aborting the request in flight —
+                see the loop. Whatever has already been created stays created,
+                which is why this is "Stop" and not "Cancel": there is nothing
+                to roll back, and the summary says what landed.
+              */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  stopRequested.current = true;
+                  setStopping(true);
+                }}
+                disabled={stopping}
+              >
+                {stopping ? "Stopping…" : "Stop"}
+              </Button>
+              <Button disabled>
+                <Loader2Icon className="animate-spin" />
+                {stopping ? "Finishing this row…" : "Importing…"}
+              </Button>
+            </>
           )}
           {phase === "done" && (
             <>
