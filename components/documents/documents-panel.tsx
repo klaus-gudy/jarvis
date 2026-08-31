@@ -259,7 +259,13 @@ export function DocumentsPanel({
           ))}
         </ul>
       ) : (
-        <Card>
+        // `py-0`: the Card's own vertical padding otherwise floats the table
+        // in a 16px band of dead space above the header row and below the
+        // last one — the table already carries its own row height, and
+        // nothing else shares this card. `overflow-hidden rounded-xl` on
+        // `Card` still clips the table's corners, so it reads as rounded
+        // regardless of the padding removed.
+        <Card className="py-0">
           <CardContent className="px-0">
             {/* No scroll wrapper here: `Table` already renders its own
                 `data-slot="table-container"` with `overflow-x-auto`, and
