@@ -117,9 +117,8 @@ export async function createOrganizationForUser(userId: string, name: string) {
  * succeeds if Postgres happens to clear those rows before it clears `Role` —
  * true in testing, but an ordering the schema does not promise. Removing both
  * referrers first makes it deterministic; the organization delete then cascades
- * roles, properties → units → leases → invoices → payments, notification logs,
- * file assets, and the `documents` branch's `Attachment` table (still in the
- * dev database, modelled nowhere, reached by its own database-level cascade).
+ * roles, properties → units → leases → invoices → payments, notification logs
+ * and file assets.
  *
  * **The bucket is not touched.** `FileAsset` rows go, the objects they name do
  * not — deleting `organizations/<id>/` needs a storage call this transaction

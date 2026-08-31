@@ -1,6 +1,9 @@
 import { createDocument, deleteDocument } from "@/lib/documents";
 import { CONTRACT_CSS } from "@/lib/lease-document-style";
-import { generateLeaseContract } from "@/lib/lease-templates";
+import {
+  ensureDefaultLeaseTemplate,
+  generateLeaseContract,
+} from "@/lib/lease-templates";
 import { htmlToPdf } from "@/lib/pdf";
 import { leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
@@ -61,7 +64,27 @@ export async function generateAndStoreContract(
   organizationId: string,
   leaseId: string
 ): Promise<ContractResult> {
-  const rendered = await generateLeaseContract(organizationId, leaseId);
+  let rendered = await generateLeaseContract(organizationId, leaseId);
+
+  /*
+   * No template is no longer a dead end. An organization signing its first
+   * lease gets the standard starter, filed as its default, and this attempt
+   * carries on — the alternative was an empty Contract tab and a settings page
+   * nobody knew to visit. Only retried once, and only for this reason: a
+   * second miss means the write itself failed, not that the template was
+   * missing.
+   */
+  if ("error" in rendered && rendered.error === "no-template") {
+    const ensured = await ensureDefaultLeaseTemplate(organizationId);
+    if (ensured) {
+      console.log(
+        ensured.created
+          ? `[contracts] created a default lease template for org ${organizationId}`
+          : `[contracts] promoted an existing template to default for org ${organizationId}`
+      );
+      rendered = await generateLeaseContract(organizationId, leaseId);
+    }
+  }
 
   if ("error" in rendered) {
     return rendered.error === "no-template"
@@ -69,7 +92,7 @@ export async function generateAndStoreContract(
           ok: false,
           reason: "no-template",
           message:
-            "This organization has no lease template. Create one under Settings → Lease templates.",
+            "This organization has no lease template, and one could not be created automatically.",
         }
       : {
           ok: false,

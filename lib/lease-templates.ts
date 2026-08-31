@@ -10,6 +10,7 @@ import type {
   CreateLeaseTemplateInput,
   UpdateLeaseTemplateInput,
 } from "@/lib/lease-template-schemas";
+import { starterBody } from "@/lib/lease-template-starters";
 import { getOrganizationOwner } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
 
@@ -326,6 +327,93 @@ export type GeneratedContract = RenderedTemplate & {
  * A real contract: this organization's template, filled from this lease's row.
  * `templateId` omitted means the organization's default.
  */
+/**
+ * The name an auto-created template is filed under. Fixed rather than
+ * generated, so the `@@unique([organizationId, name])` index is what stops two
+ * workers racing to create a second one.
+ */
+export const DEFAULT_TEMPLATE_NAME = "Standard tenancy agreement";
+
+const DEFAULT_TEMPLATE_DESCRIPTION =
+  "Created automatically so the first lease could be contracted. It is the " +
+  "standard starter — review the wording and edit it to match what this " +
+  "organization actually agrees with its tenants.";
+
+/**
+ * Guarantees the organization has a default lease template, creating one from
+ * the English starter if it has none.
+ *
+ * The alternative, which is what this replaces, is that the first lease an
+ * organization ever signs gets no contract and an empty tab: the worker skips
+ * it with "no lease template", correctly refuses to retry, and nothing on
+ * screen connects the missing PDF to a settings page nobody has visited. A
+ * template someone must edit is a far better starting point than nothing.
+ *
+ * **The generated document is explicitly provisional.** `starterBody` is the
+ * same draft the template editor offers, and its own note applies unchanged:
+ * these clauses are the ordinary shape of a Tanzanian residential tenancy, not
+ * legal advice, and every organization is expected to rewrite them. The
+ * description says so on the template itself, so the person who eventually
+ * opens Settings → Lease templates finds out how it got there.
+ *
+ * Returns whether it wrote one, so the caller can log the difference between
+ * "used the template that was there" and "invented one".
+ */
+export async function ensureDefaultLeaseTemplate(
+  organizationId: string
+): Promise<{ created: boolean; templateId: string } | null> {
+  const existingDefault = await prisma.leaseTemplate.findFirst({
+    where: { organizationId, isDefault: true },
+    select: { id: true },
+  });
+  if (existingDefault) {
+    return { created: false, templateId: existingDefault.id };
+  }
+
+  /*
+   * Templates but no default — possible for an organization whose only
+   * template was written before `resolveDefault` existed. Promoting the oldest
+   * is the smaller, more honest repair: this organization has already written
+   * its own wording, and adding a starter beside it would generate contracts
+   * from a document nobody here chose.
+   */
+  const oldest = await prisma.leaseTemplate.findFirst({
+    where: { organizationId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (oldest) {
+    await prisma.leaseTemplate.update({
+      where: { id: oldest.id },
+      data: { isDefault: true },
+    });
+    return { created: false, templateId: oldest.id };
+  }
+
+  const result = await createLeaseTemplate(organizationId, {
+    name: DEFAULT_TEMPLATE_NAME,
+    description: DEFAULT_TEMPLATE_DESCRIPTION,
+    language: "en",
+    body: starterBody("en"),
+    isDefault: true,
+  });
+
+  if ("error" in result) {
+    /*
+     * `duplicate` means another worker won the race a moment ago — the unique
+     * index did its job. Re-read rather than fail: the outcome the caller
+     * wanted (a default template exists) is true either way.
+     */
+    const raced = await prisma.leaseTemplate.findFirst({
+      where: { organizationId, isDefault: true },
+      select: { id: true },
+    });
+    return raced ? { created: false, templateId: raced.id } : null;
+  }
+
+  return { created: true, templateId: result.template.id };
+}
+
 export async function generateLeaseContract(
   organizationId: string,
   leaseId: string,

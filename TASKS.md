@@ -1223,6 +1223,25 @@ The recovery Phase 81 left open, in both shapes: one lease from the page, every 
 - [ ] The button is shown to **anyone who can see the lease** — there are no permissions on it, in a codebase where roles exist but grant nothing yet
 - [ ] Everything else still open from Phases 80–81: lease deletion orphans the object in MinIO, the worker is an unprovisioned second process, the DLQ has no drain, regeneration is unversioned, renewal generates nothing
 
+## Phase 83 — A lease template that creates itself, and the migration drift closed
+
+- [x] **`ensureDefaultLeaseTemplate`** (`lib/lease-templates.ts`) — an organization with no template gets one created from the English `starterBody`, filed as its default, its description saying it was generated automatically and needs review. An organization that has templates but **no default gets its oldest promoted** instead: it has already written its own wording, and generating from a starter nobody chose is worse than the gap
+- [x] Called from `generateAndStoreContract` on the `no-template` path and retried **once**, so the event path, the backfill and the Generate button all get it without a second code path. A second miss means the write failed, not that the template was missing
+- [x] A race between two workers is caught by `@@unique([organizationId, name])` — the loser re-reads rather than failing, since the outcome it wanted is true either way
+- [x] Verified against the organization that had none: `[contracts] created a default lease template`, then `contract-L-LEWYZ.pdf` filed. The PDF opens with real data — parties, unit, `TZS 400,000 per month, being TZS 2,400,000 for the whole term` — with dotted fill lines exactly where the worker logged 6 placeholders with no data
+- [x] **Migration drift closed.** `20260812221016_attachment_slots` and `20260813120000_attachments` were recorded in the dev database with no directory in `prisma/migrations`, which is why `prisma migrate dev` demanded a reset. Both rows removed along with the `Attachment` table and `AttachmentKind` enum they created — the abandoned `documents` branch's, modelled nowhere and referenced by no code, and absent from any database built from the 24 migrations that remain
+- [x] Verified both directions: every migration row has a local directory, every local directory is applied, `migrate status` reports up to date, and `migrate diff` from the database to the schema is empty. `prisma migrate dev` no longer wants to reset
+- [x] The one legacy `Attachment` row (a 2026-08-12 lease PDF) was **dumped before the drop**, and `lib/organizations.ts` no longer describes a cascade through a table that is gone
+- [x] `tsc`, lint (0 errors) and a clean `npm run build`
+
+### Reverted
+- [x] **`ContractJob` and the Contract tab's progress display, both removed** at the user's direction — the schema change was judged not worth it. Reverted whole: the model, its migration, `lib/contract-jobs.ts`, the worker's status writes, the `markContractQueued` calls in the lease route / Generate endpoint / backfill, and the tab's polling and status cards. The tab is back to Phase 82: the contract when it exists, a Generate button when it does not
+
+### Not done
+- [ ] **Still no generating / failed status**, now by choice rather than by omission. "Never made", "being made right now", "the worker is not running" and "dead-lettered twice" remain indistinguishable on screen; the worker's log is the only place that tells them apart. Anything that names a step for a *specific* lease needs shared state between the two processes — a table, or something like it
+- [ ] **The auto-created template is English only.** An organization working in Swahili gets `starterBody("en")` and has to switch it by hand; nothing in a lease says which language it should have been
+- [ ] Everything else still open from Phases 80–82: lease deletion orphans the object in MinIO, the worker is an unprovisioned second process, the DLQ has no drain, regeneration is unversioned, renewal generates nothing, and the Generate button has no permission check
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
