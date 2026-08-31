@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import { CONTRACT_CSS } from "@/lib/lease-document-style";
+import { cn } from "@/lib/utils";
 import {
   LEASE_PLACEHOLDERS,
   placeholderToken,
@@ -50,8 +51,16 @@ const TOKEN_VALUES = Object.fromEntries(
 export function TemplatePreview({
   body,
   mode: controlledMode,
+  heightClassName = "h-[70vh]",
 }: {
   body: string;
+  /**
+   * How tall the paper is. A prop rather than a fixed height because the two
+   * callers want different things: the view dialog is already inside a scroll
+   * container and wants a fixed pane, while the editor wants the rest of the
+   * phone screen once its controls have moved to the floating stack.
+   */
+  heightClassName?: string;
   /**
    * Supplied when the surrounding page owns the switch — the editor puts it in
    * the header beside Edit/Preview rather than repeating it above the paper.
@@ -119,7 +128,10 @@ export function TemplatePreview({
         title="Template preview"
         sandbox=""
         srcDoc={srcDoc}
-        className="h-[70vh] w-full rounded-lg bg-white ring-1 ring-foreground/10"
+        className={cn(
+          "w-full rounded-lg bg-white ring-1 ring-foreground/10",
+          heightClassName
+        )}
       />
     </div>
   );

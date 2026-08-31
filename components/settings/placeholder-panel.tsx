@@ -14,6 +14,7 @@ import {
   LEASE_PLACEHOLDERS,
   PLACEHOLDER_GROUP_ORDER,
 } from "@/lib/lease-placeholders";
+import { cn } from "@/lib/utils";
 
 export type PlaceholderPanelHandle = {
   /** Puts the cursor in the search box — the toolbar's `{ } Variable` button. */
@@ -35,8 +36,15 @@ export const PlaceholderPanel = React.forwardRef<
     onInsert: (key: string) => void;
     /** Keys the body already uses, so the panel can mark them off. */
     used: Set<string>;
+    /**
+     * Drops the card chrome and the "Variables" caption — for the mobile
+     * sheet, which supplies both from its own header. The list, the search and
+     * the insert behaviour are shared rather than rewritten, so the two
+     * surfaces cannot drift into offering different variables.
+     */
+    flat?: boolean;
   }
->(function PlaceholderPanel({ onInsert, used }, ref) {
+>(function PlaceholderPanel({ onInsert, used, flat = false }, ref) {
   const [query, setQuery] = React.useState("");
   const searchRef = React.useRef<HTMLInputElement>(null);
 
@@ -60,10 +68,10 @@ export const PlaceholderPanel = React.forwardRef<
     );
   }, [query]);
 
-  return (
-    <Card className="gap-0 py-0">
-      <CardContent className="px-0">
-        <div className="space-y-2.5 px-4 py-3.5">
+  const content = (
+    <>
+        <div className={cn("space-y-2.5 px-4", flat ? "pb-3" : "py-3.5")}>
+          {!flat && (
           <div className="flex items-center gap-1">
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Variables
@@ -81,6 +89,7 @@ export const PlaceholderPanel = React.forwardRef<
               </TooltipContent>
             </Tooltip>
           </div>
+          )}
           <div className="relative">
             <SearchIcon
               className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -97,7 +106,15 @@ export const PlaceholderPanel = React.forwardRef<
           </div>
         </div>
 
-        <div className="max-h-[52vh] overflow-y-auto border-t">
+        <div
+          className={cn(
+            "overflow-y-auto border-t",
+            // Taller in the sheet, which has nothing else competing for the
+            // height, and shorter beside the editor, where it must not outrun
+            // the document it sits next to.
+            flat ? "max-h-[55svh]" : "max-h-[52vh]"
+          )}
+        >
           {matches.length === 0 ? (
             <p className="px-4 py-6 text-center text-xs text-muted-foreground">
               No variable matches “{query.trim()}”.
@@ -143,7 +160,14 @@ export const PlaceholderPanel = React.forwardRef<
             })
           )}
         </div>
-      </CardContent>
+    </>
+  );
+
+  if (flat) return content;
+
+  return (
+    <Card className="gap-0 py-0">
+      <CardContent className="px-0">{content}</CardContent>
     </Card>
   );
 });

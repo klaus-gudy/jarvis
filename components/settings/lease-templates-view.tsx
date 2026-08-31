@@ -31,6 +31,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/format";
 import { languageLabel } from "@/lib/lease-template-options";
 import type { LeaseTemplateRow } from "@/lib/lease-templates";
@@ -115,11 +120,33 @@ export function LeaseTemplatesView({
       {
         accessorKey: "description",
         header: "Description",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {row.original.description ?? "—"}
-          </span>
-        ),
+        /*
+          Capped and clipped. `TableCell` is `whitespace-nowrap`, so a
+          description written as a paragraph pushed every column after it off
+          the screen and turned the whole table into a horizontal scroller —
+          one long row deciding the width for every short one. The full text is
+          still reachable, on hover and on focus, rather than being thrown away.
+        */
+        cell: ({ row }) => {
+          const description = row.original.description;
+          if (!description) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+
+          return (
+            <Tooltip>
+              <TooltipTrigger
+                render={<span />}
+                className="block max-w-[22rem] cursor-default truncate text-muted-foreground"
+              >
+                {description}
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                {description}
+              </TooltipContent>
+            </Tooltip>
+          );
+        },
       },
       {
         accessorKey: "language",

@@ -37,7 +37,12 @@ export function LeaseTemplateCard({
       </div>
 
       {template.description && (
-        <p className="text-xs text-muted-foreground">{template.description}</p>
+        // Two lines, then an ellipsis: a description written as a paragraph
+        // otherwise makes one card as tall as the three below it, and the list
+        // stops being scannable — which is the only thing a card list is for.
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {template.description}
+        </p>
       )}
 
       <p className="text-xs text-muted-foreground">

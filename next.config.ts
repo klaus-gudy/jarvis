@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /**
+   * The dev overlay's badge defaults to the bottom-left corner, which is
+   * exactly where the lease-template editor puts its floating actions on a
+   * phone — the badge sat on top of Save. It only exists in development, so
+   * moving it costs nothing and makes the mobile editor testable without
+   * fighting a button that will not ship.
+   */
+  devIndicators: { position: "bottom-right" },
+
+  /**
    * `amqplib` opens raw TCP sockets and resolves its own frame codecs at
    * runtime — bundling it into the server build breaks both. Next auto-externals
    * a list of known packages (`pg` and `@prisma/client` among them); amqplib

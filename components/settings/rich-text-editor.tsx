@@ -158,12 +158,19 @@ export const RichTextEditor = React.forwardRef<
     <div className="overflow-hidden rounded-lg border border-input">
       <style>{`${CONTRACT_CSS}${EDITOR_ONLY_CSS}${CHIP_CSS}`}</style>
 
-      <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/40 p-1.5">
+      {/*
+        Scrolls sideways below `sm` rather than wrapping. Twenty controls
+        wrapped onto four rows is a toolbar taller than the phone's keyboard,
+        eating the document it belongs to; one swipeable row keeps the writing
+        surface the biggest thing on screen. `no-scrollbar` because the strip is
+        short enough to swipe and a scrollbar under it reads as a border.
+      */}
+      <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto border-b bg-muted/40 p-1.5 sm:flex-wrap sm:overflow-visible">
         <Select
           value=""
           onValueChange={(next) => next && run("formatBlock", next)}
         >
-          <SelectTrigger size="sm" className="w-[5.5rem] bg-background">
+          <SelectTrigger size="sm" className="w-[5.5rem] shrink-0 bg-background">
             <SelectValue placeholder="Normal">
               {() => "Paragraph"}
             </SelectValue>
@@ -178,7 +185,7 @@ export const RichTextEditor = React.forwardRef<
         </Select>
 
         <Select value="" onValueChange={(next) => next && run("fontSize", next)}>
-          <SelectTrigger size="sm" className="w-[3.75rem] bg-background">
+          <SelectTrigger size="sm" className="w-[3.75rem] shrink-0 bg-background">
             <SelectValue placeholder="Size">{() => "Size"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -254,7 +261,7 @@ export const RichTextEditor = React.forwardRef<
               type="button"
               size="sm"
               variant="outline"
-              className="h-7 gap-1.5 border-stat-accent/40 bg-stat-accent/10 text-stat-accent hover:bg-stat-accent/20"
+              className="h-7 shrink-0 gap-1.5 border-stat-accent/40 bg-stat-accent/10 text-stat-accent hover:bg-stat-accent/20"
               onMouseDown={(event) => event.preventDefault()}
               onClick={onRequestVariable}
             >
@@ -265,7 +272,13 @@ export const RichTextEditor = React.forwardRef<
         )}
       </div>
 
-      <div className="max-h-[62vh] overflow-y-auto bg-muted/50 p-4">
+      {/*
+        On a phone the document gets the screen: the page's other controls have
+        moved to the floating stack, so the only thing above this is a heading.
+        `svh` rather than `vh` — the browser chrome on iOS makes `vh` taller
+        than what is actually visible, which would push the last lines under it.
+      */}
+      <div className="max-h-[calc(100svh-15rem)] overflow-auto bg-muted/50 p-3 sm:p-4 lg:max-h-[62vh]">
         <div
           ref={editorRef}
           role="textbox"
@@ -319,7 +332,7 @@ const FONT_SIZES = [
 const TABLE_HTML = `<table><tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody></table><p><br></p>`;
 
 function Divider() {
-  return <span className="mx-px h-5 w-px bg-border" aria-hidden />;
+  return <span className="mx-px h-5 w-px shrink-0 bg-border" aria-hidden />;
 }
 
 function ToolButton({
@@ -342,7 +355,7 @@ function ToolButton({
       // of the editor and collapse the selection the command is about to act on.
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className="size-7"
+      className="size-7 shrink-0"
     >
       {children}
     </Button>

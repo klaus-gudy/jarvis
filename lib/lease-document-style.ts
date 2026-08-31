@@ -77,4 +77,26 @@ export const CONTRACT_CSS = RULES;
 export const EDITOR_ONLY_CSS = `
   .jarvis-doc:focus { outline: none; }
   .jarvis-doc [data-variable] { cursor: default; }
+
+  /*
+   * Phone-width editing only — never the preview, and never the PDF.
+   *
+   * The page is 720px of A4-ish paper with 56px gutters, and a two-column
+   * signatures table whose min-content width is 503px. On a 375px screen that
+   * table stretched the document past the viewport and took the whole page
+   * with it: every line ran off the right edge and the app itself scrolled
+   * sideways. Narrowing the gutters and fixing the table's layout lets the
+   * same document reflow to the screen, so writing on a phone is reading and
+   * typing rather than panning.
+   *
+   * It lives here, in the editor-only sheet, precisely because the stored
+   * body, the preview and the rendered PDF must not change: what a contract
+   * looks like on paper is decided by CONTRACT_CSS, and this only decides how
+   * comfortable it is to type into.
+   */
+  @media (max-width: 640px) {
+    .jarvis-doc .contract { padding: 24px 18px; }
+    .jarvis-doc table { table-layout: fixed; width: 100%; }
+    .jarvis-doc table td, .jarvis-doc table th { overflow-wrap: anywhere; }
+  }
 `;
