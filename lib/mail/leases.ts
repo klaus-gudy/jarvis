@@ -40,7 +40,6 @@ export type LeaseFacts = {
   leaseId: string;
   reference: string;
   tenantName: string;
-  tenantEmail: string | null;
   propertyName: string;
   unitLabel: string;
   startDate: Date;
@@ -85,24 +84,6 @@ export async function sendLeaseCreatedToOwner(
   );
 }
 
-export async function sendLeaseCreatedToTenant(lease: LeaseFacts) {
-  await deliver(
-    "lease.created",
-    lease.tenantEmail,
-    `Your lease for ${lease.unitLabel} at ${lease.propertyName}`,
-    {
-      heading: "Your lease is confirmed",
-      body: [
-        `Hi ${escapeHtml(lease.tenantName)},`,
-        `Your lease for <strong>${escapeHtml(lease.unitLabel)}</strong> at <strong>${escapeHtml(lease.propertyName)}</strong> is confirmed. Reference ${escapeHtml(lease.reference)}.`,
-        ...termsLines(lease),
-        `Rent for the term is due on <strong>${escapeHtml(formatDate(lease.invoiceDueDate))}</strong>, under invoice ${escapeHtml(lease.invoiceReference)}. Your landlord will tell you where to pay.`,
-        "Keep this email — it is your record of the terms.",
-      ],
-    }
-  );
-}
-
 /* ------------------------------------------------------------------ *
  * lease.renewed — the auto-renewal sweep in lib/lease-renewal.ts
  * ------------------------------------------------------------------ */
@@ -133,31 +114,10 @@ export async function sendLeaseRenewedToOwner(
   );
 }
 
-export async function sendLeaseRenewedToTenant(
-  lease: LeaseFacts,
-  previousEndDate: Date
-) {
-  await deliver(
-    "lease.renewed",
-    lease.tenantEmail,
-    `Your lease at ${lease.propertyName} has been renewed`,
-    {
-      heading: "Your lease has renewed",
-      body: [
-        `Hi ${escapeHtml(lease.tenantName)},`,
-        `Your lease for <strong>${escapeHtml(lease.unitLabel)}</strong> at <strong>${escapeHtml(lease.propertyName)}</strong> ended on ${escapeHtml(formatDate(previousEndDate))} and has renewed automatically. You don't need to do anything to stay.`,
-        ...termsLines(lease),
-        `Your rent is unchanged from the previous term. Invoice ${escapeHtml(lease.invoiceReference)} is due ${escapeHtml(formatDate(lease.invoiceDueDate))}.`,
-      ],
-    }
-  );
-}
-
 export type ExpiringLease = {
   leaseId: string;
   reference: string;
   tenantName: string;
-  tenantEmail: string | null;
   propertyName: string;
   unitLabel: string;
   endDate: Date;
@@ -186,25 +146,6 @@ export async function sendLeaseExpiringToOwner(
         `This unit isn't set to renew automatically, so nothing happens unless you act: renew at ${escapeHtml(formatCurrencyFull(lease.monthlyRent))} a month, agree a new rate, or start looking for the next tenant.`,
       ],
       action: { label: "Open the lease", href: appUrl(`/leases/${lease.leaseId}`) },
-    }
-  );
-}
-
-/** To the tenant: your lease ends, and nothing renews it for you. */
-export async function sendLeaseExpiringToTenant(lease: ExpiringLease) {
-  const days = `${lease.daysLeft} day${lease.daysLeft === 1 ? "" : "s"}`;
-
-  await deliver(
-    "lease.expiring",
-    lease.tenantEmail,
-    `Your lease at ${lease.propertyName} ends in ${days}`,
-    {
-      heading: `Your lease ends on ${formatDate(lease.endDate)}`,
-      body: [
-        `Hi ${escapeHtml(lease.tenantName)},`,
-        `Your lease for <strong>${escapeHtml(lease.unitLabel)}</strong> at <strong>${escapeHtml(lease.propertyName)}</strong> ends in ${days}, on ${escapeHtml(formatDate(lease.endDate))}.`,
-        "It won't renew on its own. If you'd like to stay, speak to your landlord now — agreeing a new term early is a good deal easier than agreeing one late.",
-      ],
     }
   );
 }

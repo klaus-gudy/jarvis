@@ -2,12 +2,10 @@ import { invoiceReference } from "@/lib/invoice-types";
 import { leaseReference } from "@/lib/leases";
 import {
   sendInvoiceOverdueToOwner,
-  sendInvoiceOverdueToTenant,
   type InvoiceFacts,
 } from "@/lib/mail/billing";
 import {
   sendLeaseExpiringToOwner,
-  sendLeaseExpiringToTenant,
   type ExpiringLease,
 } from "@/lib/mail/leases";
 import { getOwnerRecipients, type Recipient } from "@/lib/notifications/recipients";
@@ -141,7 +139,6 @@ async function sweepExpiringLeases(now: Date) {
       leaseId: lease.id,
       reference: leaseReference(lease.id),
       tenantName: displayName(lease.membership.user),
-      tenantEmail: lease.membership.user.email,
       propertyName: lease.unit.property.name,
       unitLabel: lease.unit.label,
       endDate: lease.endDate,
@@ -153,7 +150,6 @@ async function sweepExpiringLeases(now: Date) {
       ownersByOrg.set(organizationId, await getOwnerRecipients(organizationId));
     }
 
-    await sendLeaseExpiringToTenant(facts);
     for (const owner of ownersByOrg.get(organizationId)!) {
       await sendLeaseExpiringToOwner(facts, owner);
     }
@@ -238,7 +234,6 @@ async function sweepOverdueInvoices(now: Date) {
       balance,
       dueDate: invoice.dueDate,
       tenantName: displayName(invoice.lease.membership.user),
-      tenantEmail: invoice.lease.membership.user.email,
       tenantPhone: invoice.lease.membership.user.phone,
       propertyName: invoice.lease.unit.property.name,
       unitLabel: invoice.lease.unit.label,
@@ -248,7 +243,6 @@ async function sweepOverdueInvoices(now: Date) {
       ownersByOrg.set(organizationId, await getOwnerRecipients(organizationId));
     }
 
-    await sendInvoiceOverdueToTenant(facts, daysLate);
     for (const owner of ownersByOrg.get(organizationId)!) {
       await sendInvoiceOverdueToOwner(facts, daysLate, owner);
     }

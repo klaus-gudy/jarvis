@@ -1242,6 +1242,22 @@ The recovery Phase 81 left open, in both shapes: one lease from the page, every 
 - [ ] **The auto-created template is English only.** An organization working in Swahili gets `starterBody("en")` and has to switch it by hand; nothing in a lease says which language it should have been
 - [ ] Everything else still open from Phases 80–82: lease deletion orphans the object in MinIO, the worker is an unprovisioned second process, the DLQ has no drain, regeneration is unversioned, renewal generates nothing, and the Generate button has no permission check
 
+## Phase 84 — Owners only
+
+Email now answers one question — "what does the landlord need to know?" — instead of two.
+
+- [x] **Every domain email is owner-addressed.** Dropped `sendLeaseCreatedToTenant`, `sendLeaseRenewedToTenant`, `sendLeaseExpiringToTenant`, `sendInvoicePaidToTenant` and `sendInvoiceOverdueToTenant`, and the four fan-outs that called them (`announceLeaseCreated`, `announceLeaseRenewals`, `announceInvoiceSettled`, and both halves of the sweep). The 12 routing keys are unchanged; only the recipients are
+- [x] **`tenantEmail` is gone from `LeaseFacts`, `ExpiringLease` and `InvoiceFacts`**, and from the three queries that populated it. A tenant address the mail layer cannot see is a guarantee; a convention not to use one is not
+- [x] **Fixed a line that would have become a lie**: the owner's overdue notice said "We've reminded <tenant>". It now says no reminder was sent and the chase is theirs — a landlord who believes one already went out is exactly the person who then doesn't make one
+- [x] **Auth email deliberately untouched.** All seven are already gated on having credentials: `requestPasswordReset` returns null on `!user.passwordHash`, the lockout notice returns early on the same check, resend requires a session, and register / password-change / org-created all imply a password. A tenant created by staff gets `passwordHash: null` and triggers none of them; accepting an invitation sets one, and from that point the account is legitimately eligible — which is the right rule, since these describe a login and not a tenancy
+- [x] Verified against the real queue: one sweep claimed 14 notifications and published **exactly 14 messages** (it would have been 28 before), every one to `chris@test.com` or `admin@test.com`, both Owners. No tenant address appears in any of them
+- [x] `tsc`, lint (0 errors) and a clean `npm run build`
+
+### Not done
+- [ ] **An organization whose owners all lack an email now sends nothing at all** for that notification, while still claiming it in `NotificationLog` — so it is recorded as sent and never retried. Previously the tenant was a fallback path. `getOwnerRecipients` already filters addressless owners; what is missing is noticing that the filtered list is empty
+- [ ] **Tenants now receive nothing from the app.** Rent reminders, receipts and expiry notices were the tenant-facing half of the product; if they come back it should be as a deliberate channel decision (SMS is the obvious one here, since tenants onboard by phone) rather than by restoring these senders
+- [ ] The mail queue still has **no consumer in this repo** — `emails.outbound` is drained by an external service, so nothing verified here actually left the machine
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

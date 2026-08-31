@@ -1,8 +1,6 @@
 import {
   sendLeaseCreatedToOwner,
-  sendLeaseCreatedToTenant,
   sendLeaseRenewedToOwner,
-  sendLeaseRenewedToTenant,
   type LeaseFacts,
 } from "@/lib/mail/leases";
 import { getProfilePhotoIds } from "@/lib/documents";
@@ -603,7 +601,6 @@ export async function leaseFacts(leaseId: string): Promise<LeaseFacts | null> {
     leaseId: lease.id,
     reference: leaseReference(lease.id),
     tenantName: displayName(lease.membership.user),
-    tenantEmail: lease.membership.user.email,
     propertyName: lease.unit.property.name,
     unitLabel: lease.unit.label,
     startDate: lease.startDate,
@@ -616,7 +613,7 @@ export async function leaseFacts(leaseId: string): Promise<LeaseFacts | null> {
   };
 }
 
-/** `lease.created` — to the tenant and every owner. Never throws. */
+/** `lease.created` — to every owner. Never throws. */
 export async function announceLeaseCreated(
   organizationId: string,
   leaseId: string
@@ -624,7 +621,6 @@ export async function announceLeaseCreated(
   const facts = await leaseFacts(leaseId);
   if (!facts) return;
 
-  await sendLeaseCreatedToTenant(facts);
   for (const owner of await getOwnerRecipients(organizationId)) {
     await sendLeaseCreatedToOwner(facts, owner);
   }
@@ -637,7 +633,7 @@ export type RenewalAnnouncement = {
   previousEndDate: Date;
 };
 
-/** `lease.renewed` — to the tenant and every owner, for each renewal. */
+/** `lease.renewed` — to every owner, for each renewal. */
 export async function announceLeaseRenewals(
   organizationId: string,
   renewals: RenewalAnnouncement[]
@@ -652,7 +648,6 @@ export async function announceLeaseRenewals(
     const facts = await leaseFacts(renewal.leaseId);
     if (!facts) continue;
 
-    await sendLeaseRenewedToTenant(facts, renewal.previousEndDate);
     for (const owner of owners) {
       await sendLeaseRenewedToOwner(facts, renewal.previousEndDate, owner);
     }

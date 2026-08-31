@@ -41,7 +41,6 @@ export type InvoiceFacts = {
   balance: number;
   dueDate: Date;
   tenantName: string;
-  tenantEmail: string | null;
   tenantPhone: string | null;
   propertyName: string;
   unitLabel: string;
@@ -71,23 +70,6 @@ export async function sendInvoicePaidToOwner(
   );
 }
 
-/** The tenant's receipt for the *last* payment — the one that cleared it. */
-export async function sendInvoicePaidToTenant(invoice: InvoiceFacts) {
-  await deliver(
-    "invoice.paid_in_full",
-    invoice.tenantEmail,
-    `Paid in full — ${invoice.reference}`,
-    {
-      heading: "Your rent is paid in full",
-      body: [
-        `Hi ${escapeHtml(invoice.tenantName)},`,
-        `Thank you — ${escapeHtml(invoice.reference)} for <strong>${escapeHtml(invoice.unitLabel)}</strong> at <strong>${escapeHtml(invoice.propertyName)}</strong> is now fully paid: ${escapeHtml(formatCurrencyFull(invoice.amount))} received.`,
-        "You owe nothing further on this lease. Keep this email as your record.",
-      ],
-    }
-  );
-}
-
 /* ------------------------------------------------------------------ *
  * invoice.overdue — from the sweep, on a weekly cadence
  * ------------------------------------------------------------------ */
@@ -111,36 +93,12 @@ export async function sendInvoiceOverdueToOwner(
         owner.name?.trim() ? `Hi ${escapeHtml(owner.name.trim())},` : "Hi,",
         `${escapeHtml(invoice.reference)} for <strong>${escapeHtml(invoice.unitLabel)}</strong> at <strong>${escapeHtml(invoice.propertyName)}</strong> was due on ${escapeHtml(formatDate(invoice.dueDate))} — ${daysLate} days ago.`,
         `Paid so far: ${escapeHtml(formatCurrencyFull(invoice.paid))} of ${escapeHtml(formatCurrencyFull(invoice.amount))}. <strong>Outstanding: ${escapeHtml(formatCurrencyFull(invoice.balance))}</strong>.`,
-        `We've reminded ${escapeHtml(invoice.tenantName)}.${chase}`,
+        // Was "We've reminded <tenant>" — untrue since tenants stopped being
+        // emailed, and a landlord who believes a chase already went out is
+        // exactly the person who then doesn't make one.
+        `No reminder has been sent to ${escapeHtml(invoice.tenantName)} — chasing this is yours to do.${chase}`,
       ],
       action: { label: "Record a payment", href: appUrl(`/leases/${invoice.leaseId}`) },
-    }
-  );
-}
-
-export async function sendInvoiceOverdueToTenant(
-  invoice: InvoiceFacts,
-  daysLate: number
-) {
-  // The part-paid case reads as an accusation if it says "you have not paid",
-  // so what has been paid is stated before what is owed.
-  const sofar =
-    invoice.paid > 0
-      ? `You have paid ${escapeHtml(formatCurrencyFull(invoice.paid))} of ${escapeHtml(formatCurrencyFull(invoice.amount))}, leaving <strong>${escapeHtml(formatCurrencyFull(invoice.balance))}</strong> outstanding.`
-      : `The amount outstanding is <strong>${escapeHtml(formatCurrencyFull(invoice.balance))}</strong>.`;
-
-  await deliver(
-    "invoice.overdue",
-    invoice.tenantEmail,
-    `Rent overdue — ${invoice.unitLabel}, ${invoice.propertyName}`,
-    {
-      heading: `Your rent is ${daysLate} days overdue`,
-      body: [
-        `Hi ${escapeHtml(invoice.tenantName)},`,
-        `${escapeHtml(invoice.reference)} for <strong>${escapeHtml(invoice.unitLabel)}</strong> at <strong>${escapeHtml(invoice.propertyName)}</strong> was due on ${escapeHtml(formatDate(invoice.dueDate))}.`,
-        sofar,
-        "If you have already paid, ignore this — it can take a day or two to be recorded. If you can't pay the full amount right now, talk to your landlord: an arrangement agreed in advance is always better than a missed payment.",
-      ],
     }
   );
 }

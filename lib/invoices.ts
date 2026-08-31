@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import type { RecordPaymentInput } from "@/lib/invoices-schemas";
 import {
   sendInvoicePaidToOwner,
-  sendInvoicePaidToTenant,
   type InvoiceFacts,
 } from "@/lib/mail/billing";
 import { getOwnerRecipients } from "@/lib/notifications/recipients";
@@ -149,7 +148,6 @@ function invoiceFacts(
     balance: invoice.amount - paid,
     dueDate: invoice.dueDate,
     tenantName: displayName(invoice.lease.membership.user),
-    tenantEmail: invoice.lease.membership.user.email,
     tenantPhone: invoice.lease.membership.user.phone,
     propertyName: invoice.lease.unit.property.name,
     unitLabel: invoice.lease.unit.label,
@@ -157,7 +155,7 @@ function invoiceFacts(
 }
 
 /**
- * Fans the paid-in-full notice out to the tenant and every owner. Separate
+ * Fans the paid-in-full notice out to every owner. Separate
  * from `recordPayment` so the caller decides when it runs — the route wraps it
  * in `after()`, keeping a broker round trip off the response.
  */
@@ -165,7 +163,6 @@ export async function announceInvoiceSettled(
   organizationId: string,
   facts: InvoiceFacts
 ) {
-  await sendInvoicePaidToTenant(facts);
   for (const owner of await getOwnerRecipients(organizationId)) {
     await sendInvoicePaidToOwner(facts, owner);
   }
