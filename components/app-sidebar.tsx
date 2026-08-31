@@ -23,7 +23,12 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { findActiveNavItem, findActiveSubItem, navItems, type NavItem } from "@/lib/nav"
+import {
+  findActiveNavItem,
+  findActiveSubItem,
+  visibleNavItems,
+  type NavItem,
+} from "@/lib/nav"
 
 export function AppSidebar({
   organizations,
@@ -62,7 +67,7 @@ export function AppSidebar({
           {/* <SidebarGroupLabel>Manage</SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu data-tour="sidebar-nav">
-              {navItems.map((item) =>
+              {visibleNavItems.map((item) =>
                 item.items?.length ? (
                   <NavGroup
                     key={item.url}

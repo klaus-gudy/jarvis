@@ -178,17 +178,6 @@ export const TOURS: Tour[] = [
       },
     ],
   },
-  {
-    id: "roles",
-    route: "/roles",
-    label: "Roles tour",
-    steps: [
-      {
-        title: "Roles & permissions",
-        body: "Roles describe what someone may do. Owner and Tenant are built in and cannot be renamed — the app matches on them by name.",
-      },
-    ],
-  },
 ];
 
 /** Longest-prefix match, so a detail route keeps its section's tour. */

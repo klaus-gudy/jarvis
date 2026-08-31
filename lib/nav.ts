@@ -22,6 +22,16 @@ export type NavItem = {
    * navigates to `url` directly except the redirect.
    */
   items?: NavItem[];
+  /**
+   * Kept in the list but not shown in the sidebar — a section that exists in
+   * the codebase and is not offered yet.
+   *
+   * Declared here rather than deleted so the entry, its icon and its wording
+   * survive intact, and so `findPageTitle` still names the route if anything
+   * reaches it. Turning a section back on is removing this one line, plus the
+   * redirect in its `page.tsx`.
+   */
+  hidden?: boolean;
 };
 
 export const navItems: NavItem[] = [
@@ -66,6 +76,14 @@ export const navItems: NavItem[] = [
     url: "/roles",
     icon: ShieldCheckIcon,
     description: "Roles people can hold, and what each one may do",
+    /*
+      Hidden for now: roles are seeded and read (registration, the Users page,
+      tenant creation all depend on `lib/roles.ts`), but nothing yet *enforces*
+      a permission, so the page offers a control that does not control
+      anything. `app/(app)/roles/page.tsx` redirects to match — a hidden tab
+      whose URL still worked would be a section you can only reach by accident.
+    */
+    hidden: true,
   },
   {
     title: "Settings",
@@ -82,6 +100,15 @@ export const navItems: NavItem[] = [
     ],
   },
 ];
+
+/**
+ * What the sidebar actually renders.
+ *
+ * `navItems` stays complete on purpose: `findActiveNavItem` and
+ * `findPageTitle` walk it, so a hidden section keeps its title and its
+ * highlighting rather than falling back to the bare app name.
+ */
+export const visibleNavItems = navItems.filter((item) => !item.hidden);
 
 /**
  * Pages reachable from somewhere other than the sidebar — the user menu, for
