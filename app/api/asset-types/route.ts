@@ -3,19 +3,6 @@ import { createAssetType, listAssetTypes } from "@/lib/asset-types";
 import { createAssetTypeSchema } from "@/lib/documents-schemas";
 import { FileAssetSubject } from "@/lib/generated/prisma/enums";
 
-/**
- * Document types — the list that used to be a Prisma enum.
- *
- * `GET` is scoped to one subject because that is how every caller wants it:
- * a dropdown is always standing on a lease, or a property, or a member.
- *
- * `POST` takes the group as a field rather than asking the person for it. The
- * surface that opens the "add a type" control already knows what it is
- * attached to, so it sends that; nobody is presented with a taxonomy. The same
- * goes for `isPhoto` — added from the Images tab means a photo type, added
- * from the Documents table means it is not.
- */
-
 export async function GET(request: Request) {
   const auth = await requireActiveOrg();
   if (!auth.ok) return auth.response;
@@ -62,9 +49,6 @@ export async function POST(request: Request) {
   }
 
   if (result.error === "duplicate") {
-    // Named rather than a bare conflict: the existing one is very often on a
-    // *different* subject, and "already exists" alone would look like a lie to
-    // someone staring at a dropdown that does not contain it.
     const where =
       result.existing.subject === parsed.data.subject
         ? "already exists"
