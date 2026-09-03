@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-// Health must reflect the database right now, never a prerendered response.
 export const dynamic = "force-dynamic";
 
 export async function GET() {
