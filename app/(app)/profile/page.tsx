@@ -8,6 +8,7 @@ import {
 
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
 import { AccountSettingsCard } from "@/components/profile/account-settings-card";
+import { ExportButton } from "@/components/export-button";
 import { PaymentAccountsCard } from "@/components/profile/payment-accounts-card";
 import { PersonalInfoCard } from "@/components/profile/personal-info-card";
 import { ProfileCardHeader } from "@/components/profile/profile-card-header";
@@ -71,7 +72,22 @@ export default async function ProfilePage() {
       <PersonalInfoCard personal={personal} membershipId={membershipId} />
 
       <Card>
-        <ProfileCardHeader title="Organization information" />
+        <ProfileCardHeader
+          title="Organization information"
+          action={
+            // Owner-only: this is a full backup of the organization's data
+            // (every tenant's NIDA number and emergency contacts included),
+            // the same boundary `AccountSettingsCard` draws around delete.
+            profile.isOwner && organization ? (
+              <ExportButton
+                url="/api/organizations/export"
+                label="Export data"
+                filenameFallback="organization-backup.xlsx"
+                size="sm"
+              />
+            ) : undefined
+          }
+        />
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2">
             {organization ? (

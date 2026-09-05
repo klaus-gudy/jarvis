@@ -15,19 +15,38 @@ export type ExportColumn<T> = {
   format?: string;
 };
 
-export async function buildExportWorkbook<T>(opts: {
+export type ExportSheet<T> = {
   sheetName: string;
   columns: ExportColumn<T>[];
   rows: T[];
-}): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Rentops";
-  workbook.created = new Date();
+};
 
-  const sheet = workbook.addWorksheet(opts.sheetName, {
+/**
+ * Wraps one sheet's columns and rows so a multi-sheet workbook can hold
+ * several different row types in one array. `T` is inferred from `columns`
+ * and `rows` at the call site, so the caller still gets full type-checking —
+ * only the stored shape is widened, not the code that builds it.
+ */
+export function exportSheet<T>(
+  sheetName: string,
+  columns: ExportColumn<T>[],
+  rows: T[]
+): ExportSheet<unknown> {
+  return {
+    sheetName,
+    columns: columns as ExportColumn<unknown>[],
+    rows: rows as unknown[],
+  };
+}
+
+function writeSheet<T>(
+  workbook: ExcelJS.Workbook,
+  spec: ExportSheet<T>
+): void {
+  const sheet = workbook.addWorksheet(spec.sheetName, {
     views: [{ state: "frozen", ySplit: 1 }],
   });
-  sheet.columns = opts.columns.map((column) => ({
+  sheet.columns = spec.columns.map((column) => ({
     header: column.header,
     width: column.width ?? 20,
     ...(column.format ? { style: { numFmt: column.format } } : {}),
@@ -41,17 +60,38 @@ export async function buildExportWorkbook<T>(opts: {
   header.alignment = { vertical: "middle" };
   header.height = 22;
 
-  for (const row of opts.rows) {
-    sheet.addRow(opts.columns.map((column) => column.value(row) ?? ""));
+  for (const row of spec.rows) {
+    sheet.addRow(spec.columns.map((column) => column.value(row) ?? ""));
   }
 
-  if (opts.rows.length > 0) {
+  if (spec.rows.length > 0) {
     sheet.autoFilter = {
       from: { row: 1, column: 1 },
-      to: { row: 1, column: opts.columns.length },
+      to: { row: 1, column: spec.columns.length },
     };
   }
+}
 
+export async function buildExportWorkbook<T>(opts: {
+  sheetName: string;
+  columns: ExportColumn<T>[];
+  rows: T[];
+}): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Rentops";
+  workbook.created = new Date();
+  writeSheet(workbook, opts);
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+/** One workbook, one sheet per table — build each with `exportSheet()`. */
+export async function buildMultiSheetWorkbook(
+  sheets: ExportSheet<unknown>[]
+): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Rentops";
+  workbook.created = new Date();
+  for (const spec of sheets) writeSheet(workbook, spec);
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 

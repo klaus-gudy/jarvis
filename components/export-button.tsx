@@ -15,10 +15,12 @@ export function ExportButton({
   url,
   label = "Export",
   filenameFallback = "export.xlsx",
+  size,
 }: {
   url: string;
   label?: string;
   filenameFallback?: string;
+  size?: React.ComponentProps<typeof Button>["size"];
 }) {
   const [downloading, setDownloading] = React.useState(false);
 
@@ -54,6 +56,7 @@ export function ExportButton({
     <Button
       variant="outline"
       className="bg-card"
+      size={size}
       onClick={handleExport}
       disabled={downloading}
     >

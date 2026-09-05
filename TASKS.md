@@ -1268,6 +1268,21 @@ Email now answers one question — "what does the landlord need to know?" — in
 - [x] Money columns are raw numbers with an Excel `#,##0` format (sortable/summable in Excel, not a formatted string); dates are real Excel dates (`yyyy-mm-dd`); occupancy rate divides the stored 0–100 integer by 100 for Excel's native `0%` format
 - [x] Verified live end to end: registered a throwaway org, downloaded each of the five exports empty (headers only, no crash), then created a property, a unit, a tenant, a lease and a partial payment and re-downloaded all five — confirmed via a script that logs in and parses each workbook with `exceljs` that every column and value matches what the UI shows (occupancy 1/1, invoice status Partial, lease reference `L-…`, payment notes, etc.). `tsc --noEmit` and lint clean. Test org and users deleted afterward via the same ordered delete `deleteOrganization` uses (Membership → Invitation → Organization)
 
+## Phase 86 — Organization backup export (multi-sheet, raw, re-importable)
+
+- [x] `lib/xlsx-export.ts` gained `ExportSheet`/`exportSheet()`/`buildMultiSheetWorkbook()` alongside the existing single-sheet `buildExportWorkbook` — one workbook holding several different row-types, each sheet still fully typed at its own definition
+- [x] `lib/organization-export.ts` — `getOrganizationExportData(organizationId)` runs five org-scoped queries in parallel (matching the exact scoping each entity's own `lib/*.ts` already uses — leases through both membership and unit.property, payments through invoice.lease) and returns raw rows, not the formatted shapes the list pages use
+- [x] `GET /api/organizations/export` — one `.xlsx`, five sheets: Properties, Units, Memberships, Leases, Payments. Every id column is the real database cuid, and every foreign key column is the real value it holds — `Unit.propertyId` literally equals a row's `id` on the Properties sheet, and so on down the chain, by construction rather than by a lookup this route performs
+- [x] Memberships sheet is **every membership** in the org (not tenant-role only), joined with the underlying `User`'s name/email/phone and the `MemberProfile` fields (occupation, NIDA, nationality, employer, emergency contact) inline — there is no separate profile sheet, since it's a 1:1 relation
+- [x] **No Invoice sheet, no Roles sheet** (user's explicit call — see `plan.md` decision log 2026-09-05): Payments carries a `leaseId` resolved through its invoice instead of the real `invoiceId`, plus the invoice's own `amount`/`dueDate` inlined; Memberships carries a plain `role` name string instead of a `roleId` reference
+- [x] `ExportButton` (from the per-page export work above) grew an optional `size` prop so it fits `ProfileCardHeader`'s existing action slot at the same height as "Edit profile"
+- [x] Button placed on `/profile`'s "Organization information" card, **Owner-only** — the same boundary `AccountSettingsCard` already draws around deleting the organization, since this is every tenant's NIDA number and every financial record in one file
+- [x] Verified live end to end: registered a throwaway org, downloaded the backup empty (five headers, no crash), then created a property, a unit, a membership, a lease and a partial payment and re-downloaded — a script that logs in and parses the workbook with `exceljs` confirmed every FK column resolves to the exact `id` of its parent sheet's row (Unit → Property, Lease → Unit and → Membership, Payment → Lease). `tsc --noEmit` and lint clean. Test org and user deleted afterward via the same ordered delete `deleteOrganization` uses
+
+### Not done
+- [ ] The actual **re-import side** — this phase is export only. A future importer would read each sheet in dependency order (Properties, then Units, then Memberships, then Leases, then Payments), insert into the new organization, and keep an old-id → new-id map per sheet to rewrite the next sheet's foreign key columns before inserting it
+- [ ] `PaymentAccount` and `FileAsset` rows are not part of this backup — payment destinations and uploaded documents/photos have no sheet
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
