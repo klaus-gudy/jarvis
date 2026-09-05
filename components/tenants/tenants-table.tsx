@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ExportButton } from "@/components/export-button";
 import { ImportDialog } from "@/components/import-dialog";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
 import { MemberEditDialog } from "@/components/member-edit-dialog";
@@ -133,6 +134,11 @@ export function TenantsTable({
   return (
     <div className="space-y-3">
       <div className="flex justify-end gap-2">
+        <ExportButton
+          url="/api/tenants/export"
+          label="Export tenants"
+          filenameFallback="tenants.xlsx"
+        />
         {/* bg-card, not the variant's bg-background, which is the page colour. */}
         <Button
           variant="outline"

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PlusIcon, Trash2Icon, WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { ExportButton } from "@/components/export-button";
 import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
 import { MakePaymentDialog } from "@/components/payments/make-payment-dialog";
 import { PaymentCard } from "@/components/payments/payment-card";
@@ -103,7 +104,12 @@ export function PaymentsTable({
     <div className="space-y-4">
       {/* Totals live on the dashboard's Payments card, not here — this page is
           the ledger. */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <ExportButton
+          url="/api/payments/export"
+          label="Export payments"
+          filenameFallback="payments.xlsx"
+        />
         <Button data-tour="add-payment" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Make payment

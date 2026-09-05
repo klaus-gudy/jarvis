@@ -4,6 +4,7 @@ import { BuildingIcon } from "lucide-react";
 
 import { AddPropertyButton } from "@/components/properties/add-property-button";
 import { EmptyState } from "@/components/empty-state";
+import { ExportButton } from "@/components/export-button";
 import { PropertyCard } from "@/components/properties/property-card";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -66,7 +67,14 @@ export default async function PropertiesPage({
             );
           })}
         </div>
-        <AddPropertyButton ownerName={ownerName} />
+        <div className="flex gap-2">
+          <ExportButton
+            url="/api/properties/export"
+            label="Export properties"
+            filenameFallback="properties.xlsx"
+          />
+          <AddPropertyButton ownerName={ownerName} />
+        </div>
       </div>
 
       {properties.length === 0 ? (

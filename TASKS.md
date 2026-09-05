@@ -1258,6 +1258,16 @@ Email now answers one question — "what does the landlord need to know?" — in
 - [ ] **Tenants now receive nothing from the app.** Rent reminders, receipts and expiry notices were the tenant-facing half of the product; if they come back it should be as a deliberate channel decision (SMS is the obvious one here, since tenants onboard by phone) rather than by restoring these senders
 - [ ] The mail queue still has **no consumer in this repo** — `emails.outbound` is drained by an external service, so nothing verified here actually left the machine
 
+## Phase 85 — Excel export on every list page
+
+- [x] `lib/xlsx-export.ts` — the export half of the spreadsheet story, sibling to `lib/xlsx-import.ts`: `buildExportWorkbook` takes a column list (`header`, `width`, `value(row)`, optional `format`) and a row array, styles the header row identically to the import templates, and adds an autofilter. `xlsxResponse` and `exportFilename`/`slugify` cover the response headers and dated filename
+- [x] `components/export-button.tsx` — one `ExportButton` (fetch → blob → anchor → click), the same download dance `ImportDialog`'s template button already used, so export needed no new pattern
+- [x] Five routes, each `requireActiveOrg` then the page's own existing data function — no new queries: `GET /api/tenants/export`, `GET /api/leases/export`, `GET /api/payments/export`, `GET /api/properties/export`, `GET /api/properties/[id]/units/export` (property-scoped, mirroring the units-template route's 404-on-foreign-id shape)
+- [x] Button placed beside the existing Import/Add button on Tenants, Leases, Payments and a property's Units tab, and beside Add property on the Properties grid
+- [x] Exports the organization's full dataset for that entity, not the table's current client-side filter/search/page — consistent with the existing template/import endpoints, which are also unfiltered org-scoped queries
+- [x] Money columns are raw numbers with an Excel `#,##0` format (sortable/summable in Excel, not a formatted string); dates are real Excel dates (`yyyy-mm-dd`); occupancy rate divides the stored 0–100 integer by 100 for Excel's native `0%` format
+- [x] Verified live end to end: registered a throwaway org, downloaded each of the five exports empty (headers only, no crash), then created a property, a unit, a tenant, a lease and a partial payment and re-downloaded all five — confirmed via a script that logs in and parses each workbook with `exceljs` that every column and value matches what the UI shows (occupancy 1/1, invoice status Partial, lease reference `L-…`, payment notes, etc.). `tsc --noEmit` and lint clean. Test org and users deleted afterward via the same ordered delete `deleteOrganization` uses (Membership → Invitation → Organization)
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

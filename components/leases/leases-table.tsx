@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EyeIcon, PencilIcon, PlusIcon, Trash2Icon, WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { ExportButton } from "@/components/export-button";
 import { LeaseCard } from "@/components/leases/lease-card";
 import { buildLeaseColumns } from "@/components/leases/lease-columns";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
@@ -115,7 +116,12 @@ export function LeasesTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <ExportButton
+          url="/api/leases/export"
+          label="Export leases"
+          filenameFallback="leases.xlsx"
+        />
         <Button data-tour="add-lease" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Create lease

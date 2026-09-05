@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ExportButton } from "@/components/export-button";
 import { UnitCard } from "@/components/properties/unit-card";
 import {
   buildUnitColumns,
@@ -148,6 +149,11 @@ export function UnitsTable({
   return (
     <div className="space-y-3">
       <div className="flex justify-end gap-2">
+        <ExportButton
+          url={`/api/properties/${propertyId}/units/export`}
+          label="Export units"
+          filenameFallback="units.xlsx"
+        />
         {/* bg-card, not the variant's bg-background: this button sits directly on
             the page rather than on a card, where `outline`'s fill is the exact
             same colour as the page and only the border shows. */}
