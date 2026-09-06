@@ -1,6 +1,6 @@
 import { requireActiveOrg } from "@/lib/api-auth";
 import { CONTRACT_STEP_LABELS } from "@/lib/contract-steps";
-import { generateAndStoreContract } from "@/lib/contracts";
+import { describeError, generateAndStoreContract } from "@/lib/contracts";
 import { generateLeaseContract } from "@/lib/lease-templates";
 import { prisma } from "@/lib/prisma";
 
@@ -142,7 +142,7 @@ export async function POST(
         send({
           type: "error",
           reason: "unexpected",
-          message: cause instanceof Error ? cause.message : String(cause),
+          message: describeError(cause),
         });
       } finally {
         controller.close();

@@ -2,28 +2,92 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertCircleIcon,
-  CheckIcon,
-  FileSignatureIcon,
-  LoaderIcon,
-} from "lucide-react";
+import { FileSignatureIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { Button } from "@/components/ui/button";
 import type { AssetTypeView } from "@/lib/asset-types";
 import {
+  CONTRACT_STEPS,
   CONTRACT_STEP_LABELS,
   type ContractStep,
 } from "@/lib/contract-steps";
 
 type DocumentView = React.ComponentProps<typeof DocumentsPanel>["documents"][number];
 
-/** One line of the live log, in the order the server reached it. */
-type StepLine = { step: ContractStep; label: string; state: "running" | "done" };
+/**
+ * Bottom left, where the global `<Toaster>` is not.
+ *
+ * Set per toast rather than on the Toaster itself, because moving the Toaster
+ * would relocate every toast in the app — saves, deletes, upload failures — to
+ * chase one of them. Generating a contract is the only thing here that runs
+ * long enough to need a corner of its own, so it takes the corner and nothing
+ * else changes.
+ */
+const TOAST_POSITION = "bottom-left" as const;
 
-type Failure = { message: string; reason: string };
+/**
+ * The toast is gold (`--stat-accent`) for every variant, because `richColors`
+ * is off — so without this a failure and a success differ only by their icon.
+ * Overriding the three variables sonner reads is enough to repaint one toast
+ * without touching the shared config.
+ */
+const FAILURE_STYLE = {
+  "--normal-bg": "var(--destructive)",
+  "--normal-text": "var(--destructive-foreground)",
+  "--normal-border": "var(--destructive)",
+} as React.CSSProperties;
+
+/**
+ * Undoes the above, and every call has to pass one or the other.
+ *
+ * Updating a toast by id **merges** options into the existing one rather than
+ * replacing them, so a failure followed by a successful retry rendered "filed"
+ * in destructive red — the style outlived the state it belonged to. Empty
+ * strings delete the declarations from the toast element so the variables
+ * inherit from the `<Toaster>` again, which keeps the default palette defined
+ * in exactly one place instead of copied to here.
+ */
+const DEFAULT_STYLE = {
+  "--normal-bg": "",
+  "--normal-text": "",
+  "--normal-border": "",
+} as React.CSSProperties;
+
+/**
+ * What is happening, and how much of it is left.
+ *
+ * Segments rather than a percentage: the three phases take wildly different
+ * amounts of time (filling a template is instant, launching Chromium is not),
+ * so a bar that claimed to be 33% done would be lying. Three segments only
+ * claim "one of three finished", which is true.
+ *
+ * Built from spans with display classes rather than divs — sonner renders this
+ * inside its own description element, and a span nests validly wherever that
+ * lands.
+ */
+function ProgressBody({ done, label }: { done: number; label: string }) {
+  return (
+    <span className="mt-1 block">
+      <span className="block text-xs">{label}</span>
+      <span className="mt-1.5 flex gap-1" aria-hidden="true">
+        {CONTRACT_STEPS.map((step, index) => (
+          <span
+            key={step}
+            className={`h-1 flex-1 rounded-full bg-current ${
+              index < done
+                ? "opacity-100"
+                : index === done
+                  ? "animate-pulse opacity-70"
+                  : "opacity-25"
+            }`}
+          />
+        ))}
+      </span>
+    </span>
+  );
+}
 
 /**
  * The contract generated for this lease, and nothing else.
@@ -31,11 +95,18 @@ type Failure = { message: string; reason: string };
  * Split from Documents the way a property splits Images from Documents: one
  * tab holds what the system produced, the other holds what people file.
  *
- * **Generating streams.** The button used to POST, get a 202 and say "refresh
- * in a moment" — which could report that the message was accepted and nothing
- * else. A missing browser, a refused upload, a template that would not resolve:
- * all of them looked exactly like success. Now each phase arrives as it starts
- * and the failure arrives with its actual message, in the page, staying put.
+ * **Generating streams into a toast.** The button used to POST, get a 202 and
+ * say "refresh in a moment" — which could report that the message was accepted
+ * and nothing else. A missing browser, a refused upload, a template that would
+ * not resolve: all of them looked exactly like success. Each phase now arrives
+ * as it starts, and a failure arrives with its actual message.
+ *
+ * It lives in a toast rather than in the page so the tab stays what it is — a
+ * list of the contract on file — instead of growing a progress log that is
+ * meaningless for the ~99% of visits where nothing is being generated. The
+ * failure toast is the one exception to a toast's usual manners: it does not
+ * auto-dismiss, because an error message that disappears before it is read is
+ * the exact problem this replaced.
  */
 export function ContractTab({
   leaseId,
@@ -48,14 +119,60 @@ export function ContractTab({
 }) {
   const router = useRouter();
   const [running, setRunning] = React.useState(false);
-  const [steps, setSteps] = React.useState<StepLine[]>([]);
-  const [failure, setFailure] = React.useState<Failure | null>(null);
+  const [failed, setFailed] = React.useState(false);
   const hasContract = documents.length > 0;
 
   async function handleGenerate() {
     setRunning(true);
-    setSteps([]);
-    setFailure(null);
+    setFailed(false);
+
+    // One id for the whole run, so each phase *replaces* the last instead of
+    // stacking three toasts on top of each other.
+    const toastId = `contract-${leaseId}`;
+
+    /*
+     * The last phase the server said it had started. This — not the `reason`
+     * on the error event — is what names where a run stopped: the server
+     * reports the kind of fault, while the step it was in the middle of is
+     * simply the last one it announced. Tracking it here keeps the two
+     * vocabularies from having to agree.
+     */
+    let current: ContractStep | null = null;
+
+    /*
+     * `??` is not enough of a guard here. A thrown `AggregateError` — a refused
+     * connection, most often — carries an *empty* message, and an empty string
+     * passes straight through `??` to render a failure toast that explains
+     * nothing. The server describes those properly now; this is the second
+     * line, covering fetch's own errors and any future caller.
+     */
+    const fail = (reported: string | undefined) => {
+      const message = reported?.trim()
+        ? reported
+        : "No error detail was reported — check the server logs";
+      setFailed(true);
+      toast.error("The contract could not be generated", {
+        id: toastId,
+        description: (
+          <span className="mt-1 block">
+            {current && (
+              <span className="block text-xs opacity-90">
+                Stopped at: {CONTRACT_STEP_LABELS[current]}
+              </span>
+            )}
+            {/* The server's own words. A rewritten message is a message that
+                cannot name the file, the bucket or the missing binary. */}
+            <span className="mt-1 block font-mono text-xs break-words">
+              {message}
+            </span>
+          </span>
+        ),
+        duration: Infinity,
+        closeButton: true,
+        position: TOAST_POSITION,
+        style: FAILURE_STYLE,
+      });
+    };
 
     let response: Response;
     try {
@@ -65,10 +182,7 @@ export function ContractTab({
       });
     } catch (cause) {
       setRunning(false);
-      setFailure({
-        reason: "network",
-        message: cause instanceof Error ? cause.message : String(cause),
-      });
+      fail(cause instanceof Error ? cause.message : String(cause));
       return;
     }
 
@@ -76,10 +190,7 @@ export function ContractTab({
     if (!response.ok || !response.body) {
       const data = await response.json().catch(() => null);
       setRunning(false);
-      setFailure({
-        reason: "request",
-        message: data?.error ?? `Request failed (${response.status})`,
-      });
+      fail(data?.error || `Request failed (${response.status})`);
       return;
     }
 
@@ -97,35 +208,45 @@ export function ContractTab({
       missing?: string[];
     }) => {
       if (event.type === "step" && event.step) {
-        const { step, label } = event;
-        setSteps((current) => [
-          // Whatever was running has, by definition, finished — the server
-          // only starts the next phase once the previous one returned.
-          ...current.map((line) => ({ ...line, state: "done" as const })),
-          { step, label: label ?? CONTRACT_STEP_LABELS[step], state: "running" },
-        ]);
+        current = event.step;
+        toast.loading("Generating contract", {
+          id: toastId,
+          description: (
+            <ProgressBody
+              // The step that just *started* is the one in flight, so every
+              // step before it is finished — the server does not begin one
+              // until the previous returned.
+              done={CONTRACT_STEPS.indexOf(event.step)}
+              label={event.label ?? CONTRACT_STEP_LABELS[event.step]}
+            />
+          ),
+          duration: Infinity,
+          closeButton: false,
+          position: TOAST_POSITION,
+          style: DEFAULT_STYLE,
+        });
         return;
       }
 
       if (event.type === "done") {
-        setSteps((current) =>
-          current.map((line) => ({ ...line, state: "done" as const }))
-        );
         const blanks = event.missing?.length ?? 0;
-        toast.success(
-          blanks > 0
-            ? `${event.fileName} filed — ${blanks} field${blanks === 1 ? "" : "s"} had no data`
-            : `${event.fileName} filed`
-        );
+        toast.success(`${event.fileName} filed`, {
+          id: toastId,
+          description:
+            blanks > 0
+              ? `${blanks} field${blanks === 1 ? "" : "s"} had no data`
+              : undefined,
+          duration: 6000,
+          closeButton: false,
+          position: TOAST_POSITION,
+          style: DEFAULT_STYLE,
+        });
         router.refresh();
         return;
       }
 
       if (event.type === "error") {
-        setFailure({
-          reason: event.reason ?? "unknown",
-          message: event.message ?? "The contract could not be generated",
-        });
+        fail(event.message);
       }
     };
 
@@ -154,10 +275,7 @@ export function ContractTab({
         }
       }
     } catch (cause) {
-      setFailure({
-        reason: "stream",
-        message: cause instanceof Error ? cause.message : String(cause),
-      });
+      fail(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setRunning(false);
     }
@@ -175,52 +293,8 @@ export function ContractTab({
             disabled={running}
           >
             <FileSignatureIcon />
-            {running ? "Generating…" : failure ? "Try again" : "Generate contract"}
+            {running ? "Generating…" : failed ? "Try again" : "Generate contract"}
           </Button>
-        </div>
-      )}
-
-      {/*
-        The log stays after the run finishes rather than clearing itself: when
-        something failed, the step it failed *at* is half the diagnosis.
-      */}
-      {steps.length > 0 && (
-        <ol className="space-y-1.5 rounded-lg border bg-card px-4 py-3">
-          {steps.map((line) => (
-            <li key={line.step} className="flex items-center gap-2 text-sm">
-              {line.state === "running" && !failure ? (
-                <LoaderIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-              ) : line.state === "done" && !failure ? (
-                <CheckIcon className="size-3.5 shrink-0 text-emerald-600" />
-              ) : line.state === "running" ? (
-                <AlertCircleIcon className="size-3.5 shrink-0 text-destructive" />
-              ) : (
-                <CheckIcon className="size-3.5 shrink-0 text-emerald-600" />
-              )}
-              <span
-                className={
-                  line.state === "running" && failure
-                    ? "text-destructive"
-                    : "text-muted-foreground"
-                }
-              >
-                {line.label}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {failure && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
-          <p className="text-sm font-medium text-destructive">
-            The contract could not be generated
-          </p>
-          {/* The server's own words. A rewritten message is a message that
-              cannot name the file, the bucket or the missing binary. */}
-          <p className="mt-1 font-mono text-xs break-words text-destructive/90">
-            {failure.message}
-          </p>
         </div>
       )}
 

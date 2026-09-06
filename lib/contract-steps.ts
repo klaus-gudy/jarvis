@@ -17,6 +17,16 @@
 
 export type ContractStep = "template" | "render" | "store";
 
+/**
+ * In the order the pipeline runs them.
+ *
+ * Written out rather than derived from `Object.keys(CONTRACT_STEP_LABELS)`:
+ * the progress toast draws one segment per step and fills them left to right,
+ * so the order is load-bearing, and a list that means "this is the sequence"
+ * should say so rather than depend on where someone happened to type a key.
+ */
+export const CONTRACT_STEPS: ContractStep[] = ["template", "render", "store"];
+
 export const CONTRACT_STEP_LABELS: Record<ContractStep, string> = {
   template: "Reading the lease and filling the template",
   render: "Rendering the PDF",

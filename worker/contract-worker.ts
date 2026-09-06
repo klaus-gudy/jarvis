@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import { connect } from "amqplib";
 
-import { generateAndStoreContract } from "@/lib/contracts";
+import { describeError, generateAndStoreContract } from "@/lib/contracts";
 import {
   CONTRACT_QUEUE,
   RABBITMQ_URL,
@@ -120,7 +120,7 @@ async function main() {
 
       throw new Error(result.message);
     } catch (cause) {
-      const reason = cause instanceof Error ? cause.message : String(cause);
+      const reason = describeError(cause);
       console.error(
         `[contract-worker] attempt ${attempts}/${MAX_ATTEMPTS} failed for ${label}: ${reason}`
       );

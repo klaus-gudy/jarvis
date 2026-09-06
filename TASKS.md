@@ -1314,6 +1314,24 @@ Email now answers one question — "what does the landlord need to know?" — in
 - [ ] No cancel: once the stream starts there is no way to abandon it from the UI, and closing the tab leaves the render running to completion server-side
 - [ ] Everything else still open from Phases 80–82
 
+## Phase 88 — Contract progress moves into a toast, and two bugs it uncovered
+
+- [x] **The step log left the page.** The Contract tab is a list of the contract on file; a progress log that is meaningless on the ~99% of visits where nothing is generating does not belong in it. Progress now runs in a **bottom-left toast**: sonner's spinner, the current phase, and three segments that fill left to right
+- [x] **Position set per toast, not on the `<Toaster>`.** Moving the Toaster would relocate every toast in the app — saves, deletes, upload failures — to chase one of them. Sonner spins up a second bottom-left container on demand, so the rest stay where they are
+- [x] Segments rather than a percentage: the three phases take wildly different times (filling a template is instant, launching Chromium is not), so a bar claiming "33%" would be lying. Three segments only claim "one of three finished", which is true. `CONTRACT_STEPS` added to `lib/contract-steps.ts` so the order is declared rather than inherited from key-insertion order
+- [x] **The failure toast does not auto-dismiss** (`duration: Infinity`, close button). An error message that disappears before it is read is the exact problem Phase 83 replaced, so this is the one toast allowed to ignore a toast's usual manners
+- [x] **Bug found: a failure toast that explained nothing.** Node throws an **`AggregateError` with an empty `message`** when a connection is refused on several addresses — precisely what a stopped MinIO looks like — and the detail lives only in `errors[]` and `code`. So the toast built to explain the failure rendered a blank line under "Stopped at". New `describeError` in `lib/contracts.ts` unwraps aggregates and falls back to `code` or the class name, so `""` is never an answer; used by both render and store paths, by the route's catch-all, and by the worker's log, which had the same hole. The client guards empty strings too, since `??` passes `""` straight through
+- [x] **Bug found: sonner merges options on update.** Updating a toast by id keeps options the previous call set, so a failure followed by a successful retry rendered "filed" in destructive red with the error's close button still attached. Every state now passes its own `style` and `closeButton`; `DEFAULT_STYLE` clears the three variables with empty strings so they inherit from the `<Toaster>` again, keeping the default palette defined in one place
+- [x] Verified all three states in the browser against a real lease. Progress: the toast showed *"Generating contract / Reading the lease and filling the template"* with the first segment filled, and a later sample caught segment opacities `1, 1, 0.7` on the store phase. Failure (MinIO stopped, `.env` untouched): red, persistent, *"Stopped at: Filing it in document storage"* and `connect ECONNREFUSED ::1:9000 — connect ECONNREFUSED 127.0.0.1:9000`, which before the fix was blank. Retry with MinIO back: gold success toast, no close button, row present
+- [x] Worth knowing: a warm run is **113ms end to end** (measured off the raw SSE frames), so the progress toast is only visible when something is actually slow — a cold Chromium launch, a large template, or real network latency to storage. That is the intended behaviour, not a bug, but it does mean the display cannot be verified on a warm dev box without slowing the stream
+- [x] Bucket and database left consistent — 24 objects, 24 rows — after repeated generate/delete cycles
+- [x] `tsc`, lint (0 errors, 3 pre-existing warnings)
+
+### Not done
+- [ ] **`lib/events/publisher.ts` and `lib/mail/queue.ts` have the same empty-message hole** (`error.message` straight into a log line). A refused RabbitMQ connection is the identical `AggregateError`, so those logs go blank in exactly the situation you would read them. `describeError` is exported and ready; left alone here only to keep this change to the contract path
+- [ ] No cancel, still: dismissing the progress toast hides it but does not stop the render
+- [ ] The **security and blast-radius questions about Chromium in the web process are unaddressed** — `javaScriptEnabled: false` and an abort-all route handler in `lib/pdf.ts`, a concurrency cap, and the job-status table that would let rendering move back to the worker. See the Phase 83 "Not done" list
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).
