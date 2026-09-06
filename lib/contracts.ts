@@ -1,3 +1,4 @@
+import type { ContractStepReporter } from "@/lib/contract-steps";
 import { createDocument, deleteDocument } from "@/lib/documents";
 import { CONTRACT_CSS } from "@/lib/lease-document-style";
 import {
@@ -31,6 +32,8 @@ export type ContractResult =
       message: string;
     };
 
+
+
 /**
  * Wraps the filled body in a document Chromium can print.
  *
@@ -62,8 +65,10 @@ function printableDocument(bodyHtml: string) {
  */
 export async function generateAndStoreContract(
   organizationId: string,
-  leaseId: string
+  leaseId: string,
+  onStep: ContractStepReporter = () => {}
 ): Promise<ContractResult> {
+  onStep("template");
   let rendered = await generateLeaseContract(organizationId, leaseId);
 
   /*
@@ -104,6 +109,7 @@ export async function generateAndStoreContract(
   const { contract } = rendered;
 
   let pdf: Uint8Array;
+  onStep("render");
   try {
     pdf = await htmlToPdf(printableDocument(contract.html), {
       footerText: `${contract.template.name} · ${contract.contractNumber}`,
@@ -115,6 +121,8 @@ export async function generateAndStoreContract(
       message: cause instanceof Error ? cause.message : String(cause),
     };
   }
+
+  onStep("store");
 
   // `allowsMultiple` is false on this type, so the previous contract has to go
   // before the new one can land. Deleted through `deleteDocument` rather than

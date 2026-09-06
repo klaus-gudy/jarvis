@@ -8,7 +8,7 @@ import {
 
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
 import { AccountSettingsCard } from "@/components/profile/account-settings-card";
-import { ExportButton } from "@/components/export-button";
+import { OrganizationDataActions } from "@/components/profile/organization-data-actions";
 import { PaymentAccountsCard } from "@/components/profile/payment-accounts-card";
 import { PersonalInfoCard } from "@/components/profile/personal-info-card";
 import { ProfileCardHeader } from "@/components/profile/profile-card-header";
@@ -79,11 +79,14 @@ export default async function ProfilePage() {
             // (every tenant's NIDA number and emergency contacts included),
             // the same boundary `AccountSettingsCard` draws around delete.
             profile.isOwner && organization ? (
-              <ExportButton
-                url="/api/organizations/export"
-                label="Export data"
-                filenameFallback="organization-backup.xlsx"
-                size="sm"
+              <OrganizationDataActions
+                // Restoring into a non-empty organization would duplicate or
+                // merge unrelated data, so the button greys out rather than
+                // vanishing once this one has a property or a second member —
+                // matches the server-side guard on the import route exactly.
+                canImport={
+                  organization.propertyCount === 0 && organization.memberCount <= 1
+                }
               />
             ) : undefined
           }

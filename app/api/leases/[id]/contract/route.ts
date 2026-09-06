@@ -1,5 +1,6 @@
 import { requireActiveOrg } from "@/lib/api-auth";
-import { publishEvent } from "@/lib/events/publisher";
+import { CONTRACT_STEP_LABELS } from "@/lib/contract-steps";
+import { generateAndStoreContract } from "@/lib/contracts";
 import { generateLeaseContract } from "@/lib/lease-templates";
 import { prisma } from "@/lib/prisma";
 
@@ -63,14 +64,27 @@ export async function GET(
 }
 
 /**
- * Asks for the contract to be generated and filed — the same request the
- * `lease.created` event makes, for a lease that has none.
+ * Generates the contract and **streams what is happening while it happens**.
  *
- * Publishes rather than rendering here, so **Chromium stays out of the web
- * process**: `lib/pdf.ts` needs a browser, and the only thing that should have
- * to have one installed is `worker/contract-worker.ts`. 202, not 201: nothing
- * has been created yet, and saying otherwise would be a lie the Contract tab
- * then has to explain.
+ * This one renders inline rather than publishing `lease.created` and returning
+ * 202. The queue is still right for the automatic path — a lease must not wait
+ * on a browser, and a storage outage must not fail a signing — but it is wrong
+ * *here*, because a person is sitting in front of this button waiting to find
+ * out whether it worked. A 202 and "refresh in a moment" cannot tell them that
+ * Chromium is missing or that MinIO refused the object; it can only tell them
+ * the message was accepted, which is the one thing they did not ask.
+ *
+ * The cost, stated plainly: the web process now needs the browser that
+ * `lib/pdf.ts` launches, where before only `worker/contract-worker.ts` did.
+ * That is the price of showing the error, and it is worth it for a manual
+ * recovery action — but it means `npx playwright install chromium` is now a
+ * requirement wherever `next start` runs, not just on the worker host.
+ *
+ * Server-sent events rather than NDJSON: `text/event-stream` is the one
+ * content type proxies and dev servers reliably refuse to buffer, and a
+ * progress stream that arrives in one lump at the end is not a progress
+ * stream. Read with `fetch` + a reader rather than `EventSource`, which cannot
+ * POST.
  */
 export async function POST(
   _request: Request,
@@ -82,9 +96,9 @@ export async function POST(
   const { organizationId } = auth.context;
   const { id } = await ctx.params;
 
-  // Scoped through both relations, matching `getLease` — the worker would
-  // refuse a borrowed id anyway, but a 404 here says so immediately instead of
-  // accepting the request and silently doing nothing.
+  // Checked *before* the stream opens, so "you cannot do this" stays an
+  // ordinary JSON status the client can branch on, rather than an error event
+  // inside a 200 response.
   const lease = await prisma.lease.findFirst({
     where: {
       id,
@@ -95,18 +109,56 @@ export async function POST(
   });
   if (!lease) return Response.json({ error: "Lease not found" }, { status: 404 });
 
-  const published = await publishEvent("lease.created", {
-    organizationId,
-    leaseId: lease.id,
-    occurredAt: new Date().toISOString(),
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: unknown) =>
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+
+      try {
+        const result = await generateAndStoreContract(
+          organizationId,
+          lease.id,
+          (step) => send({ type: "step", step, label: CONTRACT_STEP_LABELS[step] })
+        );
+
+        send(
+          result.ok
+            ? {
+                type: "done",
+                documentId: result.documentId,
+                fileName: result.fileName,
+                // Not an error, but worth saying: a contract with blank fill
+                // lines is usually a member record nobody finished.
+                missing: result.missing,
+              }
+            : { type: "error", reason: result.reason, message: result.message }
+        );
+      } catch (cause) {
+        // `generateAndStoreContract` returns its expected failures, so reaching
+        // here means something genuinely unhandled — a dead browser, a broken
+        // connection. It still has to reach the person waiting.
+        send({
+          type: "error",
+          reason: "unexpected",
+          message: cause instanceof Error ? cause.message : String(cause),
+        });
+      } finally {
+        controller.close();
+      }
+    },
   });
 
-  if (!published.ok) {
-    return Response.json(
-      { error: "Could not queue the contract. Is the message broker running?" },
-      { status: 503 }
-    );
-  }
-
-  return Response.json({ queued: true }, { status: 202 });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      // `no-transform` matters as much as `no-store`: a proxy that gzips this
+      // will also buffer it, and the stream arrives as one lump at the end.
+      "Cache-Control": "no-store, no-transform",
+      Connection: "keep-alive",
+      // nginx's own opt-out, harmless everywhere else.
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
