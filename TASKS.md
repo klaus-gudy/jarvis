@@ -1332,6 +1332,38 @@ Email now answers one question — "what does the landlord need to know?" — in
 - [ ] No cancel, still: dismissing the progress toast hides it but does not stop the render
 - [ ] The **security and blast-radius questions about Chromium in the web process are unaddressed** — `javaScriptEnabled: false` and an abort-all route handler in `lib/pdf.ts`, a concurrency cap, and the job-status table that would let rendering move back to the worker. See the Phase 83 "Not done" list
 
+## Phase 89 — Rendering moves to the `document-worker` service
+
+- [x] **Chromium is gone from this repo.** `lib/pdf.ts` deleted, `playwright` uninstalled, and a clean `npm run build` contains **zero** references to it (grep over a freshly built `.next/`). `npm run dev` starts on a host with no browser
+- [x] `lease.created` now carries **`{ html, objectKey }`** and nothing else — the contract `document-worker` documents and validates. `html` is `printableDocument()` output, a complete document with `CONTRACT_CSS` inlined: the renderer adds nothing and blocks every network request, so a linked stylesheet would silently file an unstyled contract
+- [x] `buildContractPlan()` in `lib/contracts.ts` — the producer's half, called from `POST /api/leases` (inside the existing `after()`), the Generate button, and the backfill. Never throws; returns its failures
+- [x] **Import-chain fix:** `LEASE_CONTRACT_TYPE_ID` and `contractFileName` moved to `lib/contract-constants.ts`, `describeError` to `lib/errors.ts`. `app/(app)/leases/[id]/page.tsx` was importing a constant from `lib/contracts.ts`, which imported `lib/pdf.ts` — a headless browser in the Next server graph for a page render
+- [x] **ESLint `no-restricted-imports`** bans `@/lib/pdf` and `playwright` from `app/**` and `components/**`, so it cannot come back by accident. Verified: a probe file importing it fails lint with the message pointing at the service
+- [x] `worker/contract-worker.ts` → **`worker/document-worker.ts`**, now a `document.stored` consumer that files the `FileAsset` row. No browser on this host either
+- [x] `recordDocument()` + `parseContractObjectKey()` in `lib/documents.ts` — a row for an object already in the bucket, with the lease recovered from the key (`parseContractObjectKey` is the exact inverse of `buildObjectKey`) and the file name rebuilt from `leaseReference`
+- [x] **Topology reconciled with the other repo:** `jarvis.events.dlx` asserted `direct` not `fanout`, `contracts.generate` retired, new `JARVIS_DOCUMENTS_QUEUE`/`_DEAD` following `document-worker`'s naming and dead-letter-by-queue-name convention
+- [x] `document-worker/.env` + its scripts moved from port **5673 → 5682**, which is the broker `docker-compose.yml` actually runs
+- [x] **Verified end to end against the real broker, MinIO and Postgres.** Backfill published a 7,210-byte message (6,748 chars of HTML) → renderer stored 94,478 bytes in 392ms → `document.stored` → row filed as `contract-L-LWX8G.pdf`, `uploadedById: null`, one subject column set, `sizeBytes` matching the object exactly, one row for the lease
+- [x] **Idempotency proven, not assumed:** republishing the same `document.stored` logged "already filed — ignoring redelivery" instead of violating `objectKey`'s unique constraint
+- [x] **Tenancy proven:** a completion naming `organizations/some-other-org/...` was refused with `subject-not-found` and filed nothing
+- [x] **Rejection proven:** a `lease.created` with no `html` was rejected into `DOCUMENT_WORKER_QUEUE_DEAD`
+- [x] **The page footer is preserved.** `lease.created` carries `footerText`, and `document-worker` passes it to `PdfService.render` alongside its own fixed layout. The rule is now stated precisely on both sides: **layout is the renderer's, the words are the publisher's** — a message may not set format or margins (a test asserts a message carrying them is ignored), but the template name and contract reference are content only this app knows. Capped at 200 chars in the renderer, matching `RenderPdfDto` on its HTTP route, since a queue message never passes through `ValidationPipe`
+- [x] **Verified in the rendered PDF, not inferred**: extracted with `pypdf`, the final page ends `Standard tenancy agreement · L-LWX8G 2 / 2`, and the pre-fix PDF has no footer line at all. 94,478 → 104,222 bytes (the original, before any of this, was 104,031)
+- [x] `document-worker`'s `README.md` replaced — it was still the NestJS boilerplate. Documents the message contract both repos have to agree on, the `direct` DLX requirement, the `PRECONDITION_FAILED` recovery, and its own known gaps
+- [x] Its stale `StorageService` comment ("does not yet generate documents") corrected; sample publisher sends a `footerText`
+- [x] **`meta` rides out on `lease.created` and comes back on `document.stored`** — `organizationId`, `leaseId`, `contractNumber`, `fileName`, `missing`. Opaque to the renderer, which echoes it without reading it (and omits it entirely, rather than sending `{}`, when a request carried none), so it carries a lease id without learning what a lease is. This is what brought the blank-placeholder log line back: `missing` cannot be re-derived from the key
+- [x] **The object key stays authoritative; `meta` is all-or-nothing.** `organizationId`/`leaseId` come from `parseContractObjectKey`, and `meta` is checked against them — on a mismatch it is discarded **whole**, not corrected field by field, because a block that lied about the lease should not still be trusted for the file name. Verified with a forged completion naming another org and `contract-EVIL.pdf`: warned, discarded, and filed `contract-L-LWX8G.pdf` derived from the key
+- [x] Also verified: **no `meta`** (a pre-`meta` message) and **wrong-shaped `meta`** (`fileName: 42`, `missing: "nope"`) both file correctly from the key
+- [x] **Margins restored to this app's originals** (18/16/20/16mm) in `CONTRACT_PDF_OPTIONS`, with `PdfService.DEFAULT_MARGIN` moved in step so the HTTP preview and the queue still render the same shape. Confirmed A4 (595.9 × 842.9pt) with the footer intact
+- [x] **Broker incompatibilities swept end to end**: both repos on `amqp://…:5682` (matching `docker-compose.yml`'s `5682:5672`), both on topic exchange `jarvis.events`, keys paired (`lease.created` out / `document.stored` back), both asserting `jarvis.events.dlx` as **`direct`**, and each queue dead-lettering by its own name. Audited against the live broker, not just the source
+- [x] `tsc` clean, lint 0 errors (3 pre-existing warnings); `document-worker` lint clean, build clean, **13/13** tests passing
+
+### Not done
+- [ ] **The Generate button no longer reports what happened.** It publishes and answers 202. A missing template is still caught synchronously, but a render or upload that fails on the other side — and a `document-worker` that is not running — now look exactly like success. This is the `DocumentJob` table again
+- [ ] The authenticated button click was **not** exercised in a browser (no credentials); the route was verified as 401-unauthenticated and its publish path via the backfill, which is the same code
+- [ ] **The HTML is unbounded.** The renderer caps its HTTP endpoint at 5MB; the queue path has no equivalent, and a large template will eventually meet RabbitMQ's frame limit — the publish then fails and the lease silently gets no contract
+- [ ] `contracts.generate.dead` still holds 9 messages from the old pipeline, now unbound. They are not replayable in the new format; the backfill is the recovery
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

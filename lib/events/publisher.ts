@@ -6,10 +6,11 @@ import {
 } from "amqplib";
 
 import {
-  CONTRACT_BINDINGS,
-  CONTRACT_DLQ,
-  CONTRACT_QUEUE,
+  DOCUMENTS_BINDINGS,
+  DOCUMENTS_DLQ,
+  DOCUMENTS_QUEUE,
   EVENTS_DLX,
+  EVENTS_DLX_TYPE,
   EVENTS_EXCHANGE,
   RABBITMQ_URL,
   type DomainEvent,
@@ -29,28 +30,44 @@ type EventConnection = {
 };
 
 /**
- * Declared by the *producer*, not left to the worker: an event published
- * before the contract worker has ever run must be held, and a topic exchange
- * with no bound queue drops what it receives without complaint. That is the
- * difference between "the worker was down for ten minutes" and "ten leases
- * have no contract and nothing recorded why".
+ * Declared by the *producer*, not left to a consumer: an event published before
+ * its consumer has ever run must be held, and a topic exchange with no bound
+ * queue drops what it receives without complaint. That is the difference
+ * between "the worker was down for ten minutes" and "ten leases have no
+ * contract and nothing recorded why".
+ *
+ * **This app no longer declares a queue for `lease.created`.** That message is
+ * for `document-worker`, which owns `DOCUMENT_WORKER_QUEUE` and declares it
+ * itself; a second queue bound to the same key here would mean two services
+ * racing to render one contract. What is declared instead is the mailbox for
+ * the reply — `document.rendered`, which is how the `FileAsset` row gets
+ * written once the PDF is actually in the bucket.
+ *
+ * The dead-letter topology deliberately mirrors `document-worker`'s, down to
+ * the exchange type and the routing key being the originating queue's own name.
+ * Both apps assert the same exchange, and an exchange's type cannot be changed
+ * after creation, so agreeing is not optional — see `EVENTS_DLX_TYPE`.
  */
 export async function declareEventTopology(model: ChannelModel) {
   const channel = await model.createChannel();
 
   await channel.assertExchange(EVENTS_EXCHANGE, "topic", { durable: true });
-  await channel.assertExchange(EVENTS_DLX, "fanout", { durable: true });
+  await channel.assertExchange(EVENTS_DLX, EVENTS_DLX_TYPE, { durable: true });
 
-  await channel.assertQueue(CONTRACT_QUEUE, {
+  // The holding area first: a dead-letter exchange with no queue bound behaves
+  // exactly like having none at all — the broker publishes the rejected
+  // message, nothing is listening, and it is dropped just as silently.
+  await channel.assertQueue(DOCUMENTS_DLQ, { durable: true });
+  await channel.bindQueue(DOCUMENTS_DLQ, EVENTS_DLX, DOCUMENTS_QUEUE);
+
+  await channel.assertQueue(DOCUMENTS_QUEUE, {
     durable: true,
     deadLetterExchange: EVENTS_DLX,
+    deadLetterRoutingKey: DOCUMENTS_QUEUE,
   });
-  for (const binding of CONTRACT_BINDINGS) {
-    await channel.bindQueue(CONTRACT_QUEUE, EVENTS_EXCHANGE, binding);
+  for (const binding of DOCUMENTS_BINDINGS) {
+    await channel.bindQueue(DOCUMENTS_QUEUE, EVENTS_EXCHANGE, binding);
   }
-
-  await channel.assertQueue(CONTRACT_DLQ, { durable: true });
-  await channel.bindQueue(CONTRACT_DLQ, EVENTS_DLX, "");
 
   await channel.close();
 }

@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { findLeasesMissingContracts } from "@/lib/contracts";
+import { buildContractPlan, findLeasesMissingContracts } from "@/lib/contracts";
 import { closeEventConnection, publishEvent } from "@/lib/events/publisher";
 import { prisma } from "@/lib/prisma";
 
@@ -61,13 +61,19 @@ async function main() {
 
   let queued = 0;
   for (const lease of missing) {
-    // The same event a real lease publishes, so the worker cannot tell a
-    // backfill from a signing and there is no second path to keep in step.
-    const result = await publishEvent("lease.created", {
-      organizationId: lease.organizationId,
-      leaseId: lease.leaseId,
-      occurredAt: new Date().toISOString(),
-    });
+    // The same event a real lease publishes — filled HTML and object key and
+    // all — so `document-worker` cannot tell a backfill from a signing and
+    // there is no second path to keep in step.
+    const plan = await buildContractPlan(lease.organizationId, lease.leaseId);
+
+    if ("error" in plan) {
+      console.error(
+        `[backfill] ${lease.reference} not queued: ${plan.error.message}`
+      );
+      continue;
+    }
+
+    const result = await publishEvent("lease.created", plan.plan.event);
 
     if (result.ok) {
       queued += 1;

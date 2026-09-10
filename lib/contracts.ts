@@ -1,87 +1,46 @@
-import type { ContractStepReporter } from "@/lib/contract-steps";
-import { createDocument, deleteDocument } from "@/lib/documents";
+import { ACCEPTED_FILE_TYPES } from "@/lib/document-options";
+import {
+  contractFileName,
+  LEASE_CONTRACT_TYPE_ID,
+} from "@/lib/contract-constants";
+import { buildObjectKey } from "@/lib/documents";
+import { describeError } from "@/lib/errors";
+import type { LeaseCreatedEvent } from "@/lib/events/config";
 import { CONTRACT_CSS } from "@/lib/lease-document-style";
 import {
   ensureDefaultLeaseTemplate,
   generateLeaseContract,
 } from "@/lib/lease-templates";
-import { htmlToPdf } from "@/lib/pdf";
 import { leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Lease template → filled HTML → PDF → object storage → a `FileAsset` row.
+ * Lease template → filled HTML → **a message**.
  *
- * The four steps are deliberately separate things that already existed:
- * `generateLeaseContract` fills the placeholders from the database,
- * `htmlToPdf` renders, and `createDocument` is the same single door every
- * uploaded file goes through — so a generated contract is stored, listed,
- * downloaded and deleted by exactly the code that handles a scanned one. That
- * is what "consistent with how we keep our records" has to mean in practice:
- * not a parallel table for machine-made files.
+ * This file used to render the PDF too, through `lib/pdf.ts` and a headless
+ * Chromium held in whatever process imported it. It does not any more: the
+ * `document-worker` service owns rendering, and what this produces is the
+ * message that asks it to — the finished HTML, and the object key the PDF is to
+ * be stored under.
+ *
+ * The split is what removes a ~100MB browser from the web app. It also puts the
+ * two halves of the decision in the same place and at the right time: the
+ * wording filed is the wording in force when the lease was signed, rather than
+ * whatever the template happens to say when a queue is next drained.
  */
 
-/** The seeded type from `20260826150000_lease_contract_type`. */
-export const LEASE_CONTRACT_TYPE_ID = "sys_LEASE_CONTRACT";
-
-export type ContractResult =
-  | { ok: true; documentId: string; fileName: string; missing: string[] }
-  | {
-      ok: false;
-      reason: "no-template" | "no-lease" | "storage" | "render";
-      message: string;
-    };
+export { LEASE_CONTRACT_TYPE_ID };
 
 /**
- * Turns a thrown value into something worth showing a person.
+ * A complete, self-contained HTML document.
  *
- * `cause.message` alone is not enough. Node throws an **`AggregateError` with
- * an empty message** when a connection is refused on several addresses — which
- * is precisely what a stopped MinIO looks like — so the toast that exists to
- * explain the failure rendered a blank line under "Stopped at". The detail is
- * all in `errors[]` and in `code`, never in `message`.
- *
- * So: unwrap aggregates, and fall back to the error's `code` (`ECONNREFUSED`)
- * or its class name rather than to nothing. Whatever comes back is the string
- * the worker logs and the Contract tab prints, so "" is never an answer.
- */
-export function describeError(cause: unknown): string {
-  if (!(cause instanceof Error)) return String(cause) || "Unknown error";
-
-  const parts = [cause.message.trim()];
-
-  // AggregateError.errors — each one carries the address it could not reach.
-  const nested = (cause as AggregateError).errors;
-  if (Array.isArray(nested)) {
-    const seen = new Set<string>();
-    for (const item of nested) {
-      const text = describeError(item);
-      if (text && !seen.has(text)) {
-        seen.add(text);
-        parts.push(text);
-      }
-    }
-  }
-
-  const described = parts.filter(Boolean).join(" — ");
-  if (described) return described;
-
-  const code = (cause as NodeJS.ErrnoException).code;
-  return code ? `${cause.name}: ${code}` : cause.name;
-}
-
-/**
- * Wraps the filled body in a document Chromium can print.
- *
- * The stylesheet is `CONTRACT_CSS` — the same one the editor surface and the
- * preview iframe read. A second, print-only stylesheet would be a second
- * definition of what a contract looks like, and the two would disagree within
- * a month.
+ * `document-worker` renders what it is given and adds nothing — and it blocks
+ * every network request the page makes, so a linked stylesheet would not merely
+ * be discouraged, it would silently fail and file an unstyled contract. The
+ * stylesheet is inlined here for that reason, not as an optimisation.
  */
 function printableDocument(bodyHtml: string) {
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-  @page { size: A4; }
-  html, body { margin: 0; background: #fff; }
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
   ${CONTRACT_CSS}
   /* The screen version centres a 720px page inside a grey surround; on paper
      the page *is* the paper, so the wrapper gives up its own margins. */
@@ -92,120 +51,124 @@ function printableDocument(bodyHtml: string) {
 </style></head><body class="jarvis-doc">${bodyHtml}</body></html>`;
 }
 
+export type ContractPlanFailure = {
+  reason: "no-template" | "no-lease" | "unexpected";
+  message: string;
+};
+
 /**
- * Generates and files the contract for one lease, replacing any previous one.
+ * The message to publish, and the few facts about it worth reporting back to
+ * whoever asked.
  *
- * Returns a result rather than throwing for the outcomes a caller can act on —
- * "this organization has no template yet" is a normal state, not a fault, and
- * the worker should not retry it forever.
+ * `event` is deliberately the *whole* message and nothing more — the fields
+ * beside it are not sent. `document-worker` would ignore them and cannot echo
+ * them back, so putting them on the wire would be payload that only looks like
+ * it is doing something. They exist so the Generate button can say which file
+ * is coming and how many fields were left blank.
  */
-export async function generateAndStoreContract(
+export type ContractPlan = {
+  event: LeaseCreatedEvent;
+  contractNumber: string;
+  fileName: string;
+  missing: string[];
+};
+
+/**
+ * The `lease.created` message for one lease, or why there isn't one.
+ *
+ * Called by the **producer** — the lease route and the backfill — after the
+ * lease is committed and before the event is published. It does the two cheap
+ * parts of making a contract (a template read and a `randomUUID()`) so that the
+ * message says what the document contains and where it goes, rather than only
+ * naming a lease for someone else to go and look up.
+ *
+ * The key comes from `buildObjectKey`, the same function every uploaded file's
+ * key comes from — a generated contract has no business living somewhere a
+ * scanned one wouldn't.
+ *
+ * **Never throws.** The lease is already committed by the time this runs, and a
+ * template that will not resolve must not turn a successful signing into a 500.
+ * Failures come back as a value the caller logs and moves past; the lease
+ * simply has no contract until someone retries or the backfill sweeps it up.
+ */
+export async function buildContractPlan(
   organizationId: string,
-  leaseId: string,
-  onStep: ContractStepReporter = () => {}
-): Promise<ContractResult> {
-  onStep("template");
-  let rendered = await generateLeaseContract(organizationId, leaseId);
+  leaseId: string
+): Promise<{ plan: ContractPlan } | { error: ContractPlanFailure }> {
+  try {
+    let rendered = await generateLeaseContract(organizationId, leaseId);
 
-  /*
-   * No template is no longer a dead end. An organization signing its first
-   * lease gets the standard starter, filed as its default, and this attempt
-   * carries on — the alternative was an empty Contract tab and a settings page
-   * nobody knew to visit. Only retried once, and only for this reason: a
-   * second miss means the write itself failed, not that the template was
-   * missing.
-   */
-  if ("error" in rendered && rendered.error === "no-template") {
-    const ensured = await ensureDefaultLeaseTemplate(organizationId);
-    if (ensured) {
-      console.log(
-        ensured.created
-          ? `[contracts] created a default lease template for org ${organizationId}`
-          : `[contracts] promoted an existing template to default for org ${organizationId}`
-      );
-      rendered = await generateLeaseContract(organizationId, leaseId);
+    /*
+     * No template is not a dead end. An organization signing its first lease
+     * gets the standard starter, filed as its default, and this attempt carries
+     * on — the alternative was an empty Contract tab and a settings page nobody
+     * knew to visit. Only retried once, and only for this reason: a second miss
+     * means the write itself failed, not that the template was missing.
+     */
+    if ("error" in rendered && rendered.error === "no-template") {
+      const ensured = await ensureDefaultLeaseTemplate(organizationId);
+      if (ensured) {
+        console.log(
+          ensured.created
+            ? `[contracts] created a default lease template for org ${organizationId}`
+            : `[contracts] promoted an existing template to default for org ${organizationId}`
+        );
+        rendered = await generateLeaseContract(organizationId, leaseId);
+      }
     }
-  }
 
-  if ("error" in rendered) {
-    return rendered.error === "no-template"
-      ? {
-          ok: false,
-          reason: "no-template",
-          message:
-            "This organization has no lease template, and one could not be created automatically.",
-        }
-      : {
-          ok: false,
-          reason: "no-lease",
-          message: "Lease not found in this organization.",
-        };
-  }
-
-  const { contract } = rendered;
-
-  let pdf: Uint8Array;
-  onStep("render");
-  try {
-    pdf = await htmlToPdf(printableDocument(contract.html), {
-      footerText: `${contract.template.name} · ${contract.contractNumber}`,
-    });
-  } catch (cause) {
-    return {
-      ok: false,
-      reason: "render",
-      message: describeError(cause),
-    };
-  }
-
-  onStep("store");
-
-  // `allowsMultiple` is false on this type, so the previous contract has to go
-  // before the new one can land. Deleted through `deleteDocument` rather than
-  // by a raw query, so the object in the bucket goes with the row.
-  const previous = await prisma.fileAsset.findFirst({
-    where: { organizationId, leaseId, assetTypeId: LEASE_CONTRACT_TYPE_ID },
-    select: { id: true },
-  });
-  if (previous) await deleteDocument(organizationId, previous.id);
-
-  const fileName = `contract-${contract.contractNumber}.pdf`;
-
-  try {
-    const result = await createDocument(
-      organizationId,
-      // Generated, not uploaded — see the parameter's own note.
-      null,
-      {
-        assetTypeId: LEASE_CONTRACT_TYPE_ID,
-        subjectType: "LEASE",
-        subjectId: leaseId,
-      },
-      { name: fileName, type: "application/pdf", bytes: pdf }
-    );
-
-    if ("error" in result) {
+    if ("error" in rendered) {
       return {
-        ok: false,
-        reason: "storage",
-        message: `Could not file the contract: ${result.error}`,
+        error:
+          rendered.error === "no-template"
+            ? {
+                reason: "no-template",
+                message:
+                  "This organization has no lease template, and one could not be created automatically.",
+              }
+            : {
+                reason: "no-lease",
+                message: "Lease not found in this organization.",
+              },
       };
     }
 
+    const { contract } = rendered;
+
     return {
-      ok: true,
-      documentId: result.document.id,
-      fileName,
-      // Surfaced, not swallowed: a contract with seven blank fill lines is
-      // worth knowing about, and the worker logs it against the lease.
-      missing: contract.missing,
+      plan: {
+        event: {
+          // The wrapped document, not `contract.html`. Sending the bare body
+          // would file a contract with no stylesheet at all — see
+          // `printableDocument`.
+          html: printableDocument(contract.html),
+          objectKey: buildObjectKey({
+            organizationId,
+            subjectType: "LEASE",
+            subjectId: leaseId,
+            extension: ACCEPTED_FILE_TYPES["application/pdf"].extension,
+          }),
+          footerText: `${contract.template.name} · ${contract.contractNumber}`,
+          // Carried so it comes back on `document.stored` and the row can be
+          // filed without re-reading the lease. Opaque to the renderer.
+          meta: {
+            organizationId,
+            leaseId,
+            contractNumber: contract.contractNumber,
+            fileName: contractFileName(contract.contractNumber),
+            missing: contract.missing,
+          },
+        },
+        contractNumber: contract.contractNumber,
+        fileName: contractFileName(contract.contractNumber),
+        // Surfaced, not swallowed: a contract with seven blank fill lines is
+        // worth knowing about, and it is worth saying so while the person who
+        // pressed the button is still looking.
+        missing: contract.missing,
+      },
     };
   } catch (cause) {
-    return {
-      ok: false,
-      reason: "storage",
-      message: describeError(cause),
-    };
+    return { error: { reason: "unexpected", message: describeError(cause) } };
   }
 }
 

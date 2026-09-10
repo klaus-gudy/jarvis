@@ -8,11 +8,6 @@ import { toast } from "sonner";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { Button } from "@/components/ui/button";
 import type { AssetTypeView } from "@/lib/asset-types";
-import {
-  CONTRACT_STEPS,
-  CONTRACT_STEP_LABELS,
-  type ContractStep,
-} from "@/lib/contract-steps";
 
 type DocumentView = React.ComponentProps<typeof DocumentsPanel>["documents"][number];
 
@@ -56,57 +51,27 @@ const DEFAULT_STYLE = {
 } as React.CSSProperties;
 
 /**
- * What is happening, and how much of it is left.
- *
- * Segments rather than a percentage: the three phases take wildly different
- * amounts of time (filling a template is instant, launching Chromium is not),
- * so a bar that claimed to be 33% done would be lying. Three segments only
- * claim "one of three finished", which is true.
- *
- * Built from spans with display classes rather than divs — sonner renders this
- * inside its own description element, and a span nests validly wherever that
- * lands.
- */
-function ProgressBody({ done, label }: { done: number; label: string }) {
-  return (
-    <span className="mt-1 block">
-      <span className="block text-xs">{label}</span>
-      <span className="mt-1.5 flex gap-1" aria-hidden="true">
-        {CONTRACT_STEPS.map((step, index) => (
-          <span
-            key={step}
-            className={`h-1 flex-1 rounded-full bg-current ${
-              index < done
-                ? "opacity-100"
-                : index === done
-                  ? "animate-pulse opacity-70"
-                  : "opacity-25"
-            }`}
-          />
-        ))}
-      </span>
-    </span>
-  );
-}
-
-/**
  * The contract generated for this lease, and nothing else.
  *
  * Split from Documents the way a property splits Images from Documents: one
  * tab holds what the system produced, the other holds what people file.
  *
- * **Generating streams into a toast.** The button used to POST, get a 202 and
- * say "refresh in a moment" — which could report that the message was accepted
- * and nothing else. A missing browser, a refused upload, a template that would
- * not resolve: all of them looked exactly like success. Each phase now arrives
- * as it starts, and a failure arrives with its actual message.
+ * **Generating queues the work; it no longer watches it.** Rendering moved out
+ * to the `document-worker` service along with the browser it needs, so this
+ * process cannot see a render happen and has nothing to stream. What the button
+ * can still report is the part that is decided synchronously — whether the
+ * organization has a template the contract could be built from, and whether the
+ * broker accepted the message.
  *
- * It lives in a toast rather than in the page so the tab stays what it is — a
- * list of the contract on file — instead of growing a progress log that is
- * meaningless for the ~99% of visits where nothing is being generated. The
- * failure toast is the one exception to a toast's usual manners: it does not
- * auto-dismiss, because an error message that disappears before it is read is
- * the exact problem this replaced.
+ * What it can no longer report, stated rather than glossed: a render or upload
+ * that fails on the other side, and a `document-worker` that is not running.
+ * Both now look like success here. The toast says "queued", which is the truth
+ * and is also less than the person asked for — closing that gap needs a
+ * job-status row both processes can see.
+ *
+ * The failure toast is the one exception to a toast's usual manners: it does
+ * not auto-dismiss, because an error message that disappears before it is read
+ * is the exact problem this replaced.
  */
 export function ContractTab({
   leaseId,
@@ -126,45 +91,29 @@ export function ContractTab({
     setRunning(true);
     setFailed(false);
 
-    // One id for the whole run, so each phase *replaces* the last instead of
-    // stacking three toasts on top of each other.
+    // One id for the whole run, so the outcome *replaces* the pending toast
+    // instead of stacking a second one on top of it.
     const toastId = `contract-${leaseId}`;
-
-    /*
-     * The last phase the server said it had started. This — not the `reason`
-     * on the error event — is what names where a run stopped: the server
-     * reports the kind of fault, while the step it was in the middle of is
-     * simply the last one it announced. Tracking it here keeps the two
-     * vocabularies from having to agree.
-     */
-    let current: ContractStep | null = null;
 
     /*
      * `??` is not enough of a guard here. A thrown `AggregateError` — a refused
      * connection, most often — carries an *empty* message, and an empty string
      * passes straight through `??` to render a failure toast that explains
-     * nothing. The server describes those properly now; this is the second
-     * line, covering fetch's own errors and any future caller.
+     * nothing. The server describes those properly; this is the second line,
+     * covering fetch's own errors.
      */
     const fail = (reported: string | undefined) => {
       const message = reported?.trim()
         ? reported
         : "No error detail was reported — check the server logs";
       setFailed(true);
-      toast.error("The contract could not be generated", {
+      toast.error("The contract could not be queued", {
         id: toastId,
         description: (
-          <span className="mt-1 block">
-            {current && (
-              <span className="block text-xs opacity-90">
-                Stopped at: {CONTRACT_STEP_LABELS[current]}
-              </span>
-            )}
-            {/* The server's own words. A rewritten message is a message that
-                cannot name the file, the bucket or the missing binary. */}
-            <span className="mt-1 block font-mono text-xs break-words">
-              {message}
-            </span>
+          // The server's own words. A rewritten message is a message that
+          // cannot name the template, the queue or the broker.
+          <span className="mt-1 block font-mono text-xs break-words">
+            {message}
           </span>
         ),
         duration: Infinity,
@@ -174,106 +123,55 @@ export function ContractTab({
       });
     };
 
-    let response: Response;
+    toast.loading("Queueing contract", {
+      id: toastId,
+      description: (
+        <span className="mt-1 block text-xs">
+          Filling the template and handing it to the document worker
+        </span>
+      ),
+      duration: Infinity,
+      closeButton: false,
+      position: TOAST_POSITION,
+      style: DEFAULT_STYLE,
+    });
+
     try {
-      response = await fetch(`/api/leases/${leaseId}/contract`, {
+      const response = await fetch(`/api/leases/${leaseId}/contract`, {
         method: "POST",
-        headers: { Accept: "text/event-stream" },
       });
-    } catch (cause) {
-      setRunning(false);
-      fail(cause instanceof Error ? cause.message : String(cause));
-      return;
-    }
-
-    // Refusals happen before the stream opens, so they are still plain JSON.
-    if (!response.ok || !response.body) {
       const data = await response.json().catch(() => null);
-      setRunning(false);
-      fail(data?.error || `Request failed (${response.status})`);
-      return;
-    }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    const handle = (event: {
-      type: string;
-      step?: ContractStep;
-      label?: string;
-      message?: string;
-      reason?: string;
-      fileName?: string;
-      missing?: string[];
-    }) => {
-      if (event.type === "step" && event.step) {
-        current = event.step;
-        toast.loading("Generating contract", {
-          id: toastId,
-          description: (
-            <ProgressBody
-              // The step that just *started* is the one in flight, so every
-              // step before it is finished — the server does not begin one
-              // until the previous returned.
-              done={CONTRACT_STEPS.indexOf(event.step)}
-              label={event.label ?? CONTRACT_STEP_LABELS[event.step]}
-            />
-          ),
-          duration: Infinity,
-          closeButton: false,
-          position: TOAST_POSITION,
-          style: DEFAULT_STYLE,
-        });
+      if (!response.ok) {
+        fail(data?.error || `Request failed (${response.status})`);
         return;
       }
 
-      if (event.type === "done") {
-        const blanks = event.missing?.length ?? 0;
-        toast.success(`${event.fileName} filed`, {
-          id: toastId,
-          description:
-            blanks > 0
-              ? `${blanks} field${blanks === 1 ? "" : "s"} had no data`
-              : undefined,
-          duration: 6000,
-          closeButton: false,
-          position: TOAST_POSITION,
-          style: DEFAULT_STYLE,
-        });
-        router.refresh();
-        return;
-      }
+      const blanks = data?.missing?.length ?? 0;
+      toast.success(`${data?.fileName ?? "The contract"} is being generated`, {
+        id: toastId,
+        description: (
+          <span className="mt-1 block text-xs">
+            {blanks > 0
+              ? `${blanks} field${blanks === 1 ? "" : "s"} had no data. `
+              : ""}
+            It will appear here once the document worker has filed it.
+          </span>
+        ),
+        duration: 8000,
+        closeButton: false,
+        position: TOAST_POSITION,
+        style: DEFAULT_STYLE,
+      });
 
-      if (event.type === "error") {
-        fail(event.message);
-      }
-    };
-
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // SSE frames are separated by a blank line; a partial frame stays in
-        // the buffer until the rest of it arrives.
-        const frames = buffer.split("\n\n");
-        buffer = frames.pop() ?? "";
-
-        for (const frame of frames) {
-          const line = frame
-            .split("\n")
-            .find((part) => part.startsWith("data:"));
-          if (!line) continue;
-          try {
-            handle(JSON.parse(line.slice(5).trim()));
-          } catch {
-            // A frame we cannot parse is not worth killing the stream over.
-          }
-        }
-      }
+      /*
+       * Refreshed on a delay, not immediately: the PDF is rendered and filed by
+       * another process, so there is nothing new to read at the moment this
+       * returns. One nudge a few seconds later catches the ordinary case
+       * without pretending to know when the work finished — a reload is still
+       * the honest answer if the worker is slow or stopped.
+       */
+      setTimeout(() => router.refresh(), 4000);
     } catch (cause) {
       fail(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -293,7 +191,7 @@ export function ContractTab({
             disabled={running}
           >
             <FileSignatureIcon />
-            {running ? "Generating…" : failed ? "Try again" : "Generate contract"}
+            {running ? "Queueing…" : failed ? "Try again" : "Generate contract"}
           </Button>
         </div>
       )}

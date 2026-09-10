@@ -71,6 +71,57 @@ export function buildObjectKey(input: {
 }
 
 /**
+ * Is this key one of *this* organization's?
+ *
+ * The counterpart to `buildObjectKey`, for the one case where a key is not
+ * built here but arrives from somewhere else — `document.rendered` carries the
+ * key `document-worker` just wrote a PDF to, and a message bus is not a place a
+ * prefix can be taken on trust. A key naming another tenancy's folder, or
+ * climbing out of one with `..`, is refused rather than recorded.
+ */
+export function isObjectKeyInOrganization(
+  objectKey: string,
+  organizationId: string
+) {
+  return (
+    objectKey.startsWith(`organizations/${organizationId}/`) &&
+    !objectKey.split("/").includes("..")
+  );
+}
+
+/**
+ * Reads a lease-contract key back into the ids that built it.
+ *
+ * The exact inverse of `buildObjectKey` for `subjectType: "LEASE"`, and the
+ * only reason `document.stored` needs no domain ids on it: the key already
+ * carries them, because this app chose it. `organizations/<orgId>/leases/
+ * <leaseId>/<uuid>.pdf`.
+ *
+ * Returns null for anything that is not that shape — a key for a different
+ * subject, a malformed one, or one from a producer that does not share this
+ * convention. **Parsing is not authorisation:** the ids that come out are
+ * claims from a message, and the caller still has to check the lease really
+ * belongs to the organization, which `recordDocument` does.
+ */
+export function parseContractObjectKey(objectKey: string) {
+  const parts = objectKey.split("/");
+
+  if (
+    parts.length !== 5 ||
+    parts[0] !== "organizations" ||
+    parts[2] !== KEY_SEGMENT.LEASE ||
+    !parts[1] ||
+    !parts[3] ||
+    !parts[4].endsWith(".pdf") ||
+    parts.includes("..")
+  ) {
+    return null;
+  }
+
+  return { organizationId: parts[1], leaseId: parts[3] };
+}
+
+/**
  * Does this subject exist, and does it belong to this organization? One query
  * per subject rather than a generic one, because the path from each to its
  * organization differs — a Unit reaches it through its Property, a Payment
@@ -315,6 +366,95 @@ export async function createDocument(
     });
     throw cause;
   }
+}
+
+/**
+ * Records a `FileAsset` for an object **that is already in the bucket**.
+ *
+ * The counterpart to `createDocument` for the one path where this app does not
+ * hold the bytes: `document-worker` renders a contract and uploads it, then
+ * says so on `document.rendered`, and this writes the row for what it wrote.
+ * Everything that makes `createDocument` the single door is repeated here —
+ * the type is resolved against this organization, the subject is checked to
+ * belong to it, and the duplicate rule still applies — because the door does
+ * not stop being the door because someone else carried the parcel.
+ *
+ * **The key is re-validated rather than trusted.** It arrived over a message
+ * bus, which makes it data, not an instruction to file wherever it says.
+ *
+ * **Idempotent on `objectKey`**, which is not optional: the worker acks only
+ * after its upload succeeds, so a redelivery can announce the same render
+ * twice, and `FileAsset.objectKey` is `@unique`. A second arrival returns the
+ * row the first one wrote instead of crashing the consumer.
+ */
+export async function recordDocument(
+  organizationId: string,
+  input: UploadDocumentInput,
+  file: {
+    objectKey: string;
+    name: string;
+    type: string;
+    sizeBytes: number;
+  }
+) {
+  if (!isObjectKeyInOrganization(file.objectKey, organizationId)) {
+    return { error: "object-key-foreign" as const };
+  }
+
+  const assetType = await resolveAssetType(organizationId, input.assetTypeId);
+  if (!assetType) return { error: "asset-type-not-found" as const };
+
+  if (assetType.subject !== input.subjectType) {
+    return { error: "subject-mismatch" as const, assetType };
+  }
+
+  if (input.subjectId) {
+    const belongs = await subjectBelongsToOrg(
+      organizationId,
+      input.subjectType,
+      input.subjectId
+    );
+    if (!belongs) return { error: "subject-not-found" as const };
+  }
+
+  // The redelivery case, checked before the duplicate rule: the same object
+  // arriving twice is this row again, not a second contract competing with it.
+  const already = await prisma.fileAsset.findUnique({
+    where: { objectKey: file.objectKey },
+    select: ROW_SELECT,
+  });
+  if (already) return { document: toRow(already), duplicate: true as const };
+
+  if (!assetType.allowsMultiple) {
+    const existing = await findExisting(
+      organizationId,
+      input.subjectType,
+      input.subjectId,
+      assetType.id
+    );
+    if (existing) {
+      return { error: "duplicate-asset-type" as const, existing, assetType };
+    }
+  }
+
+  const created = await prisma.fileAsset.create({
+    data: {
+      objectKey: file.objectKey,
+      fileName: file.name,
+      fileType: file.type,
+      sizeBytes: file.sizeBytes,
+      assetTypeId: assetType.id,
+      organizationId,
+      // Null, always: nothing that reaches this function was filed by a person.
+      uploadedById: null,
+      ...(input.subjectId
+        ? { [SUBJECT_COLUMN[input.subjectType as keyof typeof SUBJECT_COLUMN]]: input.subjectId }
+        : {}),
+    },
+    select: ROW_SELECT,
+  });
+
+  return { document: toRow(created), duplicate: false as const };
 }
 
 /**

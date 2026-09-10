@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
 import { requireActiveOrg } from "@/lib/api-auth";
+import { buildContractPlan } from "@/lib/contracts";
 import { publishEvent } from "@/lib/events/publisher";
 import { announceLeaseCreated, createLease, getLeases } from "@/lib/leases";
 import { createLeaseSchema } from "@/lib/leases-schemas";
@@ -69,20 +70,33 @@ export async function POST(request: Request) {
 
   /**
    * The domain event, separate from the emails above. `announceLeaseCreated`
-   * says "tell these people"; this says "a lease now exists" and lets anything
-   * that cares react — today the contract worker, which renders the PDF and
-   * files it, off the request path entirely.
+   * says "tell these people"; this says "a lease now exists, and here is the
+   * contract to make from it" — the filled HTML and the object key the PDF is
+   * to be stored under, which is everything `document-worker` needs to render
+   * and file it without reading a database or resolving a template.
    *
-   * Publishing never throws: a broker outage means the contract is generated
-   * late (or from the Contract tab by hand), not that signing a lease fails.
+   * Both halves are decided here, while the lease is fresh, so the wording
+   * filed is the wording in force at signing rather than whatever the template
+   * says by the time the queue is drained.
+   *
+   * Inside `after()`, so a template read and a broker round trip stay off the
+   * request path. Neither step can fail the lease: `buildContractPlan` returns
+   * its failures rather than throwing, and `publishEvent` swallows its own — a
+   * broker outage means the contract is generated late (or from the Contract
+   * tab by hand), not that signing a lease fails.
    */
-  after(() =>
-    publishEvent("lease.created", {
-      organizationId,
-      leaseId,
-      occurredAt: new Date().toISOString(),
-    })
-  );
+  after(async () => {
+    const plan = await buildContractPlan(organizationId, leaseId);
+
+    if ("error" in plan) {
+      console.warn(
+        `[leases] no contract queued for ${leaseId}: ${plan.error.message}`
+      );
+      return;
+    }
+
+    await publishEvent("lease.created", plan.plan.event);
+  });
 
   revalidatePath("/leases");
   revalidatePath("/properties");
