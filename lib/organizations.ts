@@ -1,5 +1,6 @@
 import { cache } from "react";
 
+import { seedDefaultLeaseTemplate } from "@/lib/lease-template-starters";
 import { prisma } from "@/lib/prisma";
 
 /** The role name created for the registrant in app/api/auth/register/route.ts. */
@@ -101,6 +102,11 @@ export async function createOrganizationForUser(userId: string, name: string) {
     await tx.membership.create({
       data: { userId, organizationId: organization.id, roleId: ownerRole.id },
     });
+    // Seeded here so no organization ever exists without one. A lease signed
+    // an hour from now has wording to be contracted from, and Settings →
+    // Lease templates opens on a real agreement to review rather than an
+    // empty page.
+    await seedDefaultLeaseTemplate(tx, organization.id);
     return { organization };
   });
 }

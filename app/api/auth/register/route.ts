@@ -8,6 +8,7 @@ import { createSession } from "@/lib/auth/session";
 import { issueEmailVerification } from "@/lib/auth/email-verification";
 import { sendEmailVerificationEmail, sendWelcomeEmail } from "@/lib/mail/auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { seedDefaultLeaseTemplate } from "@/lib/lease-template-starters";
 import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/roles";
 
 /**
@@ -85,6 +86,11 @@ export async function POST(request: Request) {
         },
         include: { role: true },
       });
+      // Same reasoning as the Tenant role above: a thing every organization
+      // needs, created once here rather than conjured later by whichever code
+      // path first notices it missing. It also means the first lease this
+      // account signs has wording to be contracted from.
+      await seedDefaultLeaseTemplate(tx, organization.id);
       return { user, organization, membership };
     });
 

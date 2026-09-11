@@ -1,3 +1,4 @@
+import type { Prisma } from "@/lib/generated/prisma/client";
 import type { LeaseTemplateLanguage } from "@/lib/lease-template-options";
 
 /**
@@ -296,4 +297,55 @@ export function starterBody(language: LeaseTemplateLanguage) {
 /** Whether a body is still one of the untouched starters — see `LeaseTemplateForm`. */
 export function isStarterBody(body: string) {
   return Object.values(STARTERS).some((starter) => starter === body);
+}
+
+/**
+ * The name an auto-created template is filed under. Fixed rather than
+ * generated, so the `@@unique([organizationId, name])` index is what stops two
+ * workers racing to create a second one.
+ */
+export const DEFAULT_TEMPLATE_NAME = "Standard tenancy agreement";
+
+export const DEFAULT_TEMPLATE_DESCRIPTION =
+  "Created automatically so a lease could be contracted. It is the standard " +
+  "starter — review the wording and edit it to match what this organization " +
+  "actually agrees with its tenants.";
+
+/**
+ * Writes the starter template for a brand-new organization, **inside the
+ * transaction that is creating it**.
+ *
+ * Seeded up front rather than conjured on first use, for the reason
+ * registration already pre-creates the Tenant role: a thing every organization
+ * needs is better created once, visibly, at a moment that cannot half-succeed,
+ * than lazily by whichever code path happens to notice it missing. It also
+ * means Settings → Lease templates is never an empty page on day one, which is
+ * where the wording is supposed to be reviewed before any lease is signed.
+ *
+ * Takes the transaction client rather than using the shared `prisma`: run
+ * outside the caller's transaction this could commit a template for an
+ * organization whose own insert then rolls back.
+ *
+ * Deliberately a plain insert, not `createLeaseTemplate`. That function opens
+ * a transaction of its own (which cannot nest here), checks for a duplicate
+ * name and demotes a sibling default — three things that are all no-ops for an
+ * organization created seconds ago with no templates at all. `body` is this
+ * app's own constant, so there is nothing to sanitize that the editor does not
+ * already sanitize on the way back in.
+ */
+export async function seedDefaultLeaseTemplate(
+  tx: Prisma.TransactionClient,
+  organizationId: string
+) {
+  return tx.leaseTemplate.create({
+    data: {
+      organizationId,
+      name: DEFAULT_TEMPLATE_NAME,
+      description: DEFAULT_TEMPLATE_DESCRIPTION,
+      language: "en",
+      body: starterBody("en"),
+      isDefault: true,
+    },
+    select: { id: true },
+  });
 }

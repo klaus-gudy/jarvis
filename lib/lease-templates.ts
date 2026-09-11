@@ -10,7 +10,11 @@ import type {
   CreateLeaseTemplateInput,
   UpdateLeaseTemplateInput,
 } from "@/lib/lease-template-schemas";
-import { starterBody } from "@/lib/lease-template-starters";
+import {
+  DEFAULT_TEMPLATE_DESCRIPTION,
+  DEFAULT_TEMPLATE_NAME,
+  starterBody,
+} from "@/lib/lease-template-starters";
 import { getOrganizationOwner } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
 
@@ -328,18 +332,6 @@ export type GeneratedContract = RenderedTemplate & {
  * `templateId` omitted means the organization's default.
  */
 /**
- * The name an auto-created template is filed under. Fixed rather than
- * generated, so the `@@unique([organizationId, name])` index is what stops two
- * workers racing to create a second one.
- */
-export const DEFAULT_TEMPLATE_NAME = "Standard tenancy agreement";
-
-const DEFAULT_TEMPLATE_DESCRIPTION =
-  "Created automatically so the first lease could be contracted. It is the " +
-  "standard starter — review the wording and edit it to match what this " +
-  "organization actually agrees with its tenants.";
-
-/**
  * Guarantees the organization has a default lease template, creating one from
  * the English starter if it has none.
  *
@@ -452,3 +444,8 @@ export async function generateLeaseContract(
     },
   };
 }
+
+export {
+  DEFAULT_TEMPLATE_NAME,
+  seedDefaultLeaseTemplate,
+} from "@/lib/lease-template-starters";
