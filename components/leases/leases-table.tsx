@@ -138,6 +138,9 @@ export function LeasesTable({
             columnId: "propertyName",
             placeholder: "All properties",
             label: "Property",
+            // Several at once: comparing two blocks side by side is the normal
+            // question here, and one-at-a-time made that three passes.
+            multiple: true,
             // From the rows themselves, not `options.properties`: that list
             // includes properties with no lease yet, which would filter to an
             // empty table.
@@ -149,6 +152,8 @@ export function LeasesTable({
             columnId: "invoiceStatus",
             placeholder: "All invoice statuses",
             label: "Invoice status",
+            // Likewise — "anything not settled" means Unpaid *and* Partial.
+            multiple: true,
             options: INVOICE_STATUSES.map((status) => ({
               label: status,
               value: status,

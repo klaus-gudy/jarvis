@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   DataTableColumnHeader,
   RowActionButtons,
+  facetFilterFn,
   type RowAction,
 } from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
@@ -85,8 +86,9 @@ export function buildLeaseColumns({
       ),
       cell: ({ row }) => row.original.propertyName,
       // Exact match, not TanStack's default substring behaviour — a facet
-      // offering "Likely" must not also match "Likely Annex".
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      // offering "Likely" must not also match "Likely Annex" — and any-of
+      // matching, since this facet is multi-select.
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "unitLabel",
@@ -137,7 +139,7 @@ export function buildLeaseColumns({
           {row.original.status}
         </Badge>
       ),
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       id: "invoiceStatus",
@@ -154,7 +156,7 @@ export function buildLeaseColumns({
           </Badge>
         );
       },
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "leaseAmount",

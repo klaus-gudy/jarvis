@@ -13,6 +13,7 @@ import {
   type ColumnDef,
   type ColumnFiltersState,
   type OnChangeFn,
+  type Row,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
@@ -65,8 +66,46 @@ export type FacetFilter = {
    * to the placeholder, so a filter that hasn't been given one still reads.
    */
   label?: string;
+  /**
+   * Let several options be picked at once, matching any of them.
+   *
+   * Changes the stored filter value from a bare string to `string[]`, so a
+   * column opted in here must filter with `facetFilterFn` (or its own
+   * array-aware equivalent) rather than an `===` test against the value.
+   */
+  multiple?: boolean;
   options: { label: string; value: string }[];
 };
+
+/**
+ * A facet's filter value as a list. Single-choice facets store a bare string
+ * and multi-choice ones an array, so everything that reads a filter value goes
+ * through here rather than branching on `filter.multiple` at each site.
+ */
+function facetValues(value: unknown): string[] {
+  if (Array.isArray(value)) return value as string[];
+  return typeof value === "string" && value !== "" ? [value] : [];
+}
+
+/**
+ * The filter function a faceted column should use.
+ *
+ * Exact match, not TanStack's default substring behaviour — a facet offering
+ * "Likely" must not also match "Likely Annex" — and matching *any* of the
+ * values when the facet is `multiple`. An empty list matches everything, which
+ * only arises transiently: the toolbar clears the filter outright instead.
+ */
+export function facetFilterFn<TData>(
+  row: Row<TData>,
+  columnId: string,
+  filterValue: unknown
+) {
+  const value = row.getValue(columnId);
+  if (Array.isArray(filterValue)) {
+    return filterValue.length === 0 || filterValue.includes(value);
+  }
+  return value === filterValue;
+}
 
 /**
  * One thing you can do to a row. On mobile these fill a bottom sheet, where a
@@ -409,7 +448,10 @@ export function DataTable<TData, TValue>({
               key={String(filtersOpen)}
               facetFilters={facetFilters}
               current={Object.fromEntries(
-                columnFilters.map((filter) => [filter.id, String(filter.value)])
+                columnFilters.map((filter) => [
+                  filter.id,
+                  facetValues(filter.value),
+                ])
               )}
               onApply={(draft) => {
                 /*
@@ -433,11 +475,17 @@ export function DataTable<TData, TValue>({
                   ...columnFilters.filter((filter) => !facetIds.has(filter.id)),
                   ...facetFilters
                     .filter(
-                      (filter) => (draft[filter.columnId] ?? "all") !== "all"
+                      (filter) => (draft[filter.columnId] ?? []).length > 0
                     )
                     .map((filter) => ({
                       id: filter.columnId,
-                      value: draft[filter.columnId],
+                      // A single-choice facet still stores a bare string, so
+                      // its column keeps seeing the shape it always did and
+                      // only the facets that opt into `multiple` need an
+                      // array-aware filter function.
+                      value: filter.multiple
+                        ? draft[filter.columnId]
+                        : draft[filter.columnId][0],
                     })),
                 ]);
 
@@ -577,6 +625,61 @@ export function DataTable<TData, TValue>({
         {facetFilters.map((filter) => {
           const column = table.getColumn(filter.columnId);
           if (!column) return null;
+
+          if (filter.multiple) {
+            const selected = facetValues(column.getFilterValue());
+            return (
+              <Select
+                key={filter.columnId}
+                multiple
+                value={selected}
+                onValueChange={(next: string[]) =>
+                  // Cleared back to `undefined` rather than left as an empty
+                  // array, so the Reset button and the "any filters active?"
+                  // checks see a facet with nothing chosen as absent.
+                  column.setFilterValue(next.length > 0 ? next : undefined)
+                }
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="w-36 bg-background"
+                  aria-label={filter.placeholder}
+                >
+                  {/* Base UI renders the raw value unless given a formatter —
+                      here an array, which would print as "A,B". One choice
+                      still reads as itself; past that the trigger is too narrow
+                      for a list, so it counts instead. */}
+                  <SelectValue>
+                    {(values: string[]) => {
+                      if (values.length === 0) return filter.placeholder;
+                      if (values.length === 1) {
+                        return (
+                          filter.options.find(
+                            (option) => option.value === values[0]
+                          )?.label ?? values[0]
+                        );
+                      }
+                      return `${values.length} selected`;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                {/* Dropped below the trigger like a menu. The default aligns
+                    the *selected* item with the trigger, which has no single
+                    answer once several are selected. */}
+                <SelectContent align="start" alignItemWithTrigger={false}>
+                  {/* No "all" row: with checkable items, clearing is
+                      unticking, and an option that silently unticks the others
+                      would read as just another choice. */}
+                  {filter.options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          }
+
           const value = (column.getFilterValue() as string) ?? "all";
           return (
             <Select
@@ -915,21 +1018,23 @@ function FilterSheetBody({
   onReset,
 }: {
   facetFilters: FacetFilter[];
-  current: Record<string, string>;
-  onApply: (draft: Record<string, string>) => void;
+  /** Per facet, the values already applied — empty for an unfiltered facet. */
+  current: Record<string, string[]>;
+  onApply: (draft: Record<string, string[]>) => void;
   onReset: () => void;
 }) {
-  const [draft, setDraft] = React.useState<Record<string, string>>(() =>
+  const [draft, setDraft] = React.useState<Record<string, string[]>>(() =>
     Object.fromEntries(
       facetFilters.map((filter) => [
         filter.columnId,
-        current[filter.columnId] ?? "all",
+        current[filter.columnId] ?? [],
       ])
     )
   );
 
+  /** A facet counts once however many of its options are ticked. */
   const activeCount = Object.values(draft).filter(
-    (value) => value !== "all"
+    (values) => values.length > 0
   ).length;
 
   return (
@@ -946,46 +1051,72 @@ function FilterSheetBody({
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-2">
         {facetFilters.map((filter) => {
           const fieldName = filter.label ?? filter.placeholder;
-          const selected = draft[filter.columnId] ?? "all";
+          const selected = draft[filter.columnId] ?? [];
+          const multiple = filter.multiple ?? false;
+
+          /** `null` is the placeholder chip: no filter on this facet. */
+          function choose(value: string | null) {
+            setDraft((previous) => {
+              if (value === null) return { ...previous, [filter.columnId]: [] };
+              const chosen = previous[filter.columnId] ?? [];
+              if (!multiple) return { ...previous, [filter.columnId]: [value] };
+              return {
+                ...previous,
+                [filter.columnId]: chosen.includes(value)
+                  ? chosen.filter((each) => each !== value)
+                  : [...chosen, value],
+              };
+            });
+          }
 
           return (
             <div key={filter.columnId} className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">
                 {fieldName}
               </p>
-              {/* Single choice per facet, so radio semantics rather than a set
-                  of independent toggles. The placeholder leads as the "no
-                  filter" option, the same role it plays in the select. */}
+              {/* Radio semantics for a single-choice facet, checkboxes for a
+                  multi-choice one — the chips look alike, so the roles are what
+                  tell a screen reader whether picking one drops the last. The
+                  placeholder leads as the "no filter" option, the same role it
+                  plays in the select. */}
               <div
-                role="radiogroup"
+                role={multiple ? "group" : "radiogroup"}
                 aria-label={fieldName}
                 className="flex flex-wrap gap-2"
               >
-                {[{ label: filter.placeholder, value: "all" }, ...filter.options].map(
-                  (option) => {
-                    const isSelected = selected === option.value;
-                    return (
-                      <Button
-                        key={option.value}
-                        role="radio"
-                        aria-checked={isSelected}
-                        variant={isSelected ? "default" : "outline"}
-                        // h-10 for a comfortable touch target; `bg-card`
-                        // because `outline`'s own fill is the sheet's colour
-                        // and would leave only the border showing.
-                        className={cn("h-10 rounded-full", !isSelected && "bg-card")}
-                        onClick={() =>
-                          setDraft((previous) => ({
-                            ...previous,
-                            [filter.columnId]: option.value,
-                          }))
-                        }
-                      >
-                        {option.label}
-                      </Button>
-                    );
-                  }
-                )}
+                {[
+                  { label: filter.placeholder, value: null },
+                  ...filter.options,
+                ].map((option) => {
+                  const isSelected =
+                    option.value === null
+                      ? selected.length === 0
+                      : selected.includes(option.value);
+                  // In a multi-choice facet the placeholder clears the others
+                  // rather than being one more thing that can be ticked, so it
+                  // stays a plain button while the real options are checkboxes.
+                  const role =
+                    multiple && option.value === null
+                      ? undefined
+                      : multiple
+                        ? "checkbox"
+                        : "radio";
+                  return (
+                    <Button
+                      key={option.value ?? "all"}
+                      role={role}
+                      aria-checked={role ? isSelected : undefined}
+                      variant={isSelected ? "default" : "outline"}
+                      // h-10 for a comfortable touch target; `bg-card`
+                      // because `outline`'s own fill is the sheet's colour
+                      // and would leave only the border showing.
+                      className={cn("h-10 rounded-full", !isSelected && "bg-card")}
+                      onClick={() => choose(option.value)}
+                    >
+                      {option.label}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           );
