@@ -5,6 +5,7 @@ import {
   type RecoveringChannelModel,
 } from "amqplib";
 
+import { describeError } from "@/lib/errors";
 import {
   MAIL_DLQ,
   MAIL_DLX,
@@ -60,7 +61,7 @@ async function openConnection(): Promise<MailConnection> {
   });
 
   model.on("disconnect", (error) =>
-    console.error("[mail] RabbitMQ disconnected:", error.message)
+    console.error("[mail] RabbitMQ disconnected:", describeError(error))
   );
   model.on("reconnect-scheduled", ({ attempt, delay }) =>
     console.warn(`[mail] RabbitMQ reconnect attempt ${attempt} in ${delay}ms`)
@@ -95,7 +96,7 @@ function getConnection(): Promise<MailConnection> {
     // publish opens a fresh one rather than writing into a corpse.
     channel.on("close", invalidate);
     channel.on("error", (error: Error) => {
-      console.error("[mail] channel error:", error.message);
+      console.error("[mail] channel error:", describeError(error));
       invalidate();
     });
     // A failed connect must not stay cached either, or one outage at boot
@@ -138,7 +139,9 @@ export async function publishMail(
     await channel.waitForConfirms();
     return { ok: true };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    // Same empty-`AggregateError` trap as `lib/events/publisher.ts` — a
+    // refused connection carries its detail in `errors[]`, not `message`.
+    const reason = describeError(error);
     // Deliberately does not log `message`: `auth.password.reset_requested`
     // carries a live one-time code, and logs are the wrong place for it.
     console.error(`[mail] failed to publish ${routingKey}: ${reason}`);

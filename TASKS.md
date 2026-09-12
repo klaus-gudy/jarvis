@@ -1317,7 +1317,7 @@ Email now answers one question — "what does the landlord need to know?" — in
 - [x] `tsc`, lint (0 errors) and a clean `npm run build`
 
 ### Not done
-- [ ] **The web process now needs Chromium.** Rendering inline is what makes the error visible, and the cost is that `npx playwright install chromium` is a requirement wherever `next dev`/`next start` runs, not just on the worker host. Noted in AGENTS.md. If that is unacceptable on the deploy target, the alternative is a job-status table the worker writes and this endpoint streams — more moving parts, and the stream becomes database polling
+- [x] ~~**The web process now needs Chromium.**~~ — **reversed by Phase 89.** Rendering moved to the `document-worker` service; no host running `next dev`/`next start` needs a browser. Original note: Rendering inline is what makes the error visible, and the cost is that `npx playwright install chromium` is a requirement wherever `next dev`/`next start` runs, not just on the worker host. Noted in AGENTS.md. If that is unacceptable on the deploy target, the alternative is a job-status table the worker writes and this endpoint streams — more moving parts, and the stream becomes database polling
 - [ ] **The automatic path is still silent.** `lease.created` → worker is unchanged, so a contract that dead-letters on the queue still shows as an empty tab with no explanation. Only the *button* explains itself. The same job-status table is what would fix both
 - [ ] **`deleteDocument` deletes the row before the object**, so a storage failure orphans the file — exposed concretely by the broken-credentials test above, which left one orphan (cleaned up by hand). Pre-existing, not introduced here, but now demonstrated rather than theorised. Object-then-row is the fix, or the reaper Phase 67 asked for
 - [ ] No cancel: once the stream starts there is no way to abandon it from the UI, and closing the tab leaves the render running to completion server-side
@@ -1337,9 +1337,9 @@ Email now answers one question — "what does the landlord need to know?" — in
 - [x] `tsc`, lint (0 errors, 3 pre-existing warnings)
 
 ### Not done
-- [ ] **`lib/events/publisher.ts` and `lib/mail/queue.ts` have the same empty-message hole** (`error.message` straight into a log line). A refused RabbitMQ connection is the identical `AggregateError`, so those logs go blank in exactly the situation you would read them. `describeError` is exported and ready; left alone here only to keep this change to the contract path
+- [x] ~~**`lib/events/publisher.ts` and `lib/mail/queue.ts` have the same empty-message hole**~~ — fixed in Phase 90, now that `describeError` lives in dependency-free `lib/errors.ts`. Original note: (`error.message` straight into a log line). A refused RabbitMQ connection is the identical `AggregateError`, so those logs go blank in exactly the situation you would read them. `describeError` is exported and ready; left alone here only to keep this change to the contract path
 - [ ] No cancel, still: dismissing the progress toast hides it but does not stop the render
-- [ ] The **security and blast-radius questions about Chromium in the web process are unaddressed** — `javaScriptEnabled: false` and an abort-all route handler in `lib/pdf.ts`, a concurrency cap, and the job-status table that would let rendering move back to the worker. See the Phase 83 "Not done" list
+- [x] ~~The **security and blast-radius questions about Chromium in the web process**~~ — moot since Phase 89: there is no Chromium in the web process, and an ESLint rule stops one returning. Original note: — `javaScriptEnabled: false` and an abort-all route handler in `lib/pdf.ts`, a concurrency cap, and the job-status table that would let rendering move back to the worker. See the Phase 83 "Not done" list
 
 ## Phase 89 — Rendering moves to the `document-worker` service
 
@@ -1370,8 +1370,20 @@ Email now answers one question — "what does the landlord need to know?" — in
 ### Not done
 - [ ] **The Generate button no longer reports what happened.** It publishes and answers 202. A missing template is still caught synchronously, but a render or upload that fails on the other side — and a `document-worker` that is not running — now look exactly like success. This is the `DocumentJob` table again
 - [ ] The authenticated button click was **not** exercised in a browser (no credentials); the route was verified as 401-unauthenticated and its publish path via the backfill, which is the same code
-- [ ] **The HTML is unbounded.** The renderer caps its HTTP endpoint at 5MB; the queue path has no equivalent, and a large template will eventually meet RabbitMQ's frame limit — the publish then fails and the lease silently gets no contract
+- [x] ~~**The HTML is unbounded.**~~ — capped in Phase 90 at 4MB in `buildContractPlan`. Original note: The renderer caps its HTTP endpoint at 5MB; the queue path has no equivalent, and a large template will eventually meet RabbitMQ's frame limit — the publish then fails and the lease silently gets no contract
 - [ ] `contracts.generate.dead` still holds 9 messages from the old pipeline, now unbound. They are not replayable in the new format; the backfill is the recovery
+
+## Phase 90 — Backlog sweep: the two items Phase 89 left, and the docs it made stale
+
+- [x] **`describeError` now used by both broker clients** (`lib/events/publisher.ts`, `lib/mail/queue.ts`) — 6 call sites across disconnect, channel-error and publish-failure logging. This was a Phase 88 note that could not be acted on cheaply until Phase 89 moved `describeError` into dependency-free `lib/errors.ts`. Demonstrated rather than asserted: an `AggregateError` shaped like a refused connection reports `""` through `.message` and `"Error: ECONNREFUSED"` through `describeError`
+- [x] **Contract HTML is capped at 4MB** in `buildContractPlan`, returning a new `too-large` failure instead of publishing. Measured in *bytes*, not characters, since the frame limit counts the encoded body and a Swahili template would slip past a `.length` check. Sits just under `document-worker`'s own 5MB HTTP cap deliberately: this side should refuse, because it is the side that can still name the lease and the template while doing it. `POST /api/leases/[id]/contract` answers **413**
+- [x] Verified by temporarily bloating a real template past the ceiling: `too-large: The filled contract is 4108KB…`, normal template unaffected at 6,852 bytes, template restored afterwards
+- [x] **Stale "Not done" entries corrected** — Phase 83's "the web process now needs Chromium" and Phase 88's Chromium blast-radius note were both made false by Phase 89 and are now marked as such. A backlog that lies about the current state is worse than no backlog
+
+### Not done
+- [ ] **`contracts.generate.dead` still holds 9 messages** and I did not delete it — it is a pre-existing queue and removing it was out of scope for a backlog review. Inspected: 3 unparseable, 1 `{foo}`, 1 `{occurredAt}`, 1 of a different shape entirely, and 3 old-format messages naming leases that **no longer exist in the database**. Nothing in it is recoverable or needed. To remove: `curl -u guest:guest -X DELETE http://localhost:15682/api/queues/%2F/contracts.generate.dead`
+- [ ] **No DLQ drain or alert anywhere** — `DOCUMENT_WORKER_QUEUE_DEAD` holds 1 message from testing and nothing watches it. This is the Phase 80 note, still open and now spread across two services
+- [ ] The Generate button still cannot report a failed render (the `DocumentJob` table), and `lease.renewed` still generates no contract — both unchanged from Phase 89
 
 ## Done
 

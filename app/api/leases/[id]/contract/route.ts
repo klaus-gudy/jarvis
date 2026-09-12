@@ -108,10 +108,17 @@ export async function POST(
   const plan = await buildContractPlan(organizationId, lease.id);
 
   if ("error" in plan) {
-    return Response.json(
-      { error: plan.error.message },
-      { status: plan.error.reason === "unexpected" ? 500 : 404 }
-    );
+    // 413 for a template too big to queue: it is the caller's document that is
+    // wrong, not a missing lease and not a fault in this process, and a 404
+    // would send whoever clicked Generate looking for the wrong thing.
+    const status =
+      plan.error.reason === "unexpected"
+        ? 500
+        : plan.error.reason === "too-large"
+          ? 413
+          : 404;
+
+    return Response.json({ error: plan.error.message }, { status });
   }
 
   const published = await publishEvent("lease.created", plan.plan.event);

@@ -51,8 +51,25 @@ function printableDocument(bodyHtml: string) {
 </style></head><body class="jarvis-doc">${bodyHtml}</body></html>`;
 }
 
+/**
+ * Largest contract this app will put on the broker.
+ *
+ * Nothing caps a lease template, and a big enough one stops being a message:
+ * RabbitMQ's frame limit rejects the publish, `publishEvent` swallows the
+ * failure by design, and the lease quietly ends up with no contract and no
+ * on-screen explanation — the exact outcome this whole pipeline exists to
+ * avoid. A ceiling turns that into a logged refusal.
+ *
+ * 4MB, sitting just under `document-worker`'s own 5MB cap on its HTTP route:
+ * this side should be the one that says no, because it is the side that can
+ * still name the lease and the template while doing it. A real contract is
+ * ~7KB, so this is a guard against a runaway template, not a budget anyone
+ * should be rendering against.
+ */
+const MAX_CONTRACT_HTML_BYTES = 4_000_000;
+
 export type ContractPlanFailure = {
-  reason: "no-template" | "no-lease" | "unexpected";
+  reason: "no-template" | "no-lease" | "too-large" | "unexpected";
   message: string;
 };
 
@@ -135,13 +152,31 @@ export async function buildContractPlan(
 
     const { contract } = rendered;
 
+    const html = printableDocument(contract.html);
+    // Measured in bytes, not characters: the frame limit counts the encoded
+    // body, and a Swahili template full of multi-byte characters would slip
+    // past a `.length` check that a byte count catches.
+    const bytes = Buffer.byteLength(html, "utf8");
+
+    if (bytes > MAX_CONTRACT_HTML_BYTES) {
+      return {
+        error: {
+          reason: "too-large",
+          message:
+            `The filled contract is ${Math.round(bytes / 1024)}KB, over the ` +
+            `${MAX_CONTRACT_HTML_BYTES / 1_000_000}MB limit for a queued ` +
+            `document. Template "${contract.template.name}" needs to be smaller.`,
+        },
+      };
+    }
+
     return {
       plan: {
         event: {
           // The wrapped document, not `contract.html`. Sending the bare body
           // would file a contract with no stylesheet at all — see
           // `printableDocument`.
-          html: printableDocument(contract.html),
+          html,
           objectKey: buildObjectKey({
             organizationId,
             subjectType: "LEASE",

@@ -5,6 +5,7 @@ import {
   type RecoveringChannelModel,
 } from "amqplib";
 
+import { describeError } from "@/lib/errors";
 import {
   ROUTING_KEY,
   DOCUMENTS_BINDINGS,
@@ -79,7 +80,7 @@ async function openConnection(): Promise<EventConnection> {
   });
 
   model.on("disconnect", (error) =>
-    console.error("[events] RabbitMQ disconnected:", error.message)
+    console.error("[events] RabbitMQ disconnected:", describeError(error))
   );
   model.on("reconnect-scheduled", ({ attempt, delay }) =>
     console.warn(`[events] RabbitMQ reconnect attempt ${attempt} in ${delay}ms`)
@@ -112,7 +113,7 @@ function getConnection(): Promise<EventConnection> {
   started.then(({ channel }) => {
     channel.on("close", invalidate);
     channel.on("error", (error: Error) => {
-      console.error("[events] channel error:", error.message);
+      console.error("[events] channel error:", describeError(error));
       invalidate();
     });
   }, invalidate);
@@ -159,7 +160,14 @@ export async function publishEvent<K extends EventRoutingKey>(
     await channel.waitForConfirms();
     return { ok: true };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    /*
+     * `describeError`, never `error.message`. Node throws an `AggregateError`
+     * with an **empty** message when a connection is refused on several
+     * addresses — which is exactly what an unreachable RabbitMQ looks like, so
+     * the one log line written to explain the outage explained nothing. The
+     * detail is only ever in `errors[]` and `code`.
+     */
+    const reason = describeError(error);
     console.error(
       `[events] failed to publish ${routingKey} (as "${ROUTING_KEY[routingKey]}"): ${reason}`
     );
