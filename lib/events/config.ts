@@ -46,6 +46,40 @@ export type ConsumedRoutingKey = (typeof CONSUMED_ROUTING_KEYS)[number];
 export type EventRoutingKey = (typeof EVENT_ROUTING_KEYS)[number];
 
 /**
+ * **The name of an event and the key it travels under are two different
+ * things**, and only the second one belongs in `.env`.
+ *
+ * The lists above are *identities*: `DomainEvent` is keyed by them, so
+ * `publishEvent("lease.created", …)` type-checks its payload against the right
+ * shape and a typo is a build error. That only works while they are literal —
+ * read from the environment they collapse to `string`, and the mapping that
+ * makes this file worth having disappears with them.
+ *
+ * So the identity stays in code and the **wire key** moves out. These two maps
+ * are the one place the two meet: everything that touches the broker routes
+ * through them, and nothing else in the app spells a dotted key out.
+ *
+ * Each is a **contract with `document-worker`, not a preference** — it must
+ * match that service's own setting character for character. Get it wrong and
+ * nothing errors: a topic exchange routes the message to no queue at all and
+ * drops it, which is the quietest failure in the system. Change both sides
+ * together.
+ *
+ * | this app | document-worker |
+ * |---|---|
+ * | `LEASE_CREATED_ROUTING_KEY` | `EVENT_ROUTING_KEY` |
+ * | `DOCUMENT_STORED_ROUTING_KEY` | `EVENT_COMPLETION_ROUTING_KEY` |
+ */
+export const ROUTING_KEY: Record<EventRoutingKey, string> = {
+  "lease.created": process.env.LEASE_CREATED_ROUTING_KEY ?? "lease.created",
+};
+
+export const CONSUMED_ROUTING_KEY: Record<ConsumedRoutingKey, string> = {
+  "document.stored":
+    process.env.DOCUMENT_STORED_ROUTING_KEY ?? "document.stored",
+};
+
+/**
  * A lease now exists — **and here is the contract to make from it.**
  *
  * These two fields are the whole message, and that is the `document-worker`
@@ -197,5 +231,11 @@ export const DOCUMENTS_QUEUE =
 /** Derived, not configured, so the pair cannot drift apart. */
 export const DOCUMENTS_DLQ = `${DOCUMENTS_QUEUE}_DEAD`;
 
-/** What `DOCUMENTS_QUEUE` binds to on the events exchange. */
-export const DOCUMENTS_BINDINGS: ConsumedRoutingKey[] = ["document.stored"];
+/**
+ * What `DOCUMENTS_QUEUE` binds to on the events exchange — the configured wire
+ * keys, not the internal names, so a key overridden in `.env` is the key the
+ * queue actually listens on.
+ */
+export const DOCUMENTS_BINDINGS: string[] = CONSUMED_ROUTING_KEYS.map(
+  (name) => CONSUMED_ROUTING_KEY[name]
+);

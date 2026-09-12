@@ -6,6 +6,7 @@ import {
 } from "amqplib";
 
 import {
+  ROUTING_KEY,
   DOCUMENTS_BINDINGS,
   DOCUMENTS_DLQ,
   DOCUMENTS_QUEUE,
@@ -134,9 +135,15 @@ export async function publishEvent<K extends EventRoutingKey>(
   try {
     const { channel } = await getConnection();
 
+    /*
+     * The *configured* key, not the internal name they happen to share by
+     * default. `routingKey` here is this app's identity for the event — what
+     * `DomainEvent` is keyed by — and the wire value is whatever `.env` says
+     * `document-worker` is listening for.
+     */
     channel.publish(
       EVENTS_EXCHANGE,
-      routingKey,
+      ROUTING_KEY[routingKey],
       Buffer.from(JSON.stringify(payload)),
       {
         // Survives a broker restart, which a durable queue on its own does not
@@ -144,7 +151,7 @@ export async function publishEvent<K extends EventRoutingKey>(
         persistent: true,
         contentType: "application/json",
         contentEncoding: "utf-8",
-        type: routingKey,
+        type: ROUTING_KEY[routingKey],
         timestamp: Date.now(),
       }
     );
@@ -153,7 +160,9 @@ export async function publishEvent<K extends EventRoutingKey>(
     return { ok: true };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.error(`[events] failed to publish ${routingKey}: ${reason}`);
+    console.error(
+      `[events] failed to publish ${routingKey} (as "${ROUTING_KEY[routingKey]}"): ${reason}`
+    );
     return { ok: false, error: reason };
   }
 }

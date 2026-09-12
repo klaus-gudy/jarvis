@@ -13,6 +13,7 @@ import {
 } from "@/lib/documents";
 import { describeError } from "@/lib/errors";
 import {
+  CONSUMED_ROUTING_KEY,
   DOCUMENTS_QUEUE,
   RABBITMQ_URL,
   type DocumentStoredEvent,
@@ -102,7 +103,13 @@ async function main() {
   const channel = await model.createChannel();
   await channel.prefetch(PREFETCH);
 
-  console.log(`[document-worker] consuming ${DOCUMENTS_QUEUE}`);
+  // Names the key as well as the queue: a misconfigured routing key binds
+  // nothing and looks exactly like a quiet broker, so the one line this
+  // process prints at startup should be enough to tell those apart.
+  console.log(
+    `[document-worker] consuming ${DOCUMENTS_QUEUE} ` +
+      `for "${CONSUMED_ROUTING_KEY["document.stored"]}"`
+  );
 
   await channel.consume(DOCUMENTS_QUEUE, async (message) => {
     if (!message) return;
