@@ -14,7 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -64,6 +69,34 @@ export function InviteDialog({
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
   const [inviteLink, setInviteLink] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+
+  /*
+   * `prefill` is only passed by the Users table's Invite button, which means
+   * this invitation is for someone who already has a membership — so there is
+   * an existing role on screen that the chosen one will replace, and only
+   * when they accept.
+   */
+  const isExistingMember = Boolean(prefill);
+  const changesRole = isExistingMember && values.roleId !== prefill?.roleId;
+  const prefillRoleName =
+    roles.find((role) => role.id === prefill?.roleId)?.name ?? null;
+  /**
+   * The address the invitation was queued to, or null when none was given.
+   *
+   * "Queued", deliberately, not "sent": the email goes onto RabbitMQ inside
+   * `after()` and a separate service delivers it, so this process never learns
+   * whether it arrived. The copy below says so rather than claiming a delivery
+   * it cannot observe — and the link stays on screen either way, which is what
+   * makes an undelivered email recoverable instead of a dead end.
+   */
+  const [emailedTo, setEmailedTo] = React.useState<string | null>(null);
+  /**
+   * The role whose invitations this deployment does not email, when that is
+   * why nothing was sent. Distinct from "no address given" — the inviter typed
+   * one and it is being deliberately ignored, so saying nothing would look
+   * like a bug rather than a policy.
+   */
+  const [suppressedRole, setSuppressedRole] = React.useState<string | null>(null);
   const phoneError = usePhoneError(values.phone);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
@@ -87,8 +120,12 @@ export function InviteDialog({
     if (response.ok && data?.token) {
       // The token is only ever returned here, so build the link immediately.
       setInviteLink(`${window.location.origin}/invite/${data.token}`);
+      setEmailedTo(data.emailed ? (values.email?.trim() || null) : null);
+      setSuppressedRole(data.emailSuppressedForRole ?? null);
       setPending(false);
-      toast.success("Invite created");
+      toast.success(
+        data.emailed ? "Invite created and emailed" : "Invite created"
+      );
       router.refresh();
       return;
     }
@@ -113,8 +150,29 @@ export function InviteDialog({
           <DialogHeader>
             <DialogTitle>Invitation ready</DialogTitle>
             <DialogDescription>
-              Share this link with the person you invited. It expires in 14 days
-              and can only be used once — copy it now, it won&apos;t be shown again.
+              {emailedTo ? (
+                <>
+                  We&apos;ve emailed the link to{" "}
+                  <span className="font-medium text-foreground">{emailedTo}</span>.
+                  Here it is as well, in case it doesn&apos;t arrive — it expires
+                  in 14 days, can only be used once, and won&apos;t be shown again.
+                </>
+              ) : suppressedRole ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {suppressedRole}
+                  </span>{" "}
+                  invitations aren&apos;t emailed, so share this link yourself.
+                  It expires in 14 days and can only be used once — copy it now,
+                  it won&apos;t be shown again.
+                </>
+              ) : (
+                <>
+                  Share this link with the person you invited. It expires in 14
+                  days and can only be used once — copy it now, it won&apos;t be
+                  shown again.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -208,6 +266,21 @@ export function InviteDialog({
                 </SelectContent>
               </Select>
               <FieldError errors={fieldErrors.roleId?.map((m) => ({ message: m }))} />
+              {/*
+                Said out loud because the table does not move when you press
+                Send, and that reads as a bug. An invitation is a pending thing:
+                the role is what they *will* hold, applied when they accept, so
+                a pending invite cannot hand out Owner to someone who has not
+                clicked anything yet. Until then the Pending invites tab is
+                where the invited role is visible.
+              */}
+              {isExistingMember && changesRole && (
+                <FieldDescription>
+                  {prefillRoleName
+                    ? `They are currently ${prefillRoleName}. The new role applies when they accept — the table won't change until then.`
+                    : "The role applies when they accept — the table won't change until then."}
+                </FieldDescription>
+              )}
             </Field>
 
             {formError && <FieldError>{formError}</FieldError>}

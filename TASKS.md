@@ -1385,6 +1385,82 @@ Email now answers one question — "what does the landlord need to know?" — in
 - [ ] **No DLQ drain or alert anywhere** — `DOCUMENT_WORKER_QUEUE_DEAD` holds 1 message from testing and nothing watches it. This is the Phase 80 note, still open and now spread across two services
 - [ ] The Generate button still cannot report a failed render (the `DocumentJob` table), and `lease.renewed` still generates no contract — both unchanged from Phase 89
 
+## Phase 91 — One broker naming convention
+
+**The rule:** a queue is *who consumes* (`UPPER_SNAKE`, `_QUEUE` suffix); a routing key is *what happened* (`lowercase.dotted`, past tense). Exchanges are `jarvis.<domain>` topic, dead-letter exchanges `<exchange>.dlx` **direct**, dead-letter queues `<QUEUE>_DEAD`, each routed by its originating queue's own name.
+
+| | before | after |
+|---|---|---|
+| mail queue | `emails.outbound` | `NOTIFIER_EMAIL_QUEUE` |
+| mail DLQ | `emails.outbound.dead` | `NOTIFIER_EMAIL_QUEUE_DEAD` |
+| mail DLX | `jarvis.emails.dlx` fanout | `jarvis.emails.dlx` **direct** |
+| retired | `contracts.generate.dead` | deleted |
+
+- [x] Renamed on **both sides**: Jarvis `lib/mail/config.ts` + `MAIL_QUEUE`, and the `notifier` service's `src/config/configuration.ts` + `RABBITMQ_EMAIL_QUEUE`. Jarvis owns the topology (asserts and binds); `notifier` only `checkQueue`s and consumes, so a mismatch stops the consumer rather than silently creating a second queue
+- [x] **`deadLetterRoutingKey: MAIL_QUEUE` added** — not cosmetic. With a direct DLX and no routing key, a rejected message keeps the key it arrived on (`auth.user.registered`), matches no binding and is dropped exactly as if there were no dead-letter exchange
+- [x] Verified live: registering a probe account put 2 emails on `NOTIFIER_EMAIL_QUEUE`; rejecting one landed it in `NOTIFIER_EMAIL_QUEUE_DEAD` (`0 -> 1`), proving the new direct routing. Probe org and messages removed afterwards
+- [x] `contracts.generate.dead` deleted — 9 messages, all inspected first: 3 unparseable, 1 `{foo}`, 1 `{occurredAt}`, 1 of a foreign shape, and 3 naming leases that no longer exist
+- [x] **All queues purged to zero** for clean testing
+
+### Not done
+- [ ] **The `notifier` service must be restarted** to pick up `RABBITMQ_EMAIL_QUEUE=NOTIFIER_EMAIL_QUEUE`. It was running detached and not visible in `ps`, so I could not restart it — until then `NOTIFIER_EMAIL_QUEUE` has **0 consumers** and mail accumulates undelivered (durably, nothing is lost)
+- [ ] `notifier/.env.template` has `RABBITMQ_EMAIL_QUEUE=` blank, so it documents nothing about the expected value
+- [ ] Still no DLQ drain or alert on any of the three `_DEAD` queues
+
+## Phase 92 — Invitations are emailed
+
+- [x] **`invitation.sent`** added to `MAIL_ROUTING_KEYS` — Section B of the catalogue, unwired since it was written
+- [x] `lib/mail/invitations.ts` — `sendInvitationEmail`, following `lib/mail/auth.ts` exactly: renders a finished email, hands it to the queue, never throws. Says who invited them, which organization, which role, and carries the accept link
+- [x] The link uses **`appUrl`** (`NEXT_PUBLIC_SITE_URL`), not `window.location.origin` — the dialog's copyable link is built in the browser, but this one is rendered server-side where that origin does not exist
+- [x] `POST /api/invitations` sends inside **`after()`**, so a slow broker cannot delay the response and a failed publish cannot fail the invitation. `createInvitation` now returns `roleName`, `organizationName` and `expiresInDays` from the query it already ran, rather than the route making a second round trip
+- [x] The response carries `emailed`, and the dialog says *"We've emailed the link to X. Here it is as well, in case it doesn't arrive"* — **the copyable link is never removed**, which is what makes a mistyped address or a dead mail service recoverable
+- [x] Wording is "emailed", not "sent": this process only knows the message reached the queue
+- [x] The **Invite button on the Users table** (for members who can't sign in) gets this for free — same dialog, same endpoint
+- [x] Verified end to end: invitation created with an email produced one `invitation.sent` message addressed to the invitee, subject *"Inviter Boss invited you to join Invite Org … on Rentoo"*, body *"Inviter Boss has invited you to join … as Tenant"*, link `http://localhost:3347/invite/<token>`. **The emailed token resolves** — `GET /invite/<token>` answered 200 and the token mapped back to the right invitee and organization
+- [x] Verified the phone-only case: `emailed: false`, the token is still issued, queue depth unchanged, nothing failed
+- [x] Probe org and test messages removed; `tsc` clean, lint 0 errors (3 pre-existing warnings)
+
+### Not done
+- [ ] **Accepting an emailed invitation still does not verify the address.** Phase 64 anticipated exactly this: an invited member is never asked to verify, and now that the link is delivered *to* the address, clicking it is proof of control over that inbox. Setting `emailVerifiedAt` on accept is the obvious follow-up and was left out of scope
+- [ ] **No resend.** An invitation whose email was never delivered can only be shared by copying the link from the creation dialog — and that dialog is the only place the token is ever shown. A resend would need a fresh token, since the old one is hashed
+- [ ] Revoking an invitation sends nothing, so someone holding a revoked link finds out by clicking it
+- [ ] `invitation.accepted` (telling the inviter it worked) is not wired — the rest of Section B is still open
+
+## Phase 93 — Accepting an invitation verifies the email, and the invited role is no longer discarded
+
+- [x] **`emailVerifiedAt` is set on accept** — closing the Phase 64 note, which predicted exactly this once invites were emailed
+- [x] **Gated on the invitation having carried that address.** A phone-only invite whose invitee types their own email on the accept form is *not* verified: nothing was ever delivered there, so there is no proof to record. Compared case-insensitively — `createInvitationSchema` lowercases, the public accept form does not
+- [x] **Bug fixed: the invited role was ignored for existing members.** `acceptInvitation`'s new-member branch did `membership.create({ roleId })`; the existing-passwordless-member branch — the one the Users table's Invite button drives — set a password and never touched the membership. Inviting a Tenant as Owner produced an email, an accepted invite, and a membership still reading Tenant
+- [x] Applied **on acceptance, not creation**: a pending invitation must not grant Owner to someone who has not clicked anything, which is also why the table does not move when you press Send
+- [x] **Sole-Owner guard**: a role change that would leave the organization with no Owner is refused and logged, but the acceptance completes — the password is still set. Same rule as `removeMember`, reached from the other side
+- [x] The dialog now says so when the Invite button is used on an existing member whose role is being changed: *"They are currently Tenant. The new role applies when they accept — the table won't change until then."*
+- [x] Verified all four paths against the database: existing Tenant invited as Owner → **Owner after accept**, verified ✓ · new invitee → invited role, verified ✓ · phone-only invite with a self-typed email → **not** verified ✓ · sole Owner invited as Tenant → **stays Owner**, still gains sign-in, warning logged ✓
+
+### Not done
+- [ ] **The accept form was not clicked through in a browser** (no credentials) — the four paths were exercised directly against `acceptInvitation`, and `/users` compiles
+- [ ] Still no **resend**, and revoking still tells the holder nothing — both unchanged from Phase 92
+- [ ] A role change still has no path outside an invitation: `PATCH /api/members/[id]` does not accept a `roleId`, so promoting an *active* member means inviting them again
+- [ ] `emailVerificationRequired` is still false for invited members, so verification is recorded but was never going to be enforced for them anyway
+
+## Phase 94 — Tenants are not emailed invitations
+
+**Audit first.** Tenants receive **no** domain email and never did: leases, invoices, renewals and expiry all resolve recipients through `getOwnerRecipients()` (Owner role only), and `tenantEmail` is absent from the mail layer entirely since 2026-08-31. The only message that could reach a tenant was the invitation added in Phase 92. Auth mail follows *credentials, not role* — reset, lockout and password-changed are all triggered by the account holder about their own login, and a staff-onboarded tenant with `passwordHash: null` can trigger none of them.
+
+- [x] ~~`INVITE_EMAIL_SKIP_ROLES` denylist~~ — **replaced within the hour by `INVITE_EMAIL_OWNERS_ONLY`** (below), on your call
+- [x] **`INVITE_EMAIL_OWNERS_ONLY`** in `lib/mail/config.ts` + `mayEmailInvitation(roleName)` — boolean, **defaulting to true**: Owners are emailed, every other role is not. `false` emails everyone
+- [x] The known cost (a Caretaker or Accountant gets no link) is mitigated by the suppression being **visible** rather than by the shape of the setting — see `emailSuppressedForRole` below
+- [x] `OWNER_ROLE_NAME`/`TENANT_ROLE_NAME`/`isOwnerRole` extracted to **`lib/role-constants.ts`**, re-exported from `lib/roles.ts` so no existing importer changed: `lib/roles.ts` imports Prisma, and `lib/mail/config.ts` promises to be dependency-free
+- [x] `POST /api/invitations` returns `emailSuppressedForRole` when an address was given but the role is skipped — distinct from `emailed: false` with no address, because one is a policy and the other is a missing field
+- [x] The dialog says *"Tenant invitations aren't emailed, so share this link yourself"* instead of the generic copy, so a deliberate rule doesn't read as a dropped message
+- [x] Documented in `.env` and `.env.example`
+- [x] Flag verified across values: unset/`true`/`TRUE`/`yes` → Owner only · `false` → every role. Owner match is case- and whitespace-insensitive
+- [x] Verified against the running app by **publish counter** (the queue now has a live consumer, so depth is no longer a valid measurement): Tenant + email → **0 publishes**, Owner + email → **1**. The first run of this read 2 for the tenant — the registration's own welcome and verification emails landing inside the measurement window, not a leak; re-measured after waiting for the publish counter to settle
+- [x] Verified the switch is genuinely configurable: unset → Tenant skipped, Caretaker emailed · `""` → everyone emailed · `"Tenant,Caretaker"` → both skipped · `"Owner"` → Owner skipped. Case-insensitive and whitespace-tolerant
+
+### Not done
+- [ ] **It is deployment-wide.** No per-organization or per-invitation override — an org that *does* want to email tenants their link cannot, short of changing the env for everyone
+- [ ] Auth email is deliberately untouched: a tenant who accepts an invitation and later uses "forgot password" still receives that email, because it is about their login and they asked for it
+
 ## Done
 
 Auth + app shell complete. Deferred: org switcher (build with invitations).

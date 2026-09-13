@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/prisma";
+// Imported as well as re-exported: a re-export does not bring a name into this
+// module's own scope, and the queries below use both.
+import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/role-constants";
 
-/** Created for the registrant in app/api/auth/register/route.ts. */
-export const OWNER_ROLE_NAME = "Owner";
-/** Tenants are the members the Tenants page lists. */
-export const TENANT_ROLE_NAME = "Tenant";
+// Re-exported so the modules that import them from here need no change, while
+// modules that must stay Prisma-free can reach them directly.
+export {
+  isOwnerRole,
+  OWNER_ROLE_NAME,
+  TENANT_ROLE_NAME,
+} from "@/lib/role-constants";
 
 export type RoleRow = {
   id: string;

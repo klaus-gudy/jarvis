@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { hashPassword } from "@/lib/auth/hash";
 import { prisma } from "@/lib/prisma";
+import { isOwnerRole, OWNER_ROLE_NAME } from "@/lib/role-constants";
 
 const INVITE_TTL_DAYS = 14;
 
@@ -51,9 +52,13 @@ export async function createInvitation(
   organizationId: string,
   input: { name?: string; email?: string; phone?: string; roleId: string }
 ) {
+  // The names come back with the role because the invitation email needs both
+  // ("X invited you to join Y as Z") and this query already reaches the
+  // organization. Fetching them again in the route would be a second round
+  // trip for rows that were in hand here.
   const role = await prisma.role.findFirst({
     where: { id: input.roleId, organizationId },
-    select: { id: true },
+    select: { id: true, name: true, organization: { select: { name: true } } },
   });
   if (!role) return { error: "role-not-found" as const };
 
@@ -73,8 +78,15 @@ export async function createInvitation(
     select: { id: true },
   });
 
-  // The raw token is returned exactly once, for the link the inviter shares.
-  return { invitation, token };
+  // The raw token is returned exactly once, for the link the inviter shares
+  // and for the email that carries it.
+  return {
+    invitation,
+    token,
+    expiresInDays: INVITE_TTL_DAYS,
+    roleName: role.name,
+    organizationName: role.organization.name,
+  };
 }
 
 export async function revokeInvitation(organizationId: string, id: string) {
@@ -132,6 +144,7 @@ export async function acceptInvitation(
       email: true,
       phone: true,
       roleId: true,
+      role: { select: { name: true } },
       organizationId: true,
     },
   });
@@ -146,6 +159,25 @@ export async function acceptInvitation(
   const email = invitation.email ?? input.email ?? null;
   const phone = invitation.phone ?? input.phone ?? null;
   if (!email && !phone) return { error: "missing-identifier" as const };
+
+  /**
+   * Does accepting prove control of this address?
+   *
+   * **Only when the invitation itself carried the email.** That is the whole
+   * argument: the link was delivered *to* that inbox, and clicking it is
+   * evidence only the holder of that inbox could produce. An invitation
+   * recorded with a phone and no email, where the invitee types an address on
+   * the accept form, proves nothing — nothing was ever sent there, and
+   * stamping it verified would be recording a check that never happened.
+   *
+   * Compared case-insensitively because `createInvitationSchema` lowercases on
+   * the way in while `input.email` comes off a public form that does not.
+   */
+  const emailWasInvited =
+    Boolean(invitation.email) &&
+    invitation.email!.trim().toLowerCase() ===
+      (email ?? "").trim().toLowerCase();
+  const verifiedAt = emailWasInvited ? new Date() : null;
 
   const passwordHash = await hashPassword(input.password);
 
@@ -164,7 +196,7 @@ export async function acceptInvitation(
             organizationId: invitation.organizationId,
           },
         },
-        select: { id: true },
+        select: { id: true, roleId: true, role: { select: { name: true } } },
       })
     : null;
 
@@ -180,6 +212,41 @@ export async function acceptInvitation(
       return { error: "already-member" as const };
     }
 
+    /*
+     * **The invited role is applied here, and it used not to be.** This branch
+     * set a password and nothing else, so inviting an existing Tenant as an
+     * Owner produced an email, an accepted invitation, and a membership still
+     * reading "Tenant" — the role on the invitation was silently discarded.
+     * The other branch (`membership.create` below) had always honoured it, so
+     * the same invitation meant two different things depending on whether the
+     * person happened to have a membership already.
+     *
+     * It is applied on *acceptance*, not when the invite is created: until
+     * someone accepts, nothing has been agreed, and granting Owner to a pending
+     * invitation would hand out the role before anyone clicked anything.
+     */
+    const wouldDemoteLastOwner =
+      isOwnerRole(alreadyMember.role.name) &&
+      !isOwnerRole(invitation.role.name) &&
+      (await prisma.membership.count({
+        where: {
+          organizationId: invitation.organizationId,
+          role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
+        },
+      })) <= 1;
+
+    if (wouldDemoteLastOwner) {
+      // Refused, but the acceptance carries on: the person clicked a link to
+      // gain sign-in, and blocking that over a role they did not choose would
+      // punish the wrong party. An organization with no Owner at all is the
+      // one outcome worth protecting against — same rule `removeMember`
+      // enforces, for the same reason.
+      console.warn(
+        `[invitations] keeping ${alreadyMember.role.name} on membership ${alreadyMember.id}: ` +
+          `moving it to ${invitation.role.name} would leave the organization with no owner`
+      );
+    }
+
     const activated = await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: existingUser.id },
@@ -188,8 +255,19 @@ export async function acceptInvitation(
           passwordHash,
           ...(email ? { email } : {}),
           ...(phone ? { phone } : {}),
+          // Clicking a link delivered to this address is the proof. Only
+          // stamped when the invitation carried the address — see above.
+          ...(verifiedAt ? { emailVerifiedAt: verifiedAt } : {}),
         },
       });
+
+      if (alreadyMember.roleId !== invitation.roleId && !wouldDemoteLastOwner) {
+        await tx.membership.update({
+          where: { id: alreadyMember.id },
+          data: { roleId: invitation.roleId },
+        });
+      }
+
       await tx.invitation.update({
         where: { id: invitation.id },
         data: { status: "ACCEPTED", acceptedAt: new Date() },
@@ -213,11 +291,18 @@ export async function acceptInvitation(
             ...(existingUser.passwordHash ? {} : { passwordHash }),
             ...(email ? { email } : {}),
             ...(phone ? { phone } : {}),
+            ...(verifiedAt ? { emailVerifiedAt: verifiedAt } : {}),
           },
           select: { id: true },
         })
       : await tx.user.create({
-          data: { name: input.name, email, phone, passwordHash },
+          data: {
+            name: input.name,
+            email,
+            phone,
+            passwordHash,
+            emailVerifiedAt: verifiedAt,
+          },
           select: { id: true },
         });
 

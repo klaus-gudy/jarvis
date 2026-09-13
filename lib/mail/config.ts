@@ -1,3 +1,5 @@
+import { OWNER_ROLE_NAME } from "@/lib/role-constants";
+
 /**
  * The mail service's wire format, and the settings that decide where a message
  * goes. Dependency-free so anything can import the type.
@@ -32,6 +34,8 @@ export const MAIL_ROUTING_KEYS = [
   "auth.password.changed",
   "auth.login.locked_out",
   "org.created",
+  // Section B — invitations
+  "invitation.sent",
   // Section C — leases
   "lease.created",
   "lease.renewed",
@@ -53,13 +57,71 @@ export const RABBITMQ_URL =
 /** Topic exchange every email is published to. */
 export const MAIL_EXCHANGE = process.env.MAIL_EXCHANGE ?? "jarvis.emails";
 
-/** The queue the mail service consumes. Declared here so publishing to a
- * broker nobody has consumed from yet still durably holds the messages. */
-export const MAIL_QUEUE = process.env.MAIL_QUEUE ?? "emails.outbound";
+/**
+ * The queue the `notifier` service consumes. Declared here — by the producer —
+ * so publishing to a broker nobody has consumed from yet still durably holds
+ * the messages; `notifier` only `checkQueue`s and consumes.
+ *
+ * **Named for who consumes it, in caps**, matching `DOCUMENT_WORKER_QUEUE` on
+ * the events side. It was `emails.outbound`, which is the same lowercase-dotted
+ * shape as a routing key — and a queue and a routing key are different things:
+ * one is *who reads*, the other is *what happened*. Naming them alike is what
+ * made the retired `contracts.generate` queue look like an event.
+ *
+ * It is `NOTIFIER_EMAIL_QUEUE` rather than something generic because that
+ * service also sends SMS: the topic qualifier is what keeps room for a second
+ * queue belonging to the same consumer.
+ */
+export const MAIL_QUEUE = process.env.MAIL_QUEUE ?? "NOTIFIER_EMAIL_QUEUE";
 
-/** Where a message goes when the consumer rejects it, instead of vanishing. */
+/**
+ * Where a message goes when the consumer rejects it, instead of vanishing.
+ *
+ * `_DEAD`, derived from the queue, same as the events side — and the exchange
+ * is **direct**, not fanout. A fanout copies every reject into every bound dead
+ * queue, so the moment a second consumer exists each one's failures land in
+ * both holding areas. Direct, routed by the originating queue's own name, keeps
+ * them apart.
+ */
 export const MAIL_DLX = `${MAIL_EXCHANGE}.dlx`;
-export const MAIL_DLQ = `${MAIL_QUEUE}.dead`;
+export const MAIL_DLQ = `${MAIL_QUEUE}_DEAD`;
+
+/**
+ * When true, **only Owners are emailed an invitation link.**
+ *
+ * The invitation is the only message in the product that can reach a tenant —
+ * everything else about leases, invoices and expiry resolves its recipients
+ * through `getOwnerRecipients`, so tenants are already structurally excluded
+ * from domain mail. This closes the last door: a tenant invited by staff gets
+ * no email, and whoever invited them shares the link by hand, which is how
+ * tenant onboarding worked before invitations were emailed at all.
+ *
+ * Defaults to **on**, matching the "owners only" rule the rest of the mail
+ * layer already follows.
+ *
+ * The cost, stated because it is real: any role that is not Owner — a
+ * Caretaker, an Accountant, anything an organization invents — is also not
+ * emailed, and a person cannot join without the link. That is survivable only
+ * because the suppression is **visible**: the response carries
+ * `emailSuppressedForRole` and the invite dialog tells whoever sent it to
+ * share the link themselves. Turn this off to email every role.
+ *
+ *   INVITE_EMAIL_OWNERS_ONLY=true    # the default — Owners only
+ *   INVITE_EMAIL_OWNERS_ONLY=false   # email every role, tenants included
+ */
+export const INVITE_EMAIL_OWNERS_ONLY =
+  process.env.INVITE_EMAIL_OWNERS_ONLY !== "false";
+
+/**
+ * May someone holding this role be emailed their invitation link?
+ *
+ * Role names are free text and editable per organization, so this is matched
+ * loosely — the same way every other Owner/Tenant lookup in the codebase is.
+ */
+export function mayEmailInvitation(roleName: string) {
+  if (!INVITE_EMAIL_OWNERS_ONLY) return true;
+  return roleName.trim().toLowerCase() === OWNER_ROLE_NAME.toLowerCase();
+}
 
 /** The `service_name` stamped on every message. */
 export const MAIL_SERVICE_NAME = process.env.MAIL_SERVICE_NAME ?? "Jarvis";

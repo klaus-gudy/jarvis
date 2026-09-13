@@ -38,7 +38,7 @@ async function declareTopology(model: ChannelModel) {
   const channel = await model.createChannel();
 
   await channel.assertExchange(MAIL_EXCHANGE, "topic", { durable: true });
-  await channel.assertExchange(MAIL_DLX, "fanout", { durable: true });
+  await channel.assertExchange(MAIL_DLX, "direct", { durable: true });
 
   // The queue is declared by the producer, not left to the consumer: a message
   // published before the mail service has ever run must be held, and a topic
@@ -46,11 +46,17 @@ async function declareTopology(model: ChannelModel) {
   await channel.assertQueue(MAIL_QUEUE, {
     durable: true,
     deadLetterExchange: MAIL_DLX,
+    // Required now the DLX is `direct`: without it a rejected message keeps the
+    // routing key it arrived on (`auth.user.registered`), which matches no
+    // binding on that exchange and is dropped as silently as having no DLX at
+    // all. Routed by the queue's own name so each consumer's failures land only
+    // in its own holding area.
+    deadLetterRoutingKey: MAIL_QUEUE,
   });
   await channel.bindQueue(MAIL_QUEUE, MAIL_EXCHANGE, "#");
 
   await channel.assertQueue(MAIL_DLQ, { durable: true });
-  await channel.bindQueue(MAIL_DLQ, MAIL_DLX, "");
+  await channel.bindQueue(MAIL_DLQ, MAIL_DLX, MAIL_QUEUE);
 
   await channel.close();
 }
