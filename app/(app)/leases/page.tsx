@@ -5,7 +5,7 @@ import { FileTextIcon } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { LeasesTable } from "@/components/leases/leases-table";
 import { getCurrentUser } from "@/lib/auth/session";
-import { runAutoRenewals } from "@/lib/lease-renewal";
+import { queueContractsForRenewals, runAutoRenewals } from "@/lib/lease-renewal";
 import { announceLeaseRenewals, getLeaseOptions, getLeases } from "@/lib/leases";
 
 export default async function LeasesPage() {
@@ -30,6 +30,9 @@ export default async function LeasesPage() {
   if (renewals.length > 0) {
     const orgId = user.activeOrgId;
     after(() => announceLeaseRenewals(orgId, renewals));
+    // A renewal is a new Lease row exactly like one created by hand, and
+    // deserves the same contract — see `queueContractsForRenewals`.
+    after(() => queueContractsForRenewals(orgId, renewals));
   }
 
   const [leases, options] = await Promise.all([

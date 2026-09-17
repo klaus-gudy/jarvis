@@ -21,7 +21,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/session"
 import { getDashboardStats, getDashboardPanels } from "@/lib/dashboard"
 import { formatCurrency, formatCurrencyFull } from "@/lib/format"
-import { runAutoRenewals } from "@/lib/lease-renewal"
+import { queueContractsForRenewals, runAutoRenewals } from "@/lib/lease-renewal"
 import { announceLeaseRenewals } from "@/lib/leases"
 import { getProperties } from "@/lib/properties"
 
@@ -43,7 +43,10 @@ export default async function DashboardPage() {
     const { renewals } = await runAutoRenewals(orgId)
     // Same reasoning as the leases page: publishing waits on the broker, so it
     // happens after the render rather than inside it.
-    if (renewals.length > 0) after(() => announceLeaseRenewals(orgId, renewals))
+    if (renewals.length > 0) {
+      after(() => announceLeaseRenewals(orgId, renewals))
+      after(() => queueContractsForRenewals(orgId, renewals))
+    }
   }
 
   const [stats, panels, properties] = await Promise.all([

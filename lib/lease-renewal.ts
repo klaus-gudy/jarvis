@@ -1,3 +1,5 @@
+import { buildContractPlan } from "@/lib/contracts";
+import { publishEvent } from "@/lib/events/publisher";
 import { prisma } from "@/lib/prisma";
 import { insertLease, type RenewalAnnouncement } from "@/lib/leases";
 
@@ -106,4 +108,43 @@ export async function runAutoRenewals(
   }
 
   return { renewed, skipped, renewals };
+}
+
+/**
+ * Queues a contract for each lease an auto-renewal sweep just created.
+ *
+ * `insertLease` announces nothing itself (Phase 66) so a renewal can't be
+ * mistaken for a brand-new lease — but that left **contract generation**
+ * unwired too: `buildContractPlan` + `publishEvent("lease.created", …)` only
+ * ever ran from `POST /api/leases` and the Contract tab's Generate button, so
+ * a renewed lease sat with no document until someone noticed the empty tab
+ * and clicked Generate by hand.
+ *
+ * One function rather than copied into each page that calls
+ * `runAutoRenewals` — the gap Phase 66 predicted almost exactly: "a third
+ * caller of `runAutoRenewals` would have to remember the `after()` line."
+ * Both existing callers wrap this the same way they already wrap
+ * `announceLeaseRenewals`, in `after()`, for the same reason: a template read
+ * and a broker round trip have no business blocking a page render.
+ *
+ * Never throws — `buildContractPlan` returns its failures and `publishEvent`
+ * swallows its own, both logging rather than surfacing, matching how the lease
+ * route treats the identical two calls.
+ */
+export async function queueContractsForRenewals(
+  organizationId: string,
+  renewals: RenewalAnnouncement[]
+) {
+  for (const renewal of renewals) {
+    const plan = await buildContractPlan(organizationId, renewal.leaseId);
+
+    if ("error" in plan) {
+      console.warn(
+        `[lease-renewal] no contract queued for ${renewal.leaseId}: ${plan.error.message}`
+      );
+      continue;
+    }
+
+    await publishEvent("lease.created", plan.plan.event);
+  }
 }
