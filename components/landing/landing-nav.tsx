@@ -121,7 +121,7 @@ export function LandingNav() {
           className="flex items-center gap-2.5 rounded-lg text-lg font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <RentopsLogo className="size-8" />
-          <span className="font-heading">Rentops</span>
+          <span className="font-heading">Rentoo</span>
         </Link>
 
         <nav aria-label="Sections" className="hidden items-center lg:flex">
@@ -192,7 +192,7 @@ export function LandingNav() {
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2.5">
                   <RentopsLogo className="size-7" />
-                  Rentops
+                  Rentoo
                 </SheetTitle>
               </SheetHeader>
 

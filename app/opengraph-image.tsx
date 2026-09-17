@@ -98,7 +98,7 @@ export default function OpengraphImage() {
             }}
           />
           <span style={{ color: GOLD, fontSize: 26, fontWeight: 600 }}>
-            Free while in beta
+            Three packages, priced in TZS
           </span>
         </div>
       </div>

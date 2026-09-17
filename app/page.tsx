@@ -11,7 +11,7 @@ import {
   Pricing,
   WhyUs,
 } from "@/components/landing/sections";
-import { FAQS, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
+import { FAQS, PRICING_PLANS, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
 /**
  * The public landing page — the only route reachable signed out other than the
@@ -88,15 +88,20 @@ function structuredData() {
         description: SITE_TAGLINE,
         publisher: { "@id": `${SITE_URL}/#organization` },
         /*
-         * A real, current price. It is free while in beta, and stating that in
-         * a currency search engines understand is both true and the strongest
-         * thing this page can say to someone weighing up signing up.
+         * One `Offer` per package, built from the same `PRICING_PLANS` the
+         * cards render. The monthly price is the one quoted: it is what an
+         * unqualified "price" means for a subscription, and it is the figure
+         * the page shows by default — a search result advertising the
+         * discounted yearly total would undercut the card a visitor then lands
+         * on.
          */
-        offers: {
+        offers: PRICING_PLANS.map((plan) => ({
           "@type": "Offer",
-          price: "0",
+          name: plan.name,
+          price: String(plan.monthlyPrice),
           priceCurrency: "TZS",
-        },
+          category: "subscription",
+        })),
         featureList: [
           "Property management",
           "Tenant management",

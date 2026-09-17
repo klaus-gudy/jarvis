@@ -47,19 +47,19 @@ export type NavSection = (typeof NAV_SECTIONS)[number];
  */
 export const FAQS = [
   {
-    question: "Do I need to be good with computers to use Rentops?",
+    question: "Do I need to be good with computers to use Rentoo?",
     answer:
-      "No. If you can use WhatsApp, you can use Rentops. You add a building, add the units inside it, then add tenants. Everything else — who owes what, which lease is ending, how much rent came in — is worked out for you and shown on one screen.",
+      "No. If you can use WhatsApp, you can use Rentoo. You add a building, add the units inside it, then add tenants. Everything else — who owes what, which lease is ending, how much rent came in — is worked out for you and shown on one screen.",
   },
   {
     question: "I already keep my tenants in an Excel sheet. Do I have to type them all again?",
     answer:
-      "No. Download the template, paste your existing list into it, and upload it. Rentops checks every row before saving anything, shows you exactly which rows have a problem and why, and imports the rest. Units and tenants both work this way.",
+      "No. Download the template, paste your existing list into it, and upload it. Rentoo checks every row before saving anything, shows you exactly which rows have a problem and why, and imports the rest. Units and tenants both work this way.",
   },
   {
     question: "My tenants pay by M-Pesa. Does that work?",
     answer:
-      "Yes. When you record a payment you choose how it came in — M-Pesa, Tigo Pesa, Airtel Money, Halopesa, cash, bank transfer or cheque. Rentops does not move money itself; it records what you received, so your books match your statements.",
+      "Yes. When you record a payment you choose how it came in — M-Pesa, Tigo Pesa, Airtel Money, Halopesa, cash, bank transfer or cheque. Rentoo does not move money itself; it records what you received, so your books match your statements.",
   },
   {
     question: "Can a tenant pay rent in instalments?",
@@ -69,7 +69,7 @@ export const FAQS = [
   {
     question: "Who can see my tenants' information?",
     answer:
-      "Only you and the people you invite. Every property, tenant, lease and payment belongs to your organisation and is filtered by it on every single request — another landlord using Rentops cannot see your records, and you cannot see theirs. Passwords are hashed, sign-in attempts are rate limited, and sessions expire.",
+      "Only you and the people you invite. Every property, tenant, lease and payment belongs to your organisation and is filtered by it on every single request — another landlord using Rentoo cannot see your records, and you cannot see theirs. Passwords are hashed, sign-in attempts are rate limited, and sessions expire.",
   },
   {
     question: "Can my caretaker or manager use it too?",
@@ -79,11 +79,152 @@ export const FAQS = [
   {
     question: "Does it work on my phone?",
     answer:
-      "Yes. Rentops is a website, so there is nothing to install and nothing to update. Every list becomes a card view on a small screen instead of a table you have to scroll sideways.",
+      "Yes. Rentoo is a website, so there is nothing to install and nothing to update. Every list becomes a card view on a small screen instead of a table you have to scroll sideways.",
   },
   {
-    question: "Is it really free?",
+    question: "What does it cost?",
     answer:
-      "It is free while Rentops is in beta — no card, no trial countdown. When paid plans arrive you will be told well before anything changes, and your data will still be yours.",
+      "Three packages, priced in TZS. Mikumi is for a landlord with one building, Kilimanjaro for a growing portfolio that needs contracts, SMS and a team, and Serengeti for management companies. Pay yearly and two months are free. You can move up or down a package at any time, and there are no setup or hidden fees.",
   },
 ] as const;
+
+/* ----------------------------------------------------------------- pricing */
+
+export type BillingPeriod = "monthly" | "yearly";
+
+/**
+ * Months charged on a yearly subscription. Two of the twelve are free, and that
+ * is the entire discount — expressed as a count of months rather than a
+ * percentage so the saving stays a round TZS figure at every price point.
+ */
+export const YEARLY_MONTHS_CHARGED = 10;
+
+export type PricingPlan = {
+  /** Carried into the signup URL, and the id a checkout flow will price by. */
+  slug: string;
+  name: string;
+  /** Who the package is for — one line, above the price. */
+  audience: string;
+  monthlyPrice: number;
+  /** Exactly one plan is `featured`; it takes the "Most popular" badge. */
+  featured: boolean;
+  /** What the package includes, in the order a buyer evaluates it. */
+  features: string[];
+  /** The countable entitlements, rendered as a label/value list under the features. */
+  limits: { label: string; value: string }[];
+};
+
+/**
+ * The three packages, named after Tanzanian parks and mountains, ordered small
+ * to large.
+ *
+ * This array is the **single source of pricing on the site**: the cards, the
+ * billing toggle and the `SoftwareApplication` offers in the page's JSON-LD all
+ * map over it. A price shown to a visitor that differs from the one handed to a
+ * search engine is the mismatch this file exists to prevent, and it is also the
+ * one a crawler penalises.
+ *
+ * A higher package always *contains* the one below it, which is why each
+ * feature list opens with "Everything in …" rather than repeating the lines
+ * above it — the repetition is what makes three columns unreadable on a phone.
+ */
+export const PRICING_PLANS: PricingPlan[] = [
+  {
+    slug: "mikumi",
+    name: "Mikumi",
+    audience: "For individual landlords and small property owners",
+    monthlyPrice: 25_000,
+    featured: false,
+    features: [
+      "Properties, units and tenants",
+      "Leases with expiry and renewal reminders",
+      "Invoices, payments and receipts",
+      "Maintenance requests",
+      "Email notifications",
+      "Import your existing spreadsheet",
+    ],
+    limits: [
+      { label: "Properties", value: "1" },
+      { label: "Units", value: "Up to 10" },
+      { label: "Team members", value: "Just you" },
+      { label: "SMS notifications", value: "—" },
+      { label: "Document storage", value: "1 GB" },
+      { label: "Automated workflows", value: "—" },
+    ],
+  },
+  {
+    slug: "kilimanjaro",
+    name: "Kilimanjaro",
+    audience: "For growing landlords and property managers",
+    monthlyPrice: 65_000,
+    featured: true,
+    features: [
+      "Everything in Mikumi",
+      "Mikataba — contracts generated from your own template",
+      "SMS and WhatsApp notifications",
+      "Automated rent reminders and lease renewals",
+      "Financial reports and exports",
+      "Team members with roles",
+    ],
+    limits: [
+      { label: "Properties", value: "Up to 5" },
+      { label: "Units", value: "Up to 100" },
+      { label: "Team members", value: "Up to 5" },
+      { label: "SMS notifications", value: "500 / month" },
+      { label: "Document storage", value: "10 GB" },
+      { label: "Automated workflows", value: "Included" },
+    ],
+  },
+  {
+    slug: "serengeti",
+    name: "Serengeti",
+    audience: "For property management companies",
+    monthlyPrice: 150_000,
+    featured: false,
+    features: [
+      "Everything in Kilimanjaro",
+      "Advanced reporting and analytics",
+      "Full team management and custom roles",
+      "Integrations with the tools you already use",
+      "Organisation backup and restore",
+      "Priority support",
+    ],
+    limits: [
+      { label: "Properties", value: "Unlimited" },
+      { label: "Units", value: "Unlimited" },
+      { label: "Team members", value: "Unlimited" },
+      { label: "SMS notifications", value: "2,500 / month" },
+      { label: "Document storage", value: "100 GB" },
+      { label: "Automated workflows", value: "Advanced" },
+    ],
+  },
+];
+
+/** What a year costs up front — ten months, not twelve. */
+export function yearlyPrice(plan: PricingPlan): number {
+  return plan.monthlyPrice * YEARLY_MONTHS_CHARGED;
+}
+
+/** The two free months, in TZS, which is how the discount is worded on the page. */
+export function yearlySaving(plan: PricingPlan): number {
+  return plan.monthlyPrice * (12 - YEARLY_MONTHS_CHARGED);
+}
+
+/**
+ * Thousands separators, pinned to `en-US` grouping rather than the visitor's
+ * locale. The cards are rendered on the server and hydrated on the client, and
+ * a number that groups differently in the two is a hydration mismatch.
+ */
+export function formatTzs(amount: number): string {
+  return new Intl.NumberFormat("en-US").format(amount);
+}
+
+/**
+ * Where a package's button goes. Registration is the only destination that
+ * exists today, so the choice rides along as query parameters — when checkout
+ * is built, this one function becomes the place that points at it, rather than
+ * six call sites in the pricing card.
+ */
+export function planCheckoutHref(slug: string, billing: BillingPeriod): string {
+  return `/register?plan=${slug}&billing=${billing}`;
+}

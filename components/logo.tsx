@@ -1,3 +1,4 @@
+import { SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /** Brand colours live here rather than in the theme: the mark must read the same on every surface. */
@@ -5,7 +6,7 @@ const GOLD = "#a68446";
 const BLUE = "#d6e4f0";
 
 /**
- * The Rentops mark — a gabled house with a gold badge and a pale accent dot.
+ * The brand mark — a gabled house with a gold badge and a pale accent dot.
  *
  * Sized by `className` rather than width/height attributes, because any svg
  * inside a SidebarMenuButton is clamped to size-4 by the sidebar's
@@ -17,7 +18,7 @@ export function RentopsLogo({ className }: { className?: string }) {
       viewBox="0 0 56 56"
       className={cn("size-8 shrink-0", className)}
       role="img"
-      aria-label="Rentops"
+      aria-label={SITE_NAME}
     >
       <rect width="56" height="56" rx="12" fill={GOLD} />
       <path
@@ -50,7 +51,7 @@ export function RentopsWordmark({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <RentopsLogo className="size-9" />
-      <span className="text-xl font-semibold tracking-tight">Rentops</span>
+      <span className="text-xl font-semibold tracking-tight">{SITE_NAME}</span>
     </span>
   );
 }

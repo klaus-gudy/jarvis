@@ -165,7 +165,7 @@ export function HeroContrast({ className }: { className?: string }) {
         className="overflow-hidden rounded-2xl border bg-card shadow-xl"
       >
         <div className="border-b px-5 py-4">
-          <PanelLabel tone="accent">With Rentops</PanelLabel>
+          <PanelLabel tone="accent">With Rentoo</PanelLabel>
         </div>
 
         <ul className="divide-y">

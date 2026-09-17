@@ -1,11 +1,13 @@
 import Link from "next/link";
 import {
   ArrowRightIcon,
+  ArrowUpDownIcon,
   BuildingIcon,
   CalendarClockIcon,
   CheckIcon,
   FileSpreadsheetIcon,
   HeadphonesIcon,
+  LockIcon,
   MessageCircleIcon,
   ReceiptIcon,
   ShieldCheckIcon,
@@ -19,9 +21,10 @@ import {
 import { HeroContrast } from "@/components/landing/hero-contrast";
 import { LandingFaq } from "@/components/landing/faq";
 import { HoverLift, Reveal, Stagger, StaggerItem } from "@/components/landing/motion";
+import { PricingPlans } from "@/components/landing/pricing-plans";
 import { RentopsLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
-import { NAV_SECTIONS } from "@/lib/site";
+import { NAV_SECTIONS, SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -111,7 +114,7 @@ export function Hero() {
 
           <Reveal delay={0.1}>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground text-pretty">
-              Rentops keeps every building, unit, tenant, lease and payment in
+              Rentoo keeps every building, unit, tenant, lease and payment in
               one place — priced in TZS, paid by M-Pesa, Tigo Pesa, Airtel Money
               or cash. Made for landlords in Tanzania.
             </p>
@@ -124,23 +127,23 @@ export function Hero() {
                 nativeButton={false}
                 className="h-12 gap-2 px-6 text-base"
               >
-                Get started free
+                Get started
                 <ArrowRightIcon />
               </Button>
               <Button
                 variant="outline"
-                render={<Link href="#features" />}
+                render={<Link href="#pricing" />}
                 nativeButton={false}
                 className="h-12 border-primary/40 px-6 text-base text-primary hover:border-primary hover:text-primary dark:border-primary/50"
               >
-                See what you get
+                See pricing
               </Button>
             </div>
           </Reveal>
 
           <Reveal delay={0.2}>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-              {["No card needed", "Works on your phone", "Your data stays yours"].map(
+              {["No setup fees", "Works on your phone", "Your data stays yours"].map(
                 (item) => (
                   <li key={item} className="flex items-center gap-1.5">
                     <CheckIcon className="size-4 text-[var(--stat-accent)]" />
@@ -179,7 +182,7 @@ const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: UsersIcon,
     title: "Tenant management",
-    body: "Add a tenant once. Rentops works out who is active, upcoming or moved on, and keeps every lease they've held on file.",
+    body: "Add a tenant once. Rentoo works out who is active, upcoming or moved on, and keeps every lease they've held on file.",
   },
   {
     icon: CalendarClockIcon,
@@ -268,7 +271,7 @@ const WHY_US: { icon: LucideIcon; text: string }[] = [
 export function WhyUs() {
   return (
     <Section id="why-us">
-      <SectionHeading eyebrow="Why us" title="What makes Rentops different." />
+      <SectionHeading eyebrow="Why us" title="What makes Rentoo different." />
 
       <Stagger className="mx-auto mt-14 grid max-w-3xl gap-x-10 gap-y-6 sm:grid-cols-2">
         {WHY_US.map(({ icon: Icon, text }) => (
@@ -288,56 +291,64 @@ export function WhyUs() {
 
 /* ----------------------------------------------------------------- pricing */
 
+/**
+ * What the packages promise beyond their feature lists — the four objections a
+ * buyer raises between choosing a package and paying for it.
+ */
+const PRICING_TRUST: { icon: LucideIcon; title: string; body: string }[] = [
+  {
+    icon: ReceiptIcon,
+    title: "No hidden fees",
+    body: "The price you pick is the price you pay. No setup charge, and no per-tenant surprise at the end of the month.",
+  },
+  {
+    icon: ArrowUpDownIcon,
+    title: "Change package anytime",
+    body: "Move up when you take on more buildings, or back down when you don't. The change applies from your next bill.",
+  },
+  {
+    icon: LockIcon,
+    title: "Secure payments",
+    body: "Pay by M-Pesa, Tigo Pesa, Airtel Money or bank transfer. Your records stay isolated from every other organisation.",
+  },
+  {
+    icon: HeadphonesIcon,
+    title: "Support included",
+    body: "Every package includes support from people who know the product — not an extra line on the invoice.",
+  },
+];
+
 export function Pricing() {
   return (
     // Shaded, alternating with the plain Why-us and Faq sections either side.
     <Section id="pricing" className="border-y bg-card/40">
-      <Reveal className="mx-auto max-w-3xl">
-        <div className="overflow-hidden rounded-2xl border bg-[var(--stat)] p-8 text-center text-[var(--stat-foreground)] shadow-xl sm:p-12">
-          <p className="text-xs font-semibold tracking-[0.14em] text-[var(--stat-accent)] uppercase">
-            Pricing
-          </p>
+      <SectionHeading
+        eyebrow="Pricing"
+        title="A package for every size of portfolio."
+        blurb="Start with one building and move up when you take on more. Every package is priced in TZS, with no setup fee."
+      />
 
-          <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Free while we are in beta.
-          </h2>
-
-          <p className="mx-auto mt-4 max-w-xl leading-relaxed text-[var(--stat-foreground)]/75 text-pretty">
-            Every feature, however many properties, units and tenants you have.
-            No card, and no countdown running in the corner.
-          </p>
-
-          <ul className="mx-auto mt-8 flex max-w-lg flex-wrap justify-center gap-x-6 gap-y-3 text-sm">
-            {[
-              "All features included",
-              "Unlimited properties",
-              "Unlimited tenants",
-              "No card required",
-            ].map((item) => (
-              <li key={item} className="flex items-center gap-2">
-                <CheckIcon className="size-4 text-[var(--stat-accent)]" />
-                {item}
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-9">
-            <Button
-              render={<Link href="/register" />}
-              nativeButton={false}
-              className="h-12 gap-2 bg-[var(--stat-accent)] px-6 text-base text-white"
-            >
-              Create your free account
-              <ArrowRightIcon />
-            </Button>
-          </div>
-
-          <p className="mt-5 text-xs text-[var(--stat-foreground)]/60">
-            When paid plans arrive you will hear about it well in advance — and
-            your data will still be yours.
-          </p>
-        </div>
+      <Reveal>
+        <PricingPlans />
       </Reveal>
+
+      <Stagger className="mt-16 grid gap-6 border-t pt-12 sm:grid-cols-2 lg:grid-cols-4">
+        {PRICING_TRUST.map(({ icon: Icon, title, body }) => (
+          <StaggerItem key={title}>
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--stat-accent),transparent_88%)]">
+                <Icon className="size-4.5 text-[var(--stat-accent)]" aria-hidden />
+              </span>
+              <div>
+                <h3 className="font-heading text-sm font-semibold">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground text-pretty">
+                  {body}
+                </p>
+              </div>
+            </div>
+          </StaggerItem>
+        ))}
+      </Stagger>
     </Section>
   );
 }
@@ -380,7 +391,7 @@ export function FinalCta() {
             nativeButton={false}
             className="h-12 gap-2 px-6 text-base"
           >
-            Get started free
+            Get started
             <ArrowRightIcon />
           </Button>
           <Button
@@ -407,7 +418,7 @@ export function Footer() {
           <span className="inline-flex items-center gap-2.5">
             <RentopsLogo className="size-8" />
             <span className="font-heading text-lg font-semibold tracking-tight">
-              Rentops
+              {SITE_NAME}
             </span>
           </span>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
@@ -439,14 +450,14 @@ export function Footer() {
             href="/register"
             className="font-medium text-foreground transition-colors hover:text-[var(--stat-accent)]"
           >
-            Get started free
+            Get started
           </Link>
         </div>
       </div>
 
       <div className="mx-auto mt-10 w-full max-w-6xl border-t pt-6">
         <p className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Rentops · Dar es Salaam, Tanzania
+          © {new Date().getFullYear()} {SITE_NAME} · Dar es Salaam, Tanzania
         </p>
       </div>
     </footer>
