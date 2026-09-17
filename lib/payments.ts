@@ -12,12 +12,20 @@ import { displayName } from "@/lib/user-display";
  * the same double-scoped one every lease query here uses (membership *and* the
  * unit's property), reached one relation deeper.
  */
-function orgPaymentFilter(organizationId: string) {
+function orgPaymentFilter(organizationId: string, membershipId?: string) {
   return {
     invoice: {
       lease: {
         membership: { organizationId },
         unit: { property: { organizationId } },
+        /*
+         * Narrows the ledger to one member's payments, for the Payments tab on
+         * their detail page. It sits *beside* the two organization checks
+         * rather than replacing them — a membership id is a value off a URL,
+         * and scoping by it alone would answer for a membership in someone
+         * else's organization.
+         */
+        ...(membershipId ? { membershipId } : {}),
       },
     },
   };
@@ -40,10 +48,10 @@ function orgInvoiceFilter(organizationId: string) {
  * from the database instead of hydrating every payment row and adding them up
  * in JS — which the callers below used to do, once per result row.
  */
-async function paidByInvoice(organizationId: string) {
+async function paidByInvoice(organizationId: string, membershipId?: string) {
   const totals = await prisma.payment.groupBy({
     by: ["invoiceId"],
-    where: orgPaymentFilter(organizationId),
+    where: orgPaymentFilter(organizationId, membershipId),
     _sum: { amount: true },
   });
 
@@ -80,15 +88,26 @@ export type PaymentRow = {
   unitLabel: string;
 };
 
-/** Every payment recorded in the organization, newest first. */
-export async function getPayments(organizationId: string): Promise<PaymentRow[]> {
+/**
+ * Every payment recorded in the organization, newest first — or, given a
+ * `membershipId`, only the ones made against that member's own leases.
+ *
+ * Narrowing `paidByInvoice` by the same membership is safe and cheaper:
+ * an invoice belongs to exactly one lease, which belongs to exactly one
+ * membership, so every payment on it is that member's. The per-invoice totals
+ * come out identical to the org-wide ones.
+ */
+export async function getPayments(
+  organizationId: string,
+  membershipId?: string
+): Promise<PaymentRow[]> {
   // The per-invoice totals come from one grouped aggregate rather than a
   // nested `payments` include: that include pulled every payment of an invoice
   // once per payment of that invoice, so an invoice with n payments was
   // hydrated n² times.
   const [payments, paid] = await Promise.all([
     prisma.payment.findMany({
-      where: orgPaymentFilter(organizationId),
+      where: orgPaymentFilter(organizationId, membershipId),
       orderBy: { paidAt: "desc" },
       include: {
         invoice: {
@@ -112,7 +131,7 @@ export async function getPayments(organizationId: string): Promise<PaymentRow[]>
         },
       },
     }),
-    paidByInvoice(organizationId),
+    paidByInvoice(organizationId, membershipId),
   ]);
 
   const photoIds = await getProfilePhotoIds(

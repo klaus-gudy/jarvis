@@ -17,27 +17,41 @@ import type { PaymentRow } from "@/lib/payments";
  * Every cell is a single line — no secondary captions. There is no view button
  * either: double-clicking the row opens its lease, which `getRowHref` on the
  * table provides.
+ *
+ * `showTenant` is off for the Payments tab on a member's own page, where the
+ * column would repeat the name at the top of the page down every row.
  */
 export function buildPaymentColumns({
   rowActions,
+  showTenant = true,
 }: {
   rowActions: (payment: PaymentRow) => RowAction[];
+  showTenant?: boolean;
 }): ColumnDef<PaymentRow>[] {
   return [
-    {
-      accessorKey: "tenantName",
-      header: ({ column }) => (
-        <DataTableColumnHeader
-          title="Tenant"
-          sorted={column.getIsSorted()}
-          onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="-ml-2"
-        />
-      ),
-      cell: ({ row }) => (
-        <PersonCell name={row.original.tenantName} photoId={row.original.photoId} />
-      ),
-    },
+    ...(showTenant
+      ? [
+          {
+            accessorKey: "tenantName",
+            header: ({ column }) => (
+              <DataTableColumnHeader
+                title="Tenant"
+                sorted={column.getIsSorted()}
+                onToggle={() =>
+                  column.toggleSorting(column.getIsSorted() === "asc")
+                }
+                className="-ml-2"
+              />
+            ),
+            cell: ({ row }) => (
+              <PersonCell
+                name={row.original.tenantName}
+                photoId={row.original.photoId}
+              />
+            ),
+          } satisfies ColumnDef<PaymentRow>,
+        ]
+      : []),
     {
       accessorKey: "propertyName",
       header: ({ column }) => (

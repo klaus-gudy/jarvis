@@ -6,6 +6,7 @@ import { DetailRow, orDash } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
 import { MemberLeasesTab } from "@/components/members/member-leases-tab";
+import { MemberPaymentsTab } from "@/components/members/member-payments-tab";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { getLeaseOptions } from "@/lib/leases";
+import { getPayments } from "@/lib/payments";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { getTenantDetail, type TenantStatus } from "@/lib/tenants";
 import { cn } from "@/lib/utils";
@@ -65,9 +67,14 @@ export default async function MemberDetailPage({
 
   // Every member can hold documents, tenant or not — a caretaker's contract is
   // as much a record as a tenant's NIDA.
-  const [assets, assetTypes] = await Promise.all([
+  //
+  // Payments are fetched for every member for the same reason the Lease tab is
+  // shown to every member: a non-tenant simply has none, and the tab says so
+  // rather than disappearing and leaving the reader to wonder where it went.
+  const [assets, assetTypes, payments] = await Promise.all([
     listDocuments(user.activeOrgId, "MEMBERSHIP", member.membershipId),
     listAssetTypes(user.activeOrgId, "MEMBERSHIP"),
+    getPayments(user.activeOrgId, member.membershipId),
   ]);
 
   // The profile photo is a `FileAsset` like any other, but it isn't a
@@ -145,6 +152,14 @@ export default async function MemberDetailPage({
             {member.leases.length > 0 && (
               <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
                 {member.leases.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="flex-none gap-2 px-3">
+            Payments
+            {payments.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {payments.length}
               </span>
             )}
           </TabsTrigger>
@@ -251,6 +266,17 @@ export default async function MemberDetailPage({
             isTenant={isTenant}
             roleName={member.roleName}
             options={leaseOptions}
+          />
+        </TabsContent>
+
+        <TabsContent value="payments" className="pt-5">
+          {/* `PaymentRow` is already serialisable — `getPayments` returns
+              `paidAt` as an ISO string — so the rows cross to the client as
+              they are. */}
+          <MemberPaymentsTab
+            payments={payments}
+            isTenant={isTenant}
+            roleName={member.roleName}
           />
         </TabsContent>
 
