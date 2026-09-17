@@ -180,16 +180,6 @@ function PlanCard({
           </li>
         ))}
       </ul>
-
-      {/* `mt-auto` pins the limits table to the bottom of whichever card is tallest. */}
-      <dl className="mt-auto space-y-2 border-t pt-5 text-sm">
-        {plan.limits.map(({ label, value }) => (
-          <div key={label} className="flex items-baseline justify-between gap-4">
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd className="text-right font-medium">{value}</dd>
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }

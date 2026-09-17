@@ -108,10 +108,17 @@ export type PricingPlan = {
   monthlyPrice: number;
   /** Exactly one plan is `featured`; it takes the "Most popular" badge. */
   featured: boolean;
-  /** What the package includes, in the order a buyer evaluates it. */
+  /**
+   * What the package includes, in the order a buyer evaluates it — the
+   * countable entitlements among them.
+   *
+   * Limits live in this one list rather than in a label/value table of their
+   * own: the table doubled every card's height, and half of it was dashes
+   * saying what the package does *not* do. A package states what it gives you,
+   * and what is missing is implied by the "Everything in …" line above the
+   * package that adds it.
+   */
   features: string[];
-  /** The countable entitlements, rendered as a label/value list under the features. */
-  limits: { label: string; value: string }[];
 };
 
 /**
@@ -136,20 +143,12 @@ export const PRICING_PLANS: PricingPlan[] = [
     monthlyPrice: 25_000,
     featured: false,
     features: [
-      "Properties, units and tenants",
-      "Leases with expiry and renewal reminders",
+      "1 property, up to 10 units",
+      "Tenants, leases and renewal reminders",
       "Invoices, payments and receipts",
       "Maintenance requests",
       "Email notifications",
-      "Import your existing spreadsheet",
-    ],
-    limits: [
-      { label: "Properties", value: "1" },
-      { label: "Units", value: "Up to 10" },
-      { label: "Team members", value: "Just you" },
-      { label: "SMS notifications", value: "—" },
-      { label: "Document storage", value: "1 GB" },
-      { label: "Automated workflows", value: "—" },
+      "1 GB document storage",
     ],
   },
   {
@@ -159,20 +158,13 @@ export const PRICING_PLANS: PricingPlan[] = [
     monthlyPrice: 65_000,
     featured: true,
     features: [
-      "Everything in Mikumi",
-      "Mikataba — contracts generated from your own template",
-      "SMS and WhatsApp notifications",
-      "Automated rent reminders and lease renewals",
-      "Financial reports and exports",
-      "Team members with roles",
-    ],
-    limits: [
-      { label: "Properties", value: "Up to 5" },
-      { label: "Units", value: "Up to 100" },
-      { label: "Team members", value: "Up to 5" },
-      { label: "SMS notifications", value: "500 / month" },
-      { label: "Document storage", value: "10 GB" },
-      { label: "Automated workflows", value: "Included" },
+      "Everything in Mikumi, plus",
+      "Up to 5 properties and 100 units",
+      "Up to 5 team members, with roles",
+      "Mikataba — contracts from your own template",
+      "SMS and WhatsApp, 500 a month",
+      "Automated rent reminders and renewals",
+      "Reports and exports · 10 GB storage",
     ],
   },
   {
@@ -182,20 +174,13 @@ export const PRICING_PLANS: PricingPlan[] = [
     monthlyPrice: 150_000,
     featured: false,
     features: [
-      "Everything in Kilimanjaro",
+      "Everything in Kilimanjaro, plus",
+      "Unlimited properties, units and team",
+      "2,500 SMS a month · 100 GB storage",
       "Advanced reporting and analytics",
-      "Full team management and custom roles",
-      "Integrations with the tools you already use",
-      "Organisation backup and restore",
+      "Custom roles and team management",
+      "Integrations, backup and restore",
       "Priority support",
-    ],
-    limits: [
-      { label: "Properties", value: "Unlimited" },
-      { label: "Units", value: "Unlimited" },
-      { label: "Team members", value: "Unlimited" },
-      { label: "SMS notifications", value: "2,500 / month" },
-      { label: "Document storage", value: "100 GB" },
-      { label: "Automated workflows", value: "Advanced" },
     ],
   },
 ];
