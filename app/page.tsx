@@ -11,7 +11,14 @@ import {
   Pricing,
   WhyUs,
 } from "@/components/landing/sections";
-import { FAQS, PRICING_PLANS, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
+import {
+  FAQS,
+  monthlyPrice,
+  PRICING_PLANS,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_URL,
+} from "@/lib/site";
 
 /**
  * The public landing page — the only route reachable signed out other than the
@@ -98,7 +105,7 @@ function structuredData() {
         offers: PRICING_PLANS.map((plan) => ({
           "@type": "Offer",
           name: plan.name,
-          price: String(plan.monthlyPrice),
+          price: String(monthlyPrice(plan)),
           priceCurrency: "TZS",
           category: "subscription",
         })),

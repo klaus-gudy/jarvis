@@ -93,9 +93,13 @@ export const FAQS = [
 export type BillingPeriod = "monthly" | "yearly";
 
 /**
- * Months charged on a yearly subscription. Two of the twelve are free, and that
+ * Months a year's subscription pays for. Two of the twelve are free, and that
  * is the entire discount — expressed as a count of months rather than a
  * percentage so the saving stays a round TZS figure at every price point.
+ *
+ * It is also what converts the stored yearly price into a monthly one: the two
+ * figures on the card are one number and this constant, never two numbers that
+ * somebody has to keep in step.
  */
 export const YEARLY_MONTHS_CHARGED = 10;
 
@@ -105,7 +109,12 @@ export type PricingPlan = {
   name: string;
   /** Who the package is for — one line, above the price. */
   audience: string;
-  monthlyPrice: number;
+  /**
+   * What a year costs, paid up front. **This is the figure the packages are
+   * priced in**; the monthly rate is derived from it by `monthlyPrice`, not
+   * stored, so the two can never drift apart.
+   */
+  yearlyPrice: number;
   /** Exactly one plan is `featured`; it takes the "Most popular" badge. */
   featured: boolean;
   /**
@@ -139,60 +148,74 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     slug: "mikumi",
     name: "Mikumi",
-    audience: "For individual landlords and small property owners",
-    monthlyPrice: 25_000,
+    audience: "For small property owners",
+    yearlyPrice: 25_000,
     featured: false,
     features: [
-      "1 property, up to 10 units",
-      "Tenants, leases and renewal reminders",
-      "Invoices, payments and receipts",
-      "Maintenance requests",
+      "1 property, 5 units",
+      "Tenant management",
+      "Lease management",
+      "Invoices and payments",
+      "Document storage",
       "Email notifications",
-      "1 GB document storage",
     ],
   },
   {
     slug: "kilimanjaro",
     name: "Kilimanjaro",
     audience: "For growing landlords and property managers",
-    monthlyPrice: 65_000,
+    yearlyPrice: 65_000,
     featured: true,
     features: [
       "Everything in Mikumi, plus",
-      "Up to 5 properties and 100 units",
-      "Up to 5 team members, with roles",
-      "Mikataba — contracts from your own template",
-      "SMS and WhatsApp, 500 a month",
+      "Unlimited properties, units and team",
+      "Lease contract generation",
+      "Email and SMS notifications",
       "Automated rent reminders and renewals",
-      "Reports and exports · 10 GB storage",
     ],
   },
   {
     slug: "serengeti",
     name: "Serengeti",
     audience: "For property management companies",
-    monthlyPrice: 150_000,
+    yearlyPrice: 150_000,
     featured: false,
     features: [
       "Everything in Kilimanjaro, plus",
-      "Unlimited properties, units and team",
-      "2,500 SMS a month · 100 GB storage",
       "Advanced reporting and analytics",
-      "Custom roles and team management",
+      "Email, SMS and WhatsApp notifications",
+      "Maintenance requests",
       "Integrations, backup and restore",
       "Priority support",
+      "Secure payments",
     ],
   },
 ];
 
-/** What a year costs up front — ten months, not twelve. */
-export function yearlyPrice(plan: PricingPlan): number {
-  return plan.monthlyPrice * YEARLY_MONTHS_CHARGED;
+/**
+ * What one month costs, derived from the year's price rather than stored beside
+ * it.
+ *
+ * The yearly figure buys ten months, so the monthly rate is a tenth of it —
+ * 25,000 a year is 2,500 a month, and paying that way for twelve months costs
+ * 30,000. Rounded because nothing stops a future annual price dividing
+ * untidily, and a rate quoted to the shilling is a rate somebody has to bill.
+ */
+export function monthlyPrice(plan: PricingPlan): number {
+  return Math.round(plan.yearlyPrice / YEARLY_MONTHS_CHARGED);
 }
 
-/** The two free months, in TZS, which is how the discount is worded on the page. */
+/**
+ * What paying yearly saves against twelve monthly payments — the two free
+ * months, and how the discount is worded on the page.
+ *
+ * Computed from the *rounded* monthly rate rather than from
+ * `12 - YEARLY_MONTHS_CHARGED`, so the figure shown is always exactly the
+ * difference between the two prices on the card, even if a price is one day
+ * set to something that does not divide by ten.
+ */
 export function yearlySaving(plan: PricingPlan): number {
-  return plan.monthlyPrice * (12 - YEARLY_MONTHS_CHARGED);
+  return monthlyPrice(plan) * 12 - plan.yearlyPrice;
 }
 
 /**

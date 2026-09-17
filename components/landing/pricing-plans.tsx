@@ -7,9 +7,9 @@ import { ArrowRightIcon, CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   formatTzs,
+  monthlyPrice,
   planCheckoutHref,
   PRICING_PLANS,
-  yearlyPrice,
   yearlySaving,
   type BillingPeriod,
   type PricingPlan,
@@ -97,7 +97,7 @@ function PlanCard({
   billing: BillingPeriod;
 }) {
   const yearly = billing === "yearly";
-  const price = yearly ? yearlyPrice(plan) : plan.monthlyPrice;
+  const price = yearly ? plan.yearlyPrice : monthlyPrice(plan);
 
   return (
     <div
