@@ -33,18 +33,6 @@ model Organization {
   leaseTemplates LeaseTemplate[]
 }
 
-/**
- * What the notification sweep has already sent.
- * Only *scheduled* notifications are recorded. An event-driven one fires on
- * the event and can't repeat; a scheduled one is found by a query that will
- * find it again on the next run, so without this a cron every hour would mail
- * the same landlord every hour.
- * `dedupeKey` carries the occasion as well as the subject — `…:60` and `…:30`
- * for the two lease-expiry tiers, a week index for the overdue reminder — so
- * one row can't suppress a later, legitimately different notice. It is unique
- * rather than merely indexed: that makes a double send impossible even if two
- * cron hits overlap, which is the one failure a person actually notices.
- */
 model NotificationLog {
   id        String   @id @default(cuid())
   dedupeKey String   @unique
@@ -79,20 +67,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  /**
-   * When the address on this account was proven, by entering a code sent to
-   * it. Null on a grandfathered account too — those were never verified, they
-   * are simply not required to be.
-   */
   emailVerifiedAt DateTime?
 
-  /**
-   * Whether this account is *blocked* until its address is verified. True only
-   * for self-service registrations: someone who joined by invitation was
-   * vouched for by a member of their organization, and every account that
-   * existed before verification shipped keeps the `false` default, which is
-   * what grandfathers them in without a data backfill.
-   */
   emailVerificationRequired Boolean @default(false)
 
   memberships             Membership[]
@@ -100,12 +76,6 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
 }
 
-/**
- * A pending email verification. Same shape and same rules as
- * `PasswordResetToken` — six digits, bcrypt-hashed, attempt-capped — but a
- * separate table on purpose: one table with a `purpose` column would mean a
- * single forgotten filter lets a verification code reset a password.
- */
 model EmailVerificationToken {
   id        String   @id @default(cuid())
   codeHash  String
@@ -119,15 +89,6 @@ model EmailVerificationToken {
   @@index([userId])
 }
 
-/**
- * A pending password reset. Only the bcrypt hash of the 6-digit code is
- * stored — the code itself exists in the email and nowhere else.
- * Six digits is a million possibilities, which is not much: `attempts` is what
- * actually stops an online guess, since a code that survives the TTL is still
- * only one of a million. Rows are deleted once used, and every earlier one for
- * the same user is deleted when a new code is issued, so a user has at most
- * one live code at a time.
- */
 model PasswordResetToken {
   id        String   @id @default(cuid())
   codeHash  String
@@ -186,13 +147,7 @@ model Membership {
   profile         MemberProfile?
   paymentAccounts PaymentAccount[]
 
-  /**
-   * Files *about* this member — NIDA, passport, employment letter.
-   */
   fileAssets         FileAsset[] @relation("FileAssetSubject")
-  /**
-   * Files this member put in the bucket, whoever they are about.
-   */
   uploadedFileAssets FileAsset[] @relation("FileAssetUploader")
 
   @@unique([userId, organizationId])
@@ -204,22 +159,12 @@ enum PaymentAccountType {
   LIPA
 }
 
-/**
- * Where a member asks tenants to send rent. Hung off Membership, not User or
- * Organization: an owner's accounts are their own, and someone who belongs to
- * two organizations should not have one org's accounts shown in the other.
- * Deleting the membership takes the accounts with it — they describe that
- * relationship, and an orphaned account is a payment destination nobody owns.
- */
 model PaymentAccount {
   id            String             @id @default(cuid())
   type          PaymentAccountType
   provider      String
   accountNumber String
   accountName   String?
-  /**
-   * At most one per membership; enforced in lib/payment-accounts.ts writes.
-   */
   isDefault     Boolean            @default(false)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
@@ -234,11 +179,6 @@ model MemberProfile {
   id                       String   @id @default(cuid())
   occupation               String?
   nidaNumber               String?
-  /**
-   * Named on a lease contract beside the NIDA number, which is why it exists:
-   * `{{tenant_nationality}}` is a lease-template placeholder and had nothing
-   * to resolve against.
-   */
   nationality              String?
   employer                 String?
   emergencyContactName     String?
@@ -287,10 +227,6 @@ model Unit {
   label           String
   rentAmount      Int
   minTenureMonths Int?
-  /**
-   * When true, a lease on this unit gets a successor created automatically
-   * at term end, for minTenureMonths at the unit's current rentAmount.
-   */
   autoRenew       Boolean  @default(false)
   unitType        String?
   floor           String?
@@ -315,15 +251,8 @@ model Lease {
   startDate      DateTime
   endDate        DateTime
   durationMonths Int
-  /**
-   * The rate actually agreed for this lease, per month. Defaults to the
-   * unit's asking `rentAmount` but may be negotiated away from it, so it is
-   * stored rather than inferred from `leaseAmount / durationMonths`.
-   */
+
   monthlyRent    Int
-  /**
-   * The whole term's value: `monthlyRent * durationMonths`.
-   */
   leaseAmount    Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -337,10 +266,6 @@ model Lease {
   invoice    Invoice?
   fileAssets FileAsset[]
 
-  /**
-   * Renewal lineage: the auto-renewal job links a new lease back to the one
-   * it succeeded, so it can be skipped on the next pass.
-   */
   renewedFromId String? @unique
   renewedFrom   Lease?  @relation("LeaseRenewal", fields: [renewedFromId], references: [id])
   renewedTo     Lease?  @relation("LeaseRenewal")
@@ -376,15 +301,6 @@ model Payment {
   @@index([invoiceId])
 }
 
-/**
- * The entity a document is *about* — the "group" a type belongs to. Mirrors
- * the six nullable subject columns on `FileAsset`, plus the case where there
- * is no subject at all and the file belongs to the organization itself.
- * This stays an enum where `FileAssetType` did not: the set of things a file
- * can hang off is the set of foreign keys on `FileAsset`, so it cannot grow
- * without a migration anyway. What people actually want to add is a *kind of
- * document*, not a new entity to attach one to.
- */
 enum FileAssetSubject {
   ORGANIZATION
   PROPERTY
@@ -395,22 +311,6 @@ enum FileAssetSubject {
   PAYMENT
 }
 
-/**
- * What a stored file *is* — a table rather than an enum, because the list was
- * never going to hold still. Every organization runs on slightly different
- * paperwork, and "add a document type" should not be a migration, a deploy and
- * a conversation.
- * The seventeen values the enum used to hold are seeded as `isSystem` rows
- * with `organizationId` null, which is what makes them shared by every
- * organization and what lets the old enum column be backfilled by key.
- * **`subject` is the grouping, and it is never asked for.** A type is created
- * from a surface that already knows what it is attached to — the Documents tab
- * on a lease creates `LEASE` types, the Images tab on a property creates
- * `PROPERTY` ones — so the client sends the group it is standing in rather
- * than presenting a taxonomy nobody wants to reason about. It exists so the
- * app can still answer "which dropdown does this belong in", which is the one
- * question the grouping was ever for.
- */
 model FileAssetType {
   id String @id @default(cuid())
 
@@ -471,35 +371,6 @@ model FileAssetType {
   @@index([organizationId, subject])
 }
 
-/**
- * One row per object in the bucket. The bucket stores opaque keys and bytes;
- * this table is the only thing that knows what a key means, what the file was
- * called when someone uploaded it, and what it belongs to. Nothing should read
- * or write the bucket without a row here — an object with no row is invisible
- * to the app and impossible to clean up on purpose.
- * **`organizationId` is required on every row, including rows with no other
- * subject.** One bucket serves every organization, so this column is the
- * tenancy boundary as well as the first path segment of the key: without it a
- * file cannot be listed, permission-checked, or deleted as part of an
- * organization. Rows where it is the *only* reference are the org's own
- * papers — a business licence belongs to the organization and to nothing else.
- * **Object keys are `organizations/<orgId>/<scope>/<scopeId>/<id><ext>`**, with
- * the `<scope>/<scopeId>` pair replaced by `organization` for org-level rows:
- * organizations/clx1.../leases/clx4.../clx9abc.pdf
- * organizations/clx1.../organization/clx7def.pdf
- * The file is named in the bucket by a fresh uuid, never by what the browser
- * sent: two tenants both uploading `scan.pdf` must not overwrite each other,
- * and an uploaded name can contain anything at all, `../` included. The name
- * the person chose survives in `fileName` for the download header, and the
- * extension comes from the verified MIME type. `objectKey` is unique because
- * two rows pointing at one object means deleting either one either strands an
- * object or destroys the other row's file.
- * **A file never crosses an organization.** That is not expressible as a
- * foreign key here: Unit, Lease, Invoice and Payment carry no `organizationId`
- * of their own, so the composite-FK trick would need a denormalized column and
- * a backfill on all four. Until then it is a write-path rule — resolve the
- * subject, compare its organization to this one, refuse the mismatch.
- */
 model FileAsset {
   id        String @id @default(cuid())
   /**
@@ -585,33 +456,13 @@ model FileAsset {
   @@index([paymentId])
 }
 
-/**
- * A reusable lease contract, written once and filled in per lease.
- * `body` is HTML carrying `{{placeholder}}` tokens — the token set is declared
- * in `lib/lease-placeholders.ts`, which is also what resolves them against the
- * database when a contract is generated. Nothing about the token list lives in
- * this table: a template stores prose, not a schema.
- * Scoped to an organization, with no system-wide rows. A lease agreement is a
- * legal document whose wording is the landlord's own — a shared default that
- * silently governed everyone's contracts is the wrong kind of convenience.
- */
 model LeaseTemplate {
   id          String  @id @default(cuid())
   name        String
   description String?
-  /**
-   * BCP-47-ish code from `LEASE_TEMPLATE_LANGUAGES` (`en`, `sw`). A string
-   * rather than an enum: the list is presentation, and Phase 70 already paid
-   * for turning an enum that kept growing into something that can grow.
-   */
   language    String  @default("en")
   body        String
 
-  /**
-   * The one offered first when a contract is generated. At most one per
-   * organization; enforced in `lib/lease-templates.ts` writes, which clear the
-   * flag on every sibling inside the same transaction.
-   */
   isDefault Boolean @default(false)
 
   createdAt DateTime @default(now())
