@@ -1479,3 +1479,13 @@ Auth + app shell complete. Deferred: org switcher (build with invitations).
 Next sprint candidates: Properties CRUD (the shell is ready — add pages under `app/(app)/properties/`), org invitations, org switcher.
 
 Known benign warning: `next-themes` injects a pre-hydration `<script>`; React 19 logs "Encountered a script tag while rendering React component". Expected, theme switching works.
+## Phase 96 — Day counts were a day short for most of every day
+
+- [x] **Bug:** a lease ending 20 Sep showed "1d" on 18 Sep. The data was right (`endDate` is stored as `2026-09-20T00:00Z`, a date); the arithmetic was `Math.floor((endDate − now) / 24h)`, which subtracts the *clock time* from a *date* — 1.5 days floored to 1 from 00:00 UTC onwards
+- [x] New `lib/dates.ts`: `startOfTodayUtc(now)` (today's date **in Africa/Dar_es_Salaam**, the zone the emails already use, as UTC midnight) and `calendarDaysBetween`. The timezone matters: 00:30 in Dar is still yesterday in UTC
+- [x] Same bug fixed everywhere it appeared: the lease table's expiry badge (`leaseExpiry`), the dashboard's renewals / move-ins / vacant-for panels, and the notification sweep's `lease.expiring` tiers and `invoice.overdue` "days late" — the tier bug meant expiry emails could fire a day early
+- [x] Verified against the real leases: ends 20 Sep → **2** (was 1), 25 Sep → 7 (was 6), 30 Sep → 12, 1 Oct → 13 — identical at 00:30, now, and 23:30 Dar time. `tsc` and lint clean
+
+### Not done
+- [ ] A lease flips to **Ended** at 00:00 UTC on its end date (`leaseStatus` compares `endDate < now`), so the end day itself reads Ended from 03:00 Dar time and the "today" badge can never appear. Whether the end date is the last day *of* the lease or the first day *after* it is a business rule — left as is
+- [ ] Not clicked through in a browser (the Phase 95 throwaway account is gone); the badge renders `daysLeft` verbatim, and `daysLeft` was checked by calling the same function against the database

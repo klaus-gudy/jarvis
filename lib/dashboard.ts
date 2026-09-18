@@ -1,6 +1,7 @@
 import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
+import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
 import { displayName, primaryContact } from "@/lib/user-display";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -357,10 +358,7 @@ const EMPTY_PANELS: DashboardPanels = {
   activity: [],
 };
 
-/** Whole days from `from` to `to`, rounded down. Negative when `to` is past. */
-function daysBetween(from: Date, to: Date) {
-  return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
-}
+
 
 /**
  * The short lists under the summary cards. Separate from `getDashboardStats`
@@ -373,6 +371,9 @@ export async function getDashboardPanels(
   if (!organizationId) return EMPTY_PANELS;
 
   const now = new Date();
+  // Lease dates are stored as dates; day counts compare against today's date,
+  // not the clock, or they come out a day short for most of every day.
+  const today = startOfTodayUtc(now);
   const renewalCutoff = new Date(now.getTime() + RENEWAL_WINDOW_DAYS * DAY_MS);
   const moveInCutoff = new Date(now.getTime() + MOVE_IN_WINDOW_DAYS * DAY_MS);
 
@@ -520,7 +521,7 @@ export async function getDashboardPanels(
       propertyName: unit.property.name,
       rentAmount: unit.rentAmount,
       daysVacant: unit.leases[0]
-        ? daysBetween(unit.leases[0].endDate, now)
+        ? calendarDaysBetween(unit.leases[0].endDate, today)
         : null,
     }))
     // Never-let units sort first: they are the longest-standing vacancy there
@@ -546,7 +547,7 @@ export async function getDashboardPanels(
         unitLabel: lease.unit.label,
         propertyName: lease.unit.property.name,
         endDate: lease.endDate,
-        daysLeft: daysBetween(now, lease.endDate),
+        daysLeft: calendarDaysBetween(today, lease.endDate),
       })),
     },
     moveIns: {
@@ -558,7 +559,7 @@ export async function getDashboardPanels(
         unitLabel: lease.unit.label,
         propertyName: lease.unit.property.name,
         startDate: lease.startDate,
-        daysUntil: daysBetween(now, lease.startDate),
+        daysUntil: calendarDaysBetween(today, lease.startDate),
       })),
     },
     vacantUnits: {

@@ -15,6 +15,7 @@ import {
 } from "@/lib/leases-schemas";
 import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoices";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
+import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
 
 export type LeaseStatus = "Active" | "Upcoming" | "Ended";
 
@@ -69,8 +70,6 @@ function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
   return "Active";
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** A lease this close to its end date is worth flagging in a list. */
 const EXPIRY_SOON_DAYS = 60;
 /** …and this close is worth flagging harder. */
@@ -99,7 +98,7 @@ export function leaseExpiry(
 ): LeaseExpiry | null {
   if (startDate > now || endDate < now) return null;
 
-  const daysLeft = Math.floor((endDate.getTime() - now.getTime()) / DAY_MS);
+  const daysLeft = calendarDaysBetween(startOfTodayUtc(now), endDate);
   if (daysLeft > EXPIRY_SOON_DAYS) return null;
 
   return {

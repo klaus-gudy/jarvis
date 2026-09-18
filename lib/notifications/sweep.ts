@@ -1,3 +1,4 @@
+import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
 import { invoiceReference } from "@/lib/invoice-types";
 import { leaseReference } from "@/lib/leases";
 import {
@@ -69,10 +70,6 @@ async function claim(
   }
 }
 
-function daysBetween(from: Date, to: Date) {
-  return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
-}
-
 /* ------------------------------------------------------------------ *
  * lease.expiring
  * ------------------------------------------------------------------ */
@@ -123,7 +120,7 @@ async function sweepExpiringLeases(now: Date) {
     // was never eligible in the first place.
     if (lease.unit.autoRenew && lease.unit.minTenureMonths != null) continue;
 
-    const daysLeft = daysBetween(now, lease.endDate);
+    const daysLeft = calendarDaysBetween(startOfTodayUtc(now), lease.endDate);
     // The tightest tier this lease has reached. A lease created with 20 days
     // to run gets the 30-day notice and never the 60 — it was never eligible.
     const tier = EXPIRY_TIERS.find((days) => daysLeft <= days);
@@ -208,7 +205,7 @@ async function sweepOverdueInvoices(now: Date) {
     const balance = invoice.amount - paid;
     if (balance <= 0) continue;
 
-    const daysLate = daysBetween(invoice.dueDate, now);
+    const daysLate = calendarDaysBetween(invoice.dueDate, startOfTodayUtc(now));
     const notice = Math.floor(daysLate / OVERDUE_INTERVAL_DAYS);
     if (notice >= MAX_OVERDUE_NOTICES) continue;
 
