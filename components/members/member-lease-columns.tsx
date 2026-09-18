@@ -15,6 +15,7 @@ export const LEASE_STATUS_VARIANT: Record<
   Active: "secondary",
   Upcoming: "outline",
   Ended: "outline",
+  Renewed: "outline",
 };
 
 export type MemberLeaseRow = {

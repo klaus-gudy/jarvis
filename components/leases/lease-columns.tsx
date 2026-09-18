@@ -23,6 +23,7 @@ const STATUS_VARIANT: Record<
   Active: "secondary",
   Upcoming: "outline",
   Ended: "outline",
+  Renewed: "outline",
 };
 
 const INVOICE_STATUS_VARIANT: Record<

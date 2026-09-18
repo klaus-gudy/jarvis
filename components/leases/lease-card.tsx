@@ -11,6 +11,7 @@ const STATUS_VARIANT: Record<LeaseStatus, "secondary" | "outline" | "destructive
     Active: "secondary",
     Upcoming: "outline",
     Ended: "outline",
+    Renewed: "outline",
   };
 
 /**

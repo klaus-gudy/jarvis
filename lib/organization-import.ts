@@ -638,6 +638,10 @@ export async function importOrganizationBackup(
           where: { id: renewal.newLeaseId },
           data: { renewedFromId: leaseMap.get(renewal.oldRenewedFromId)! },
         });
+        await tx.lease.update({
+          where: { id: leaseMap.get(renewal.oldRenewedFromId)! },
+          data: { status: "Renewed" },
+        });
       }
 
       let paymentsCreated = 0;

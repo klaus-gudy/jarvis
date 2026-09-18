@@ -25,12 +25,14 @@ const STATUS_TONE: Record<LeaseStatus, string> = {
   Active: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   Upcoming: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   Ended: "bg-muted text-muted-foreground",
+  Renewed: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
 };
 
 const STATUS_DOT: Record<LeaseStatus, string> = {
   Active: "bg-emerald-500",
   Upcoming: "bg-amber-500",
   Ended: "bg-muted-foreground",
+  Renewed: "bg-sky-500",
 };
 
 export default async function LeaseDetailPage({

@@ -18,7 +18,7 @@ import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
 
 /** Mirrors the Prisma `LeaseStatus` enum; kept literal so client components can import it. */
-export type LeaseStatus = "Active" | "Upcoming" | "Ended";
+export type LeaseStatus = "Active" | "Upcoming" | "Ended" | "Renewed";
 
 export type InvoiceSummary = {
   id: string;
@@ -382,6 +382,14 @@ export async function insertLease(params: {
       },
       select: { id: true, leaseAmount: true, startDate: true },
     });
+    // The lease this one continues is now Renewed rather than merely Ended —
+    // in the same transaction, so the two can't disagree.
+    if (params.renewedFromId) {
+      await tx.lease.update({
+        where: { id: params.renewedFromId },
+        data: { status: "Renewed" },
+      });
+    }
     // Returned, not discarded: both the new-lease and the renewal email name
     // the invoice this raises, and re-reading it afterwards would be a second
     // query for a row we are holding.

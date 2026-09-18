@@ -114,7 +114,7 @@ export async function runAutoRenewals(
 
 /**
  * Moves stored `Lease.status` forward as dates pass: Upcoming → Active once
- * started, anything not yet Ended → Ended once its end date is behind us.
+ * started, Upcoming/Active → Ended (never touching Renewed) once its end date is behind us.
  * Same rule `leaseStatus()` applies at write time. Idempotent — each
  * `updateMany` only matches rows still in the old state.
  */
@@ -122,7 +122,7 @@ export async function syncLeaseStatuses(organizationId: string, now = new Date()
   const scope = { membership: { organizationId }, unit: { property: { organizationId } } };
 
   const ended = await prisma.lease.updateMany({
-    where: { ...scope, status: { not: "Ended" }, endDate: { lt: now } },
+    where: { ...scope, status: { in: ["Upcoming", "Active"] }, endDate: { lt: now } },
     data: { status: "Ended" },
   });
   const started = await prisma.lease.updateMany({

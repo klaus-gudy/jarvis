@@ -167,6 +167,7 @@ export function LeasesTable({
               { label: "Active", value: "Active" },
               { label: "Upcoming", value: "Upcoming" },
               { label: "Ended", value: "Ended" },
+              { label: "Renewed", value: "Renewed" },
             ],
           },
         ]}
