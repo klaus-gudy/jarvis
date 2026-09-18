@@ -17,6 +17,7 @@ import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoices";
 import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
 
+/** Mirrors the Prisma `LeaseStatus` enum; kept literal so client components can import it. */
 export type LeaseStatus = "Active" | "Upcoming" | "Ended";
 
 export type InvoiceSummary = {
@@ -64,7 +65,12 @@ export type LeaseRow = {
   unitMinTenureMonths: number | null;
 };
 
-function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
+/**
+ * The status a lease's dates imply. Used to **write** `Lease.status` — on
+ * create, on edit, and by `syncLeaseStatuses` as dates pass. Reads use the
+ * stored column.
+ */
+export function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
   if (startDate > now) return "Upcoming";
   if (endDate < now) return "Ended";
   return "Active";
@@ -151,7 +157,7 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     durationMonths: lease.durationMonths,
     monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
-    status: leaseStatus(now, lease.startDate, lease.endDate),
+    status: lease.status,
     expiry: leaseExpiry(now, lease.startDate, lease.endDate),
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
     propertyId: lease.unit.property.id,
@@ -227,7 +233,7 @@ export async function getLease(
   return {
     id: lease.id,
     reference: leaseReference(lease.id),
-    status: leaseStatus(new Date(), lease.startDate, lease.endDate),
+    status: lease.status,
     tenant: {
       membershipId: lease.membershipId,
       name:
@@ -366,6 +372,7 @@ export async function insertLease(params: {
         membershipId: params.membershipId,
         startDate: params.startDate,
         endDate,
+        status: leaseStatus(new Date(), params.startDate, endDate),
         durationMonths: params.durationMonths,
         // Both locked in at the rate agreed when the lease was signed, so a
         // later change to the unit's rentAmount doesn't rewrite this lease's history.
@@ -530,6 +537,7 @@ export async function updateLease(
         membershipId: membership.id,
         startDate: input.startDate,
         endDate,
+        status: leaseStatus(new Date(), input.startDate, endDate),
         durationMonths: input.durationMonths,
         monthlyRent,
         leaseAmount,

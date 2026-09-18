@@ -223,11 +223,7 @@ export async function getTenantDetail(
       durationMonths: lease.durationMonths,
       leaseAmount: lease.leaseAmount,
       status:
-        lease.startDate > now
-          ? "Upcoming"
-          : lease.endDate < now
-            ? "Ended"
-            : "Active",
+        lease.status,
       expiry: leaseExpiry(now, lease.startDate, lease.endDate),
     })),
   };

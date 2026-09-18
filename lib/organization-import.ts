@@ -1,3 +1,4 @@
+import { leaseStatus } from "@/lib/leases";
 import ExcelJS from "exceljs";
 
 import { prisma } from "@/lib/prisma";
@@ -605,6 +606,7 @@ export async function importOrganizationBackup(
             membershipId: membershipMap.get(lease.oldMembershipId)!,
             startDate: lease.startDate,
             endDate: lease.endDate,
+            status: leaseStatus(new Date(), lease.startDate, lease.endDate),
             durationMonths: lease.durationMonths,
             monthlyRent: lease.monthlyRent,
             leaseAmount: lease.leaseAmount,

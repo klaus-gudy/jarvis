@@ -246,11 +246,20 @@ model Unit {
   @@index([propertyId])
 }
 
+/// Stored lease lifecycle. Written at create/edit from the dates and moved
+/// forward by the renewal sweep as dates pass (`syncLeaseStatuses`).
+enum LeaseStatus {
+  Upcoming
+  Active
+  Ended
+}
+
 model Lease {
-  id             String   @id @default(cuid())
+  id             String      @id @default(cuid())
   startDate      DateTime
   endDate        DateTime
   durationMonths Int
+  status         LeaseStatus @default(Active)
 
   monthlyRent    Int
   leaseAmount    Int
@@ -269,6 +278,8 @@ model Lease {
   renewedFromId String? @unique
   renewedFrom   Lease?  @relation("LeaseRenewal", fields: [renewedFromId], references: [id])
   renewedTo     Lease?  @relation("LeaseRenewal")
+
+  @@index([status, endDate])
 }
 
 model Invoice {

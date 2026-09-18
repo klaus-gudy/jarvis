@@ -1489,3 +1489,10 @@ Known benign warning: `next-themes` injects a pre-hydration `<script>`; React 19
 ### Not done
 - [ ] A lease flips to **Ended** at 00:00 UTC on its end date (`leaseStatus` compares `endDate < now`), so the end day itself reads Ended from 03:00 Dar time and the "today" badge can never appear. Whether the end date is the last day *of* the lease or the first day *after* it is a business rule — left as is
 - [ ] Not clicked through in a browser (the Phase 95 throwaway account is gone); the badge renders `daysLeft` verbatim, and `daysLeft` was checked by calling the same function against the database
+
+## Phase — Stored lease status
+
+- [x] Migration `lease_status`: `LeaseStatus` enum (`Upcoming/Active/Ended`), `Lease.status` + `@@index([status, endDate])`, backfilled from dates
+- [x] Writes set status via `leaseStatus()` (`insertLease`, `updateLease`, org import); `syncLeaseStatuses` runs in the renewal sweep
+- [x] Reads use the column (`getLeases`, `getLease`, tenant detail, search)
+- [ ] Move the sweep to the scheduler microservice (see lease lifecycle plan)

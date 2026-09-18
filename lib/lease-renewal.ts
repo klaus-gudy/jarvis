@@ -58,6 +58,8 @@ export async function runAutoRenewals(
   // every concurrent request, and the next one will pick the lease up anyway.
   lastSweptAt.set(organizationId, now.getTime());
 
+  await syncLeaseStatuses(organizationId, now);
+
   const candidates = await prisma.lease.findMany({
     where: {
       endDate: { lte: now },
@@ -108,6 +110,27 @@ export async function runAutoRenewals(
   }
 
   return { renewed, skipped, renewals };
+}
+
+/**
+ * Moves stored `Lease.status` forward as dates pass: Upcoming → Active once
+ * started, anything not yet Ended → Ended once its end date is behind us.
+ * Same rule `leaseStatus()` applies at write time. Idempotent — each
+ * `updateMany` only matches rows still in the old state.
+ */
+export async function syncLeaseStatuses(organizationId: string, now = new Date()) {
+  const scope = { membership: { organizationId }, unit: { property: { organizationId } } };
+
+  const ended = await prisma.lease.updateMany({
+    where: { ...scope, status: { not: "Ended" }, endDate: { lt: now } },
+    data: { status: "Ended" },
+  });
+  const started = await prisma.lease.updateMany({
+    where: { ...scope, status: "Upcoming", startDate: { lte: now }, endDate: { gte: now } },
+    data: { status: "Active" },
+  });
+
+  return { ended: ended.count, started: started.count };
 }
 
 /**

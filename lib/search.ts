@@ -48,7 +48,6 @@ export async function searchOrganization(
   const contains = { contains: q, mode: "insensitive" as const };
   const suffix = leaseIdSuffix(q);
   const invoiceSuffix = invoiceIdSuffix(q);
-  const now = new Date();
 
   const [properties, units, tenants, users, leases, payments] = await Promise.all([
     prisma.property.findMany({
@@ -142,6 +141,7 @@ export async function searchOrganization(
       select: {
         id: true,
         startDate: true,
+        status: true,
         endDate: true,
         unit: { select: { label: true, property: { select: { name: true } } } },
         membership: {
@@ -253,12 +253,7 @@ export async function searchOrganization(
     })),
 
     ...leases.map((lease) => {
-      const status =
-        lease.startDate > now
-          ? "Upcoming"
-          : lease.endDate < now
-            ? "Ended"
-            : "Active";
+      const status = lease.status;
 
       return {
         key: `lease-${lease.id}`,
