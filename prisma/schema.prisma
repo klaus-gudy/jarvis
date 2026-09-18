@@ -252,6 +252,8 @@ enum LeaseStatus {
   Upcoming
   Active
   Ended
+  /// Ended and succeeded by a renewal lease (`renewedTo` set).
+  Renewed
 }
 
 model Lease {
