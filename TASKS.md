@@ -1495,4 +1495,5 @@ Known benign warning: `next-themes` injects a pre-hydration `<script>`; React 19
 - [x] Migration `lease_status`: `LeaseStatus` enum (`Upcoming/Active/Ended`), `Lease.status` + `@@index([status, endDate])`, backfilled from dates
 - [x] Writes set status via `leaseStatus()` (`insertLease`, `updateLease`, org import); `syncLeaseStatuses` runs in the renewal sweep
 - [x] Reads use the column (`getLeases`, `getLease`, tenant detail, search)
+- [x] `Renewed` status: set on the old lease when its renewal is inserted (same transaction) and on import; backfilled from `renewedFromId`; badges + filters updated
 - [ ] Move the sweep to the scheduler microservice (see lease lifecycle plan)
