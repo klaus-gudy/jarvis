@@ -1499,3 +1499,12 @@ Known benign warning: `next-themes` injects a pre-hydration `<script>`; React 19
 - [x] Consume automatifier's `lease.renewal` / `lease.vacating` on `LEASE_LIFECYCLE_QUEUE` (`worker/lease-worker.ts`, `npm run worker:leases`), acting through `lib/lease-lifecycle.ts`
 - [x] Retired the lazy `runAutoRenewals` sweep on `/leases` and `/dashboard`; `lib/lease-renewal.ts` deleted, `queueContractsForRenewals` moved into `lib/lease-lifecycle.ts`
 - [x] `syncLeaseStatuses` narrowed to Upcoming → Active (all orgs) and moved to `POST /api/cron/notifications`
+
+## Phase 28 — Worker deploy config
+
+- [x] Diagnosed a silent backlog: `JARVIS_DOCUMENTS_QUEUE` at 4 ready / 0 consumers. Contracts were rendered and uploaded by the `document-worker` service, but no `FileAsset` row was ever written, so the lease page showed no contract and backfill kept re-queueing the same leases
+- [x] Drained the 4 locally — 2 filed, 2 correctly refused as `subject-not-found` (both leases deleted from the DB since; their PDFs are now orphans in MinIO)
+- [x] `railway.worker.json` + `railway.worker-leases.json` — per-service config (`startCommand`, `restartPolicyType: ALWAYS`, no healthcheck). Deliberately **not** a root `railway.json`, which would also override the web service's start command
+- [x] `tsx` moved to `dependencies` — Railpack prunes dev deps, and the workers need it at runtime for TS execution and `@/lib/*` alias resolution
+- [ ] Create the two Railway services in `courteous-trust` and point each at its config file (dashboard/API side, outside this repo)
+- [ ] Sweep MinIO for contract objects with no `FileAsset` row (orphans from the two deleted leases, and any future refusal)
