@@ -1496,4 +1496,5 @@ Known benign warning: `next-themes` injects a pre-hydration `<script>`; React 19
 - [x] Writes set status via `leaseStatus()` (`insertLease`, `updateLease`, org import); `syncLeaseStatuses` runs in the renewal sweep
 - [x] Reads use the column (`getLeases`, `getLease`, tenant detail, search)
 - [x] `Renewed` status: set on the old lease when its renewal is inserted (same transaction) and on import; backfilled from `renewedFromId`; badges + filters updated
-- [ ] Move the sweep to the scheduler microservice (see lease lifecycle plan)
+- [x] Consume automatifier's `lease.renewal` / `lease.vacating` on `JARVIS_LEASE_LIFECYCLE_QUEUE` (`worker/lease-worker.ts`, `npm run worker:leases`), acting through `lib/lease-lifecycle.ts`
+- [ ] Retire the lazy `runAutoRenewals` sweep on `/leases` and `/dashboard` once automatifier's scan is running in every environment
