@@ -229,16 +229,32 @@ export function formatTzs(amount: number): string {
 
 /**
  * The hosted checkout every "pay us" button leads to — **an external page, on
- * a domain we do not own**, which is the thing to keep in mind about every
- * consequence below: leaving the site is now a step in buying, nothing here
- * can style or validate that page, and money is taken by snippe rather than by
- * this app.
+ * a domain we do not own**: leaving the site is a step in buying, nothing here
+ * can style or validate that page, and money is taken by the provider rather
+ * than by this app.
  *
- * A constant rather than an env var because it is a fixed public URL with no
- * per-environment variant — a staging deploy pointing at the same link is
- * correct, since there is no test checkout to point at instead.
+ * Config, not a constant, for the reason every payment URL eventually is: the
+ * link that takes money is the one thing you may need to change *now* — a
+ * provider outage, a switched account, a test link while a checkout is being
+ * set up — and a redeploy of the app is a bad prerequisite for that. It also
+ * lets a staging deploy point somewhere that is not the live payment page,
+ * which is worth having the moment anybody clicks a package to see what
+ * happens.
+ *
+ * The default is the live link rather than a placeholder, so a fresh checkout
+ * and every existing deploy keep working with no `.env` change — the same
+ * bargain `SITE_URL` above strikes, and for the same reason: a variable that
+ * breaks the app when unset is a variable that breaks the app.
+ *
+ * **`NEXT_PUBLIC_*` is inlined at build time, not read at runtime**, and the
+ * pricing cards are a client island, so this has to be set wherever
+ * `next build` runs — a Railway service variable, not a value on the running
+ * container. Changing it is a rebuild, which is the one thing it does not buy
+ * you.
  */
-export const CHECKOUT_URL = "https://snippe.me/pay/rentoo";
+export const CHECKOUT_URL = (
+  process.env.NEXT_PUBLIC_CHECKOUT_URL ?? "https://snippe.me/pay/rentoo"
+).replace(/\/$/, "");
 
 /**
  * Where a package's button goes: the hosted checkout, with the choice the
