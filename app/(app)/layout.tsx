@@ -11,6 +11,7 @@ import { needsEmailVerification } from "@/lib/auth/email-verification"
 import { getCurrentUser } from "@/lib/auth/session"
 import { getProfilePhotoIds } from "@/lib/documents"
 import { prisma } from "@/lib/prisma"
+import { getToursSeen } from "@/lib/tour-progress"
 import { displayName, primaryContact } from "@/lib/user-display"
 
 export default async function AppLayout({
@@ -50,6 +51,11 @@ export default async function AppLayout({
 
   const needsOrganization = memberships.length === 0
 
+  // Read here rather than fetched by the provider after paint: this layout
+  // already runs on every signed-in page, so the list arrives with the markup
+  // and no tour can flash before its "seen" state is known.
+  const toursSeen = await getToursSeen(user.id)
+
   // Restore the sidebar's collapsed state on the server so it doesn't flash
   // open before the client reads the cookie.
   const sidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false"
@@ -57,7 +63,7 @@ export default async function AppLayout({
   return (
     // Wraps the sidebar as well as the content, because tours spotlight the
     // navigation and the header controls, not just the page body.
-    <TourProvider>
+    <TourProvider initialSeen={toursSeen}>
       <SidebarProvider defaultOpen={sidebarOpen}>
         <AppSidebar
           organizations={memberships.map((m) => ({

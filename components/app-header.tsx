@@ -24,7 +24,11 @@ export function AppHeader() {
       <div className="ml-auto flex items-center gap-2">
         <GlobalSearch />
         <ThemeToggle />
-        <TourHelpButton />
+        {/* Tours don't run below `md` (see TourProvider), so the menu that
+            replays them is hidden there rather than left to report that every
+            page has no tour. CSS rather than `useIsMobile` so it is never
+            rendered and then removed on hydration. */}
+        <TourHelpButton className="hidden md:inline-flex" />
       </div>
     </header>
   )

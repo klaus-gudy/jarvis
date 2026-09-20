@@ -21,7 +21,7 @@ import { TOURS } from "@/lib/tours";
  * pages again. Sits beside the theme toggle because both are "how this app
  * behaves for me" controls rather than anything to do with the data on screen.
  */
-export function TourHelpButton() {
+export function TourHelpButton({ className }: { className?: string }) {
   const { availableTour, restartCurrent, resetAll } = useTour();
 
   return (
@@ -33,6 +33,7 @@ export function TourHelpButton() {
             size="icon"
             data-tour="tour-help"
             aria-label="Help and tours"
+            className={className}
           >
             <CircleQuestionMarkIcon />
           </Button>

@@ -4,11 +4,11 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 
 import { TourOverlay } from "@/components/tour/tour-overlay";
-import { tourStorage } from "@/lib/tour-storage";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { findTourForPath, type Tour, type TourStep } from "@/lib/tours";
 
 type TourContextValue = {
-  /** The tour for the page currently open, if it has one. */
+  /** The tour for the page currently open, if it has one and tours can run. */
   availableTour: Tour | undefined;
   /** Replays the current page's tour from the top. */
   restartCurrent: () => void;
@@ -50,17 +50,35 @@ type TourSession = {
   stepIndex: number;
 };
 
-export function TourProvider({ children }: { children: React.ReactNode }) {
+/**
+ * `initialSeen` comes from the user's row, read in the app layout. It seeds
+ * local state rather than being read on every render: this component owns every
+ * write from here on, and posts each one to `/api/tours` so the next page load
+ * (and the next device) agrees.
+ */
+export function TourProvider({
+  initialSeen,
+  children,
+}: {
+  initialSeen: string[];
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
-  const seen = React.useSyncExternalStore(
-    tourStorage.subscribe,
-    tourStorage.getSnapshot,
-    tourStorage.getServerSnapshot
-  );
-
-  const availableTour = findTourForPath(pathname);
-
+  const isMobile = useIsMobile();
+  const [seen, setSeen] = React.useState<string[]>(initialSeen);
   const [session, setSession] = React.useState<TourSession | null>(null);
+
+  /*
+   * No tours on a phone. Every tour points at things a narrow screen either
+   * hides or renders differently — the sidebar is behind a trigger, and
+   * `DataTable` swaps its table for cards, taking the `data-table` anchor with
+   * it — so a tour there was a shorter, patchier version of itself that still
+   * counted as watched. `useIsMobile` reports desktop on the server and
+   * corrects on hydration, which is harmless here: nothing renders until the
+   * autostart timer fires, well after that.
+   */
+  const routeTour = findTourForPath(pathname);
+  const availableTour = isMobile ? undefined : routeTour;
 
   /*
    * A tour belongs to the page it describes, so a session opened on another
@@ -77,13 +95,32 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     setSession({ pathname: path, tourId: tour.id, steps, stepIndex: 0 });
   }, []);
 
+  /**
+   * Records a tour as seen locally and on the server.
+   *
+   * Optimistic on purpose: the list is a UI preference, and the cost of a
+   * failed write is that one tour greets this person once more. Blocking the
+   * overlay's close on a round trip would be a worse trade, so the request is
+   * fire-and-forget and its failure is swallowed rather than surfaced.
+   */
+  const remember = React.useCallback((tourId: string) => {
+    setSeen((current) =>
+      current.includes(tourId) ? current : [...current, tourId]
+    );
+    void fetch("/api/tours", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tourId }),
+    }).catch(() => {});
+  }, []);
+
   const finish = React.useCallback(() => {
     // Marked seen however it ended — finished, skipped or dismissed. Someone
     // who closed a tour has said they don't want it; re-opening it on their
     // next visit would be the app arguing with them.
-    if (active) tourStorage.markSeen(active.tourId);
+    if (active) remember(active.tourId);
     setSession(null);
-  }, [active]);
+  }, [active, remember]);
 
   /*
    * First-visit auto-start.
@@ -120,7 +157,8 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         if (availableTour) start(availableTour, pathname);
       },
       resetAll: () => {
-        tourStorage.resetAll();
+        setSeen([]);
+        void fetch("/api/tours", { method: "DELETE" }).catch(() => {});
         // Restarts here rather than leaving it to the auto-start effect: the
         // reset was an explicit request to see them again, and beginning right
         // away is the confirmation that it worked.

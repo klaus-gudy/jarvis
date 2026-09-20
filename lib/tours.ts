@@ -9,8 +9,9 @@
  * class or structural selectors, so restyling a page cannot silently break its
  * tour.
  *
- * `version` is part of the stored "seen" key. Bumping it re-shows a tour to
- * everyone, which is the point: a rewritten tour is a new tour.
+ * `TOURS_VERSION` is stored alongside each user's seen-list. Bumping it
+ * re-shows every tour to everyone, which is the point: a rewritten tour is a
+ * new tour.
  */
 
 export type TourStep = {
@@ -24,16 +25,16 @@ export type TourStep = {
 };
 
 export type Tour = {
-  /** Stable id, and the key under which "already seen" is stored. */
+  /** Stable id, and what is recorded in a user's `toursSeen`. */
   id: string;
-  /** Route this tour belongs to. Matched exactly, or as a prefix of a subpath. */
+  /** Route this tour belongs to. Matched **exactly** — see `findTourForPath`. */
   route: string;
   /** Shown in the help menu. */
   label: string;
   steps: TourStep[];
 };
 
-/** Bumping this re-shows every tour to everyone. */
+/** Bumping this re-shows every tour to everyone. See `User.toursSeenVersion`. */
 export const TOURS_VERSION = 1;
 
 const SIDEBAR = '[data-tour="sidebar-nav"]';
@@ -180,9 +181,26 @@ export const TOURS: Tour[] = [
   },
 ];
 
-/** Longest-prefix match, so a detail route keeps its section's tour. */
+/**
+ * Exact route match only.
+ *
+ * This used to be a longest-prefix match, so `/properties/<id>` inherited the
+ * Properties tour. That was wrong in a way that quietly cost people the tour
+ * entirely: every step of that tour points at the *list* page — the Add
+ * button, the filters, a property card — none of which exist on a detail page.
+ * Opening one first therefore played a single orphaned title card, and
+ * finishing it marked the whole tour seen, so the real four-step tour never ran
+ * again. Reproduced before changing it: a property detail page showed
+ * "Step 1 of 1" and wrote `properties` into the seen list.
+ *
+ * A detail page that deserves its own tour should get its own entry here, with
+ * steps pointing at things that are actually on it.
+ */
 export function findTourForPath(pathname: string): Tour | undefined {
-  return TOURS.filter(
-    (tour) => pathname === tour.route || pathname.startsWith(`${tour.route}/`)
-  ).sort((a, b) => b.route.length - a.route.length)[0];
+  return TOURS.find((tour) => tour.route === pathname);
+}
+
+/** Whether `id` names a real tour — used to validate ids arriving over HTTP. */
+export function isTourId(id: string): boolean {
+  return TOURS.some((tour) => tour.id === id);
 }
