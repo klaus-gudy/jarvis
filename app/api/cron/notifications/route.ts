@@ -1,12 +1,13 @@
+import { syncLeaseStatuses } from "@/lib/lease-lifecycle";
 import { runNotificationSweep } from "@/lib/notifications/sweep";
 
 /**
  * The scheduler this app has never had.
  *
- * Auto-renewal solved the same problem by running lazily at the top of
- * `/leases` and `/dashboard` (see `lib/lease-renewal.ts`), which is defensible
- * for a database write nobody sees. It is not defensible for email: a page
- * load is not a clock, so a reminder would arrive when someone happened to
+ * Auto-renewal used to solve the same problem by running lazily at the top of
+ * `/leases` and `/dashboard`, which was defensible for a database write nobody
+ * sees; it now arrives as an event from `automatifier`, which owns the clock.
+ * A page load was never defensible for email: so a reminder would arrive when someone happened to
  * open the app rather than when it was due — and an organization whose owner
  * takes a week off would send nothing all week.
  *
@@ -35,12 +36,19 @@ export async function POST(request: Request) {
 
   const started = Date.now();
   try {
+    /*
+     * Upcoming → Active, the one status change no event announces: a term
+     * *ending* arrives as `lease.renewal` or `lease.vacating`, but a lease
+     * starting is not something anybody publishes. Cheap, idempotent, and
+     * first, so a reminder is never decided against a stale status.
+     */
+    const { started: activated } = await syncLeaseStatuses();
     const result = await runNotificationSweep();
     const ms = Date.now() - started;
     console.log(
-      `[cron] sweep done in ${ms}ms: ${result.leaseExpiring} lease-expiring, ${result.invoiceOverdue} overdue, ${result.skipped} already sent`
+      `[cron] sweep done in ${ms}ms: ${activated} lease(s) now Active, ${result.leaseExpiring} lease-expiring, ${result.invoiceOverdue} overdue, ${result.skipped} already sent`
     );
-    return Response.json({ ok: true, ...result, ms });
+    return Response.json({ ok: true, activated, ...result, ms });
   } catch (error) {
     console.error("[cron] sweep failed:", error);
     return Response.json({ error: "Sweep failed" }, { status: 500 });
