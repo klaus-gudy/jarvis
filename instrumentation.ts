@@ -24,17 +24,25 @@ export async function register() {
   ]);
 
   /*
-   * Failing to attach must not take the server down with it: the web app is
-   * useful without a consumer, and a broker that is slow to come up on a cold
-   * deploy would otherwise crash-loop the whole service. amqplib reconnects on
-   * its own once attached — this only covers never getting that far.
+   * Kicked off, deliberately **not awaited**.
+   *
+   * `register` must finish before the server handles requests, so anything
+   * awaited here is in front of the first page load. A rejection is caught
+   * below, but a *hang* would not be: if the broker is unreachable or slow to
+   * resolve on a cold deploy, amqplib sits in a TCP connect for over a minute,
+   * and awaiting it would keep the whole site from serving over a queue that
+   * nothing on the critical path needs. This is invisible locally, where the
+   * broker answers instantly — it only shows up on a real deploy.
+   *
+   * The consumers are idempotent and amqplib reconnects on its own, so the
+   * worst case is that messages sit in a durable queue for a few seconds
+   * longer while pages are already being served.
    */
-  await Promise.all([
-    startDocumentConsumer().catch((error) =>
-      console.error("[instrumentation] document consumer failed to start:", error)
-    ),
-    startLeaseConsumer().catch((error) =>
-      console.error("[instrumentation] lease consumer failed to start:", error)
-    ),
-  ]);
+  void startDocumentConsumer().catch((error) =>
+    console.error("[instrumentation] document consumer failed to start:", error)
+  );
+
+  void startLeaseConsumer().catch((error) =>
+    console.error("[instrumentation] lease consumer failed to start:", error)
+  );
 }

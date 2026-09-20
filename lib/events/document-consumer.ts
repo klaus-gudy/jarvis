@@ -314,7 +314,9 @@ async function attach(): Promise<StopConsumer> {
     } catch {
       // Already closing.
     }
-    await prisma.$disconnect();
+    // Deliberately no `prisma.$disconnect()`: this is the shared singleton, and
+    // in the Next.js server it belongs to the request path too. Disconnecting
+    // it here would close the web app's pool. The CLI shim owns that instead.
     running = null;
   };
 }

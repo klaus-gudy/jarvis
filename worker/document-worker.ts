@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { startDocumentConsumer } from "@/lib/events/document-consumer";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Runs the contract-filing consumer as its own process.
@@ -16,6 +17,10 @@ async function main() {
   async function shutdown(signal: string) {
     console.log(`[document-worker] ${signal} — shutting down`);
     await stop();
+    // Only the standalone process owns the Prisma singleton's lifetime; the
+    // consumer module deliberately leaves it alone, because inside Next.js the
+    // web app is holding the same client.
+    await prisma.$disconnect();
     process.exit(0);
   }
 
