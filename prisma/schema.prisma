@@ -71,6 +71,24 @@ model User {
 
   emailVerificationRequired Boolean @default(false)
 
+  /**
+   * Guided tours this person has finished or dismissed, and the
+   * `TOURS_VERSION` the list was recorded against.
+   *
+   * On `User` rather than `Membership`: which tours somebody has already sat
+   * through follows the person, not whichever organization they happen to be
+   * looking at. It replaces a localStorage key, which meant a tour greeted the
+   * same person again on every new device and never at all on a device where
+   * they had dismissed one by accident.
+   *
+   * The version is stored beside the list instead of being baked into a key,
+   * so a bumped `TOURS_VERSION` makes an older list *stale* rather than wrong:
+   * `getToursSeen` returns nothing for a version it does not recognise, and a
+   * rewritten set of tours greets everyone again with no migration to write.
+   */
+  toursSeen        String[] @default([])
+  toursSeenVersion Int      @default(0)
+
   memberships             Membership[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
