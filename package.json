@@ -12,6 +12,7 @@
     "studio:prod": "npm run studio:prod:confirm",
     "studio:prod:confirm": "dotenv -e .env.production -- prisma studio --port 5599",
     "worker": "tsx worker/document-worker.ts",
+    "worker:leases": "tsx worker/lease-worker.ts",
     "backfill:contracts": "tsx worker/backfill-contracts.ts"
   },
   "dependencies": {
