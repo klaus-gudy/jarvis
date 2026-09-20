@@ -20,7 +20,7 @@ Multi-tenant property management app. See `plan.md` (architecture + decisions) a
 - `docker compose up -d` — start Postgres
 - `npm run dev` — dev server (port 3347)
 - `npm run worker` — document worker; consumes `document.stored`, files the `FileAsset` row
-- `npm run worker:leases` — lease worker; consumes `lease.renewal` / `lease.vacating` from **`automatifier`** (`../automatifier`, its own `automatifier.events` exchange) on `JARVIS_LEASE_LIFECYCLE_QUEUE` and renews or ends the lease. That service owns the cron; this app owns the tables
+- `npm run worker:leases` — lease worker; consumes `lease.renewal` / `lease.vacating` from **`automatifier`** (`../automatifier`, its own `automatifier.events` exchange) on `LEASE_LIFECYCLE_QUEUE` and renews or ends the lease. That service owns the cron; this app owns the tables
 - **PDF rendering lives in the separate `document-worker` service** (`../document-worker`, NestJS, port 3400). Jarvis publishes `lease.created` carrying `{ html, objectKey }`; that service renders and uploads, then announces `document.stored`. **No Playwright or Chromium in this repo** — an ESLint rule blocks importing one back in
 - `npm run backfill:contracts -- --dry-run` — queue contracts for leases missing one (`--org=`, `--limit=`)
 - `npx prisma migrate dev --name <name>` — migrate; `npx prisma generate` — regenerate client
