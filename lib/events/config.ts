@@ -300,12 +300,16 @@ export const AUTOMATIFIER_EXCHANGE =
   process.env.AUTOMATIFIER_EXCHANGE ?? "automatifier.events";
 
 /**
- * Where lease lifecycle events land. Named for who consumes, like
- * `DOCUMENTS_QUEUE` — this is the name to give automatifier for its
+ * Where lease lifecycle events land — the name to give automatifier for its
  * `RenewalEventService` boot binding.
+ *
+ * Named for the *events*, not the consumer, unlike `DOCUMENTS_QUEUE`: these
+ * come from another service's exchange and the interesting half of the name is
+ * which lifecycle they are, not whose mailbox it is. Your call, and the one to
+ * keep consistent if a second service ever consumes them.
  */
 export const LEASE_LIFECYCLE_QUEUE =
-  process.env.LEASE_LIFECYCLE_QUEUE ?? "JARVIS_LEASE_LIFECYCLE_QUEUE";
+  process.env.LEASE_LIFECYCLE_QUEUE ?? "LEASE_LIFECYCLE_QUEUE";
 
 /** Derived, not configured, so the pair cannot drift apart. */
 export const LEASE_LIFECYCLE_DLQ = `${LEASE_LIFECYCLE_QUEUE}_DEAD`;
