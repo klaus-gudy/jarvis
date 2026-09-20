@@ -30,7 +30,7 @@ export const createUnitSchema = z.object({
     .max(120, "Minimum tenure cannot exceed 120 months")
     .nullish(),
   /** When a lease on this unit ends, a successor is created automatically for minTenureMonths. */
-  autoRenew: z.boolean().default(false),
+  autoRenew: z.boolean().default(true),
   unitType: z.enum(UNIT_TYPE_OPTIONS).nullish(),
   floor: optionalText(30),
   block: optionalText(30),

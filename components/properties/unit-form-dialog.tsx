@@ -53,11 +53,16 @@ export type UnitFormValues = {
 
 const NONE = "__none__";
 
+/**
+ * A new unit starts where the column defaults are — six months, renewing —
+ * rather than blank and off. Renewal is the rule now, and a form that opens on
+ * the exception makes every unit an explicit decision nobody meant to take.
+ */
 const EMPTY: UnitFormValues = {
   label: "",
   rentAmount: "",
-  minTenureMonths: "",
-  autoRenew: false,
+  minTenureMonths: "6",
+  autoRenew: true,
   unitType: NONE,
   floor: "",
   block: "",
