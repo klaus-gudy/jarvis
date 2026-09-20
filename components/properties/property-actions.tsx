@@ -64,8 +64,19 @@ export function PropertyActions({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+    /*
+     * Stacked and full width on a phone, side by side from `sm` up. `shrink-0`
+     * keeps the pair off the identity block's line once they are back in a
+     * row — without it a long property name squeezes the buttons instead of
+     * truncating itself.
+     */
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full sm:w-auto"
+        onClick={() => setEditOpen(true)}
+      >
         <PencilIcon />
         Edit
       </Button>
@@ -86,7 +97,7 @@ export function PropertyActions({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger
           render={
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
               <Trash2Icon />
               Delete
             </Button>

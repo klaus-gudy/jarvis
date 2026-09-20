@@ -78,21 +78,32 @@ export default async function PropertyDetailPage({
       </Button>
 
       <Card>
-        <CardContent className="flex items-center gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <PropertyIcon
-              category={property.category}
-              type={property.type}
-              className="size-6"
-            />
-          </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            <h2 className="truncate text-xl font-semibold tracking-tight">
-              {property.name}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {property.address} · {property.category} · Owner: {property.ownerName}
-            </p>
+        {/*
+         * Two rows on a phone — identity above, actions below — collapsing to
+         * the single row on `sm` and up. Kept in one flex container rather than
+         * duplicating the header for each breakpoint: the actions carry dialog
+         * state, and a second copy would be a second mounted `PropertyActions`.
+         */}
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary sm:size-12">
+              <PropertyIcon
+                category={property.category}
+                type={property.type}
+                className="size-5 sm:size-6"
+              />
+            </div>
+            <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
+              <h2 className="truncate text-base font-semibold tracking-tight sm:text-xl">
+                {property.name}
+              </h2>
+              {/* Address, category and owner wrap onto their own lines on a
+                  narrow screen, so the line is sized down to stop three of
+                  them dominating the card. */}
+              <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                {property.address} · {property.category} · Owner: {property.ownerName}
+              </p>
+            </div>
           </div>
           <PropertyActions
             propertyId={property.id}
