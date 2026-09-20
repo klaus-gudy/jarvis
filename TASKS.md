@@ -1500,11 +1500,14 @@ Known benign warning: `next-themes` injects a pre-hydration `<script>`; React 19
 - [x] Retired the lazy `runAutoRenewals` sweep on `/leases` and `/dashboard`; `lib/lease-renewal.ts` deleted, `queueContractsForRenewals` moved into `lib/lease-lifecycle.ts`
 - [x] `syncLeaseStatuses` narrowed to Upcoming → Active (all orgs) and moved to `POST /api/cron/notifications`
 
-## Phase 28 — Worker deploy config
+## Phase 28 — Consumers run with the server
 
 - [x] Diagnosed a silent backlog: `JARVIS_DOCUMENTS_QUEUE` at 4 ready / 0 consumers. Contracts were rendered and uploaded by the `document-worker` service, but no `FileAsset` row was ever written, so the lease page showed no contract and backfill kept re-queueing the same leases
-- [x] Drained the 4 locally — 2 filed, 2 correctly refused as `subject-not-found` (both leases deleted from the DB since; their PDFs are now orphans in MinIO)
-- [x] `railway.worker.json` + `railway.worker-leases.json` — per-service config (`startCommand`, `restartPolicyType: ALWAYS`, no healthcheck). Deliberately **not** a root `railway.json`, which would also override the web service's start command
-- [x] `tsx` moved to `dependencies` — Railpack prunes dev deps, and the workers need it at runtime for TS execution and `@/lib/*` alias resolution
-- [ ] Create the two Railway services in `courteous-trust` and point each at its config file (dashboard/API side, outside this repo)
+- [x] Drained the 4 — 2 filed, 2 correctly refused as `subject-not-found` (both leases deleted from the DB since; their PDFs are now orphans in MinIO)
+- [x] Consumer bodies moved to `lib/events/document-consumer.ts` / `lease-consumer.ts`, exporting idempotent `start*Consumer()` that resolve on subscription; `worker/*.ts` reduced to CLI shims over the same code
+- [x] `instrumentation.ts` starts both under `NEXT_RUNTIME === "nodejs"`; attach failures are logged, not thrown, so a cold-start broker cannot crash-loop the web service
+- [x] `tsx` moved to `dependencies` — Railpack prunes dev deps, and `backfill:contracts` is still run by hand on the deploy target
+- [x] Built and then deleted `railway.worker*.json` — the separate-service route, rejected on cost vs. unused isolation; the reasoning is in the `plan.md` decision log if volume ever justifies revisiting
+- [x] Verified the refactor via the shim: `npm run worker` takes `JARVIS_DOCUMENTS_QUEUE` 0 → 1 consumer
+- [x] **Verified on a real server boot**: both consumers log at startup *before* the first request, and the broker shows 1 consumer on each of `JARVIS_DOCUMENTS_QUEUE` and `LEASE_LIFECYCLE_QUEUE`. A recompile (touch a page, re-request) left both at 1, proving the `running` guard stops dev reloads stacking consumers. End-to-end: published a `document.stored` with a non-lease `objectKey` — the in-process consumer received it, logged `ignoring … — not a lease contract key`, and acked, returning the queue to 0 without touching a row
 - [ ] Sweep MinIO for contract objects with no `FileAsset` row (orphans from the two deleted leases, and any future refusal)
