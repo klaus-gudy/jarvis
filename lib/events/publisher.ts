@@ -14,6 +14,10 @@ import {
   EVENTS_DLX,
   EVENTS_DLX_TYPE,
   EVENTS_EXCHANGE,
+  AUTOMATIFIER_EXCHANGE,
+  LEASE_LIFECYCLE_BINDINGS,
+  LEASE_LIFECYCLE_DLQ,
+  LEASE_LIFECYCLE_QUEUE,
   RABBITMQ_URL,
   type DomainEvent,
   type EventRoutingKey,
@@ -69,6 +73,29 @@ export async function declareEventTopology(model: ChannelModel) {
   });
   for (const binding of DOCUMENTS_BINDINGS) {
     await channel.bindQueue(DOCUMENTS_QUEUE, EVENTS_EXCHANGE, binding);
+  }
+
+  /*
+   * The lease lifecycle mailbox, fed by `automatifier` rather than by anything
+   * in here — `lease.renewal` and `lease.vacating`, on *that* service's
+   * exchange. Declared on this side because the queue is this app's: it is
+   * this app's dead-letter wiring, and a queue re-declared elsewhere with a
+   * different DLX is refused outright. Automatifier binds the same queue at
+   * boot as well; bindings are idempotent, and two sides binding means neither
+   * one's boot order can lose an event to an exchange with nothing on it.
+   */
+  await channel.assertExchange(AUTOMATIFIER_EXCHANGE, "topic", { durable: true });
+
+  await channel.assertQueue(LEASE_LIFECYCLE_DLQ, { durable: true });
+  await channel.bindQueue(LEASE_LIFECYCLE_DLQ, EVENTS_DLX, LEASE_LIFECYCLE_QUEUE);
+
+  await channel.assertQueue(LEASE_LIFECYCLE_QUEUE, {
+    durable: true,
+    deadLetterExchange: EVENTS_DLX,
+    deadLetterRoutingKey: LEASE_LIFECYCLE_QUEUE,
+  });
+  for (const binding of LEASE_LIFECYCLE_BINDINGS) {
+    await channel.bindQueue(LEASE_LIFECYCLE_QUEUE, AUTOMATIFIER_EXCHANGE, binding);
   }
 
   await channel.close();
