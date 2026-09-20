@@ -226,8 +226,11 @@ model Unit {
   id              String   @id @default(cuid())
   label           String
   rentAmount      Int
-  minTenureMonths Int?
-  autoRenew       Boolean  @default(false)
+  /// The renewal term, and the shortest a lease on this unit may run.
+  /// Defaults to 6 rather than null: it is what a renewal's length is read
+  /// from, and a unit without one renews nothing.
+  minTenureMonths Int?     @default(6)
+  autoRenew       Boolean  @default(true)
   unitType        String?
   floor           String?
   block           String?
