@@ -39,7 +39,11 @@ export const EVENT_ROUTING_KEYS = ["lease.created"] as const;
  * different lists that happen to share an exchange, and merging them would let
  * a typo bind a queue to something nothing ever sends.
  */
-export const CONSUMED_ROUTING_KEYS = ["document.stored"] as const;
+export const CONSUMED_ROUTING_KEYS = [
+  "document.stored",
+  "lease.renewal",
+  "lease.vacating",
+] as const;
 
 export type ConsumedRoutingKey = (typeof CONSUMED_ROUTING_KEYS)[number];
 
@@ -77,6 +81,10 @@ export const ROUTING_KEY: Record<EventRoutingKey, string> = {
 export const CONSUMED_ROUTING_KEY: Record<ConsumedRoutingKey, string> = {
   "document.stored":
     process.env.DOCUMENT_STORED_ROUTING_KEY ?? "document.stored",
+  // Contracts with `automatifier`, matching its `LEASE_RENEWAL_ROUTING_KEY` /
+  // `LEASE_VACATING_ROUTING_KEY` — and published to *its* exchange, not ours.
+  "lease.renewal": process.env.LEASE_RENEWAL_ROUTING_KEY ?? "lease.renewal",
+  "lease.vacating": process.env.LEASE_VACATING_ROUTING_KEY ?? "lease.vacating",
 };
 
 /**
@@ -196,8 +204,47 @@ export type DomainEvent = {
   "lease.created": LeaseCreatedEvent;
 };
 
+/**
+ * One lease `automatifier` found still `Active` past its end date.
+ *
+ * A **snapshot taken by another service** — every field has been over a bus and
+ * describes the lease as it stood when the scan ran, possibly days ago. Only
+ * `id` is used to act: the row is re-read here, because jarvis owns the tables
+ * and a stale `monthlyRent` in a message must not become the rent on a new
+ * lease. The rest is for logging and for deciding nothing.
+ */
+export type OverdueRenewalLease = {
+  id: string;
+  organizationId: string;
+  membership: { id: string; name: string | null; phone: string | null; role: string };
+  unit: { id: string; label: string; propertyName: string };
+  autoRenew: boolean;
+  startDate: string;
+  endDate: string;
+  daysOverdue: number;
+  durationMonths: number;
+  monthlyRent: number;
+  leaseAmount: number;
+  renewedFromId: string | null;
+};
+
+/**
+ * `lease.renewal` — this lease's unit auto-renews and its term is up, so
+ * jarvis should write the successor lease.
+ *
+ * `lease.vacating` — same overdue lease, but the unit does not auto-renew, so
+ * the tenancy is over and the lease should be marked Ended.
+ *
+ * Both carry the same body; the routing key is the whole instruction.
+ */
+export type LeaseLifecycleEvent = {
+  lease: OverdueRenewalLease;
+};
+
 export type ConsumedEvent = {
   "document.stored": DocumentStoredEvent;
+  "lease.renewal": LeaseLifecycleEvent;
+  "lease.vacating": LeaseLifecycleEvent;
 };
 
 /**
@@ -236,6 +283,39 @@ export const DOCUMENTS_DLQ = `${DOCUMENTS_QUEUE}_DEAD`;
  * keys, not the internal names, so a key overridden in `.env` is the key the
  * queue actually listens on.
  */
-export const DOCUMENTS_BINDINGS: string[] = CONSUMED_ROUTING_KEYS.map(
-  (name) => CONSUMED_ROUTING_KEY[name]
-);
+/**
+ * `automatifier`'s topic exchange — **not** `jarvis.events`.
+ *
+ * That service owns its own exchange (`EVENT_EXCHANGE`, default
+ * `automatifier.events`) and publishes `lease.renewal` / `lease.vacating` to
+ * it. This app declares the queue that receives them, with this app's
+ * dead-letter wiring, and binds it there; automatifier also binds the same
+ * queue at boot, the way it binds `NOTIFIER_SMS_QUEUE` for reminders. Binding
+ * is idempotent, so both sides doing it is belt and braces rather than a
+ * conflict — and it means neither service's boot order can leave an event
+ * published into an exchange with nothing bound to it, which a topic exchange
+ * drops in silence.
+ */
+export const AUTOMATIFIER_EXCHANGE =
+  process.env.AUTOMATIFIER_EXCHANGE ?? "automatifier.events";
+
+/**
+ * Where lease lifecycle events land. Named for who consumes, like
+ * `DOCUMENTS_QUEUE` — this is the name to give automatifier for its
+ * `RenewalEventService` boot binding.
+ */
+export const LEASE_LIFECYCLE_QUEUE =
+  process.env.LEASE_LIFECYCLE_QUEUE ?? "JARVIS_LEASE_LIFECYCLE_QUEUE";
+
+/** Derived, not configured, so the pair cannot drift apart. */
+export const LEASE_LIFECYCLE_DLQ = `${LEASE_LIFECYCLE_QUEUE}_DEAD`;
+
+/** The two wire keys `LEASE_LIFECYCLE_QUEUE` binds on automatifier's exchange. */
+export const LEASE_LIFECYCLE_BINDINGS: string[] = [
+  CONSUMED_ROUTING_KEY["lease.renewal"],
+  CONSUMED_ROUTING_KEY["lease.vacating"],
+];
+
+export const DOCUMENTS_BINDINGS: string[] = [
+  CONSUMED_ROUTING_KEY["document.stored"],
+];
