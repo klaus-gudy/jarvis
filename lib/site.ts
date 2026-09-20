@@ -228,11 +228,30 @@ export function formatTzs(amount: number): string {
 }
 
 /**
- * Where a package's button goes. Registration is the only destination that
- * exists today, so the choice rides along as query parameters — when checkout
- * is built, this one function becomes the place that points at it, rather than
- * six call sites in the pricing card.
+ * The hosted checkout every "pay us" button leads to — **an external page, on
+ * a domain we do not own**, which is the thing to keep in mind about every
+ * consequence below: leaving the site is now a step in buying, nothing here
+ * can style or validate that page, and money is taken by snippe rather than by
+ * this app.
+ *
+ * A constant rather than an env var because it is a fixed public URL with no
+ * per-environment variant — a staging deploy pointing at the same link is
+ * correct, since there is no test checkout to point at instead.
+ */
+export const CHECKOUT_URL = "https://snippe.me/pay/rentoo";
+
+/**
+ * Where a package's button goes: the hosted checkout, with the choice the
+ * visitor just made riding along as query parameters.
+ *
+ * The parameters are a **hint, not an instruction** — snippe decides what it
+ * does with them, and if it ignores them entirely the visitor simply picks the
+ * package there, which is why nothing in the app depends on them arriving.
+ * Keeping this as the one function that knows where a package leads is what
+ * made swapping registration for a payment link a one-line change rather than
+ * six call sites in the pricing card, and it is what will make swapping snippe
+ * for something else one too.
  */
 export function planCheckoutHref(slug: string, billing: BillingPeriod): string {
-  return `/register?plan=${slug}&billing=${billing}`;
+  return `${CHECKOUT_URL}?plan=${slug}&billing=${billing}`;
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { CHECKOUT_URL } from "@/lib/site";
 import { RentopsWordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -115,10 +116,16 @@ export default async function PaymentCompletePage({
               >
                 Take me home
               </Button>
+              {/* Straight back to the hosted checkout, not to the pricing
+                  table — somebody re-reading three packages after a card was
+                  declined is being asked to make a decision they already
+                  made. A plain <a> because it leaves the site, and no plan
+                  parameter because a failed payment's return URL is not a
+                  reliable record of which package was being bought. */}
               <Button
                 className="w-full sm:w-auto"
                 nativeButton={false}
-                render={<Link href="/#pricing" />}
+                render={<a href={CHECKOUT_URL} />}
               >
                 Try again
               </Button>

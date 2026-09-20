@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -153,8 +152,13 @@ function PlanCard({
       </div>
 
       <div className="mt-6">
+        {/* A plain <a>, not next/link: the destination is snippe's hosted
+            checkout on another domain, where client-side routing and
+            prefetching mean nothing. Same tab on purpose — a payment opened in
+            a new one loses the back button people reach for when they change
+            their mind, and a popup is what a phone browser blocks. */}
         <Button
-          render={<Link href={planCheckoutHref(plan.slug, billing)} />}
+          render={<a href={planCheckoutHref(plan.slug, billing)} />}
           nativeButton={false}
           variant={plan.featured ? "default" : "outline"}
           className={cn(
