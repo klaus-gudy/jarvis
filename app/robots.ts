@@ -37,6 +37,12 @@ export default function robots(): MetadataRoute.Robots {
         "/forgot-password",
         "/reset-password",
         "/verify-otp",
+        /*
+         * A live return URL carries a transaction reference, so an indexed one
+         * publishes a stranger's payment id. The page sets `robots: index:
+         * false` in its own metadata too.
+         */
+        "/payment-complete",
       ],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
