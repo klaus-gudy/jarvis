@@ -64,3 +64,18 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 | 80–90 | Contract pipeline → PDF → storage, backfill, Excel export, org backup/restore, rendering moved to `document-worker` |
 | 91–96 | One broker naming convention, emailed invitations, owners-only mail, invite verification, day-count fix |
 | Later (2026-09) | Stored `Lease.status`; consumers start inside the server; hourly cron; `automatifier`-driven renewal/vacating (lazy sweep removed); auto-renew defaults; tours stored per user; pricing packages; hosted checkout; `/payment-complete` |
+
+## Phase — snippe webhook
+
+- [x] `BillingEvent` model + migration `billing_events` (append-only ledger, unique `eventId`)
+- [x] `lib/billing/snippe-webhook.ts`: raw-byte HMAC-SHA256 verification, ±300s window, both payload versions
+- [x] `POST /api/webhooks/snippe`: 503 unset secret / 401 bad signature / 200 stored or duplicate / 500 on write failure
+- [x] `planCheckoutHref` sends snippe's `?meta=` blob (the old `?plan=&billing=` params were never forwarded)
+- [x] Verified with `openssl`-signed requests across every path; build, `tsc`, lint clean
+
+### Not done
+- [ ] Set `SNIPPE_WEBHOOK_SECRET` on Railway (jarvis → production) **before** submitting the webhook URL to snippe
+- [ ] Confirm `?meta=` survives on the `/pay/rentoo` page link with one real payment — documented for payment links, unproven on this one
+- [ ] Attribution: a pricing-page payer has no organization yet — match on email/phone at signup, or an in-app upgrade link carrying the org id in `meta`
+- [ ] Entitlement: nothing reads `BillingEvent` yet. Any grant must check `amount` against the plan's price, since `url_metadata` is payer-editable
+
