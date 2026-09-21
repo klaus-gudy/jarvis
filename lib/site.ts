@@ -257,17 +257,33 @@ export const CHECKOUT_URL = (
 ).replace(/\/$/, "");
 
 /**
- * Where a package's button goes: the hosted checkout, with the choice the
- * visitor just made riding along as query parameters.
+ * Where a package's button goes: the hosted checkout, carrying the choice the
+ * visitor just made in snippe's `?meta=` parameter.
  *
- * The parameters are a **hint, not an instruction** — snippe decides what it
- * does with them, and if it ignores them entirely the visitor simply picks the
- * package there, which is why nothing in the app depends on them arriving.
- * Keeping this as the one function that knows where a package leads is what
- * made swapping registration for a payment link a one-line change rather than
- * six call sites in the pricing card, and it is what will make swapping snippe
- * for something else one too.
+ * `meta` is the one query parameter snippe documents: a base64-encoded JSON
+ * object, handed back to our webhook as `data.metadata.url_metadata` when the
+ * payment completes (https://docs.snippe.sh/docs/2026-01-25/sessions/payment-links).
+ * That is how a payment arriving at `/api/webhooks/snippe` knows which package
+ * it was for. Plain `?plan=&billing=` parameters, which this used to send, are
+ * not forwarded and would have been silently dropped.
+ *
+ * Two details that are easy to get wrong:
+ *
+ * - **`encodeURIComponent` around the base64.** Standard base64 uses `+` and
+ *   `/`, and a `+` in a query string decodes as a space — snippe would receive
+ *   a corrupted blob roughly whenever the encoded bytes happened to produce one.
+ * - **`btoa`, not `Buffer`.** This file is read by the pricing cards, a client
+ *   island, and must stay dependency-free; `btoa` exists in every browser and
+ *   in Node. It is safe here because the JSON is plain ASCII (slugs and a
+ *   period) — `btoa` throws on anything wider, so a future field carrying free
+ *   text would need encoding to UTF-8 first.
+ *
+ * The blob is **readable by anyone holding the link and editable by the
+ * payer** — base64 is transport, not encryption. It must never carry anything
+ * secret, and what it says about the package is a claim to be checked against
+ * the amount paid, never a grant on its own.
  */
 export function planCheckoutHref(slug: string, billing: BillingPeriod): string {
-  return `${CHECKOUT_URL}?plan=${slug}&billing=${billing}`;
+  const meta = btoa(JSON.stringify({ plan: slug, billing }));
+  return `${CHECKOUT_URL}?meta=${encodeURIComponent(meta)}`;
 }
