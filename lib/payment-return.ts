@@ -4,8 +4,9 @@
  * **Nothing here is evidence that anything was paid.** Every value arrives as a
  * query parameter on a URL the payer's browser followed, so anyone can type
  * `?status=success` and see the happy page. The page built on this reports a
- * claim; it must never grant anything. When checkout lands, what unlocks a
- * package is the gateway's server-to-server callback writing a row.
+ * claim; it must never grant anything. The trusted record of a payment is the
+ * signed webhook at `app/api/webhooks/snippe/route.ts`, which writes a
+ * `BillingEvent` row.
  */
 
 /**

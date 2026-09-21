@@ -26,8 +26,9 @@ import {
  * `proxy.ts`'s `PUBLIC_PAGES`, and hence the rule the page is written under:
  * everything it knows arrives as a **query parameter the payer can edit**, so
  * `?status=success` is a claim, not a fact. It prints words and grants nothing.
- * When checkout is real, what marks a subscription paid is the provider's
- * server-to-server callback, and this page can read the row that writes.
+ * The trusted record is snippe's signed webhook (`/api/webhooks/snippe`),
+ * which writes a `BillingEvent`; this page could later look that row up by
+ * reference instead of believing the status word.
  */
 
 export const metadata: Metadata = {
