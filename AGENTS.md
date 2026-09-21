@@ -35,6 +35,6 @@ Multi-tenant property management app. See `plan.md` (architecture + decisions) a
 
 ## Session workflow (context-window protection)
 
-- At session start: read `plan.md` + `TASKS.md` before exploring code
-- Check off `TASKS.md` items as work lands; add new decisions to the `plan.md` decision log
+- At session start: read `plan.md` + `TASKS.md` before exploring code. Both are kept short on purpose; full history lives in `docs/archive/` — **search it, never load it whole**
+- Delete `TASKS.md` open items as work lands; add new decisions to the `plan.md` decision log as **≤ 3-sentence rows** (fold standing rules into the relevant section)
 - Keep this file under ~60 lines — it loads every session
