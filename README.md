@@ -76,7 +76,7 @@ A few decisions worth knowing before you dig in:
 - **`automatifier` owns the clock, Jarvis owns the tables.** It publishes "this lease's term is up"; Jarvis re-reads the lease and decides. Every handler is idempotent against an at-least-once bus.
 - **Tenancy is a prefix, not a bucket.** One storage bucket serves every organization, with keys namespaced `organizations/<orgId>/…`.
 
-The full reasoning behind each of these — and the dozens of smaller calls — is in the decision log in [`plan.md`](plan.md).
+The full reasoning behind each of these — and the dozens of smaller calls — is in [`plan.md`](plan.md), with the full history in [`docs/archive/`](docs/archive).
 
 ## Tech stack
 
@@ -245,8 +245,9 @@ proxy.ts          Route protection (Next 16's replacement for middleware)
 
 | | |
 |---|---|
-| [`plan.md`](plan.md) | Architecture and the decision log — *why* things are the way they are. Read this first. |
-| [`TASKS.md`](TASKS.md) | The sprint checklist and the history of what has landed. |
+| [`plan.md`](plan.md) | Architecture and standing rules — *why* things are the way they are. Read this first. |
+| [`TASKS.md`](TASKS.md) | What is still open, plus an index of what has shipped. |
+| [`docs/archive/`](docs/archive) | The full, uncompacted `plan.md` and `TASKS.md` history as of 2026-09-21. Search it when you need the reasoning behind a rule. |
 | [`AGENTS.md`](AGENTS.md) | The short project brief that AI coding agents load each session. |
 
 ## Deployment
