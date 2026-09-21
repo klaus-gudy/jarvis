@@ -508,3 +508,50 @@ model LeaseTemplate {
   @@unique([organizationId, name])
   @@index([organizationId])
 }
+
+/// One row per verified webhook delivery from snippe, the hosted checkout that
+/// takes *our* subscription money. Deliberately not `Payment`: that model is a
+/// landlord recording a tenant's rent, and the two ledgers must never be
+/// summed, filtered or exported together by accident.
+///
+/// A row exists only after `lib/billing/snippe-webhook.ts` has checked the
+/// HMAC signature, so everything here was said by snippe — unlike the
+/// `/payment-complete` page, whose query string anyone can type.
+///
+/// Stored as an append-only log rather than folded into a subscription: there
+/// is no subscription model yet, and a payment made from the public pricing
+/// page arrives with no organization attached (the visitor has no account at
+/// that point). Keeping every event, with its full payload, means attribution
+/// can be decided later without anything having been thrown away.
+model BillingEvent {
+  id            String    @id @default(cuid())
+  /// snippe's event id (`evt_…`). Unique, so a redelivery is a no-op — snippe
+  /// retries up to five times and says outright that handlers must be idempotent.
+  eventId       String    @unique
+  /// `payment.completed`, `payment.failed`, `payment.voided`, `payment.expired`, …
+  type          String
+  /// snippe's payment reference (`pi_…` / `PAY…`), what support will ask for.
+  reference     String
+  status        String?
+  /// Whole shillings, as snippe sends them (`amount.value`).
+  amount        Int?
+  currency      String?
+  /// Channel provider, e.g. `mpesa`, `airtel`.
+  provider      String?
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
+  /// From the `?meta=` blob `planCheckoutHref` attaches to the checkout link.
+  plan          String?
+  billing       String?
+  /// The verified body, verbatim. The columns above are conveniences for
+  /// querying; this is the record.
+  payload       Json
+  /// When snippe says it happened (`completed_at` / `failed_at` / `created_at`).
+  occurredAt    DateTime?
+  receivedAt    DateTime  @default(now())
+
+  @@index([reference])
+  @@index([customerEmail])
+  @@index([type, receivedAt])
+}
