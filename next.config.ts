@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   /**
    * The dev overlay's badge defaults to the bottom-left corner, which is
    * exactly where the lease-template editor puts its floating actions on a
