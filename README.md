@@ -255,3 +255,21 @@ proxy.ts          Route protection (Next 16's replacement for middleware)
 The app is built to run as a **long-lived container** (it is deployed on Railway): `npm start` applies pending migrations and then serves, and the queue consumers start with it. Set `NEXT_PUBLIC_*` variables wherever `next build` runs, since they are inlined at build time.
 
 Production uses Cloudflare R2 for files and runs the neighbouring `document-worker`, `notifier` and `automatifier` services alongside the app, all sharing one RabbitMQ broker.
+
+### Production Docker image
+
+The multi-stage `Dockerfile` uses Node 24.18.0, generates Prisma Client during dependency installation, and builds Next.js standalone output. The final image runs as the unprivileged `node` user and includes production dependencies, including the Prisma CLI and engines needed for migrations. Its entrypoint applies migrations before starting `server.js`; a failed migration prevents startup. The app's RabbitMQ consumers start with the server.
+
+```bash
+docker build -t jarvis:local \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://your-app.example \
+  --build-arg NEXT_PUBLIC_CHECKOUT_URL=https://snippe.me/pay/rentoo .
+docker run --rm --name jarvis-app -p 3347:3347 \
+  --env-file /path/to/runtime.env jarvis:local
+```
+
+Set `DATABASE_URL`, authentication secrets, RabbitMQ, storage, and other server settings in the runtime environment (see `.env.example`). Local `.env*` files are excluded from the build context. The two `NEXT_PUBLIC_*` settings above are public build arguments: changing them requires rebuilding the image. Building also downloads the Google fonts used by the app.
+
+The image defaults to port 3347 and listens on `0.0.0.0`; a runtime `PORT` overrides it. For Docker Desktop with the infrastructure in `docker-compose.yml`, runtime URLs can use `host.docker.internal` with host ports 5439 (Postgres), 5682 (RabbitMQ), and 9000 (MinIO). `localhost` inside the app container points to the app container itself.
+
+On Railway, use this Dockerfile and its default entrypoint/command; remove any start-command override that invokes `npm start`, because this image runs the standalone `server.js`. Supply the public build arguments during the build and secrets at runtime. The existing Compose file remains the local infrastructure setup, and `npm run dev` remains the development workflow.
