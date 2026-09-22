@@ -8,6 +8,7 @@ Multi-tenant property management (product name **Rentoo**, `SITE_NAME` in `lib/s
 ## System shape
 
 - **Web app (this repo)** — Next.js on a long-lived container (Railway). `npm start` = `prisma migrate deploy && next start`.
+- **Production image** — multi-stage `Dockerfile`, Node 24.18.0, Next.js standalone output, non-root runtime. The entrypoint runs `prisma migrate deploy` then `node server.js`; Prisma CLI remains a production dependency. Public URLs are build arguments, while secrets are runtime environment variables; `.env*` files are excluded from the build context.
 - **Queue consumers run inside the web server** (`instrumentation.ts` → `lib/events/{document,lease}-consumer.ts`). A deploy of the app is a deploy of its consumers. Start functions resolve on *subscription* (never on messages), are idempotent (`running` promise), and log rather than throw on broker failure. **Only valid on a long-lived container** — on serverless, move consumers out first. `worker/*.ts` are thin shims for debugging one consumer.
 - **`document-worker`** (`../document-worker`, NestJS :3400) renders PDFs. Jarvis publishes `lease.created` `{ html, objectKey, footerText, meta }`; the worker renders, uploads, announces `document.stored`. **No Playwright/Chromium in this repo** (ESLint rule enforces).
 - **`notifier`** (`../notifier`) sends email from `NOTIFIER_EMAIL_QUEUE`. **`automatifier`** (`../automatifier`) owns the clock: publishes `lease.renewal` / `lease.vacating`.
