@@ -64,6 +64,7 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 | 80–90 | Contract pipeline → PDF → storage, backfill, Excel export, org backup/restore, rendering moved to `document-worker` |
 | 91–96 | One broker naming convention, emailed invitations, owners-only mail, invite verification, day-count fix |
 | Later (2026-09) | Stored `Lease.status`; consumers start inside the server; hourly cron; `automatifier`-driven renewal/vacating (lazy sweep removed); auto-renew defaults; tours stored per user; pricing packages; hosted checkout; `/payment-complete` |
+| Production Docker image | Multi-stage Node 24 build, Next.js standalone server, non-root runtime, migrations on startup, runtime secrets excluded from build context |
 
 ## Phase — snippe webhook
 
@@ -78,4 +79,3 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 - [ ] Confirm `?meta=` survives on the `/pay/rentoo` page link with one real payment — documented for payment links, unproven on this one
 - [ ] Attribution: a pricing-page payer has no organization yet — match on email/phone at signup, or an in-app upgrade link carrying the org id in `meta`
 - [ ] Entitlement: nothing reads `BillingEvent` yet. Any grant must check `amount` against the plan's price, since `url_metadata` is payer-editable
-
