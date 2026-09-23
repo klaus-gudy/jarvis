@@ -1,7 +1,9 @@
 "use client"
 
+import * as React from "react"
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -44,18 +46,114 @@ const tabsListVariants = cva(
   }
 )
 
+type Overflow = { left: boolean; right: boolean }
+
+function measure(node: HTMLElement): Overflow {
+  // 1px of slack: fractional widths leave scrollLeft a hair short of the end.
+  return {
+    left: node.scrollLeft > 1,
+    right: node.scrollLeft + node.clientWidth < node.scrollWidth - 1,
+  }
+}
+
+/**
+ * A swipeable strip gives no sign that it swipes: on a phone the member page's
+ * fifth tab sat off-screen with nothing to say it was there. So each edge that
+ * has tabs beyond it fades out and shows a chevron, and tapping the chevron
+ * scrolls the row. Both hints go away at their end of the row, and neither
+ * shows when everything fits.
+ *
+ * Measured in a ref callback rather than an effect, the pattern
+ * `LoadMoreSentinel` uses: React 19 runs its cleanup on detach, and the
+ * ResizeObserver's first callback supplies the initial state, so no state is
+ * set during an effect. The chevrons aren't tab stops — arrow keys already
+ * move through the tabs and scroll the active one into view.
+ */
 function TabsList({
   className,
   variant = "default",
   ...props
 }: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
+  const listRef = React.useRef<HTMLDivElement | null>(null)
+  const [overflow, setOverflow] = React.useState<Overflow>({
+    left: false,
+    right: false,
+  })
+
+  const attach = React.useCallback((node: HTMLDivElement | null) => {
+    listRef.current = node
+    if (!node) return
+    const update = () =>
+      setOverflow((current) => {
+        const next = measure(node)
+        return next.left === current.left && next.right === current.right
+          ? current
+          : next
+      })
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    node.addEventListener("scroll", update, { passive: true })
+    return () => {
+      observer.disconnect()
+      node.removeEventListener("scroll", update)
+    }
+  }, [])
+
+  const nudge = (direction: -1 | 1) => {
+    const node = listRef.current
+    if (!node) return
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches
+    node.scrollBy({
+      left: direction * node.clientWidth * 0.6,
+      behavior: reduceMotion ? "auto" : "smooth",
+    })
+  }
+
   return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
-      {...props}
-    />
+    <div data-slot="tabs-list-frame" className="relative min-w-0">
+      <TabsPrimitive.List
+        ref={attach}
+        data-slot="tabs-list"
+        data-variant={variant}
+        className={cn(tabsListVariants({ variant }), className)}
+        {...props}
+      />
+      <ScrollHint side="left" visible={overflow.left} onClick={() => nudge(-1)} />
+      <ScrollHint side="right" visible={overflow.right} onClick={() => nudge(1)} />
+    </div>
+  )
+}
+
+function ScrollHint({
+  side,
+  visible,
+  onClick,
+}: {
+  side: "left" | "right"
+  visible: boolean
+  onClick: () => void
+}) {
+  const Icon = side === "left" ? ChevronLeftIcon : ChevronRightIcon
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={side === "left" ? "Show earlier tabs" : "Show more tabs"}
+      aria-hidden={!visible}
+      onClick={onClick}
+      className={cn(
+        // `bottom-px` leaves the line variant's border running under the fade.
+        "absolute top-0 bottom-px flex w-10 items-center text-muted-foreground transition-opacity duration-200 hover:text-foreground",
+        side === "left"
+          ? "left-0 justify-start bg-linear-to-r from-background from-40% to-transparent"
+          : "right-0 justify-end bg-linear-to-l from-background from-40% to-transparent",
+        visible ? "opacity-100" : "pointer-events-none opacity-0"
+      )}
+    >
+      <Icon className="size-4" />
+    </button>
   )
 }
 
