@@ -55,3 +55,14 @@ export const optionalTzPhoneSchema = z
     }
     return normalized;
   });
+
+/**
+ * The `255…` form SMS providers route on, and the form `automatifier` writes
+ * into notifier's audit trail. We store `0…`; notifier matches recipients
+ * exactly, so a lookup has to convert first. Null when the number isn't one
+ * `normalizeTzPhone` accepts (legacy rows were stored as typed).
+ */
+export function toInternationalTzPhone(raw: string): string | null {
+  const local = normalizeTzPhone(raw);
+  return local ? `255${local.slice(1)}` : null;
+}
