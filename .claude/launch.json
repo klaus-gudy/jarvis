@@ -4,14 +4,35 @@
     {
       "name": "jarvis-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3347
     },
     {
       "name": "prisma-studio",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["prisma", "studio", "--port", "5555", "--browser", "none"],
+      "runtimeArgs": [
+        "prisma",
+        "studio",
+        "--port",
+        "5555",
+        "--browser",
+        "none"
+      ],
       "port": 5555
+    },
+    {
+      "name": "notifier",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "../notifier",
+        "run",
+        "start"
+      ],
+      "port": 3350
     }
   ]
 }
