@@ -27,8 +27,9 @@ const querySchema = z.object({
     .default(SMS_DEFAULT_PAGE_SIZE),
 });
 
-const sendSchema = z.object({
-  phone: tzPhoneSchema,
+// No phone field: the recipient is always the member's own number on file.
+// `strict` so a caller who sends one is told, rather than silently ignored.
+const sendSchema = z.strictObject({
   message: z
     .string()
     .trim()
