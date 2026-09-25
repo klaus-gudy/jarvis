@@ -126,6 +126,7 @@ export function PaymentsTable({
             columnId: "propertyName",
             placeholder: "All properties",
             label: "Property",
+            multiple: true,
             // Derived from the rows on screen rather than a separate query, so
             // the list can never offer a property with nothing to show.
             options: [...new Set(payments.map((p) => p.propertyName))]
@@ -136,6 +137,7 @@ export function PaymentsTable({
             columnId: "invoiceStatus",
             placeholder: "All invoice statuses",
             label: "Invoice status",
+            multiple: true,
             options: INVOICE_STATUSES.map((status) => ({
               label: status,
               value: status,
@@ -145,6 +147,7 @@ export function PaymentsTable({
             columnId: "method",
             placeholder: "All methods",
             label: "Method",
+            multiple: true,
             options: PAYMENT_METHOD_OPTIONS.map((option) => ({
               label: option,
               value: option,
