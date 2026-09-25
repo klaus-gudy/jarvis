@@ -117,63 +117,174 @@ export function MemberSmsTab({
   membershipId: string;
   phone: string | null;
 }) {
+  const isMobile = useIsMobile();
   const [filters, setFilters] = React.useState<Filters>(NO_FILTERS);
+  const [pageSize, setPageSize] = React.useState<number>(SMS_DEFAULT_PAGE_SIZE);
   // Bumped after a send so the same query is asked again.
   const [revision, setRevision] = React.useState(0);
-  // Keyed by the query that produced it, so "loading" is derived rather than
-  // set inside the effect: the result on screen belongs to an older query.
-  const [result, setResult] = React.useState<{ key: string; outcome: Outcome } | null>(
-    null
-  );
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
 
-  const queryString = toQueryString(filters);
-  const requestKey = `${queryString}#${revision}`;
-  const loading = result?.key !== requestKey;
+  const params = filterParams(filters);
+  params.set("limit", String(isMobile ? MOBILE_BATCH : pageSize));
+  const query = params.toString();
+  const base = `${query}#${revision}`;
+
+  // Both counters only mean something under the base they were set for, so a
+  // filter change falls back to page 1 without an effect resetting them.
+  const [desktopPage, setDesktopPage] = React.useState({ base: "", page: 1 });
+  const [mobileCount, setMobileCount] = React.useState({ base: "", count: 1 });
+  const page = desktopPage.base === base ? desktopPage.page : 1;
+  const count = mobileCount.base === base ? mobileCount.count : 1;
+  const needed = isMobile ? count : page;
+
+  const [cache, setCache] = React.useState<Cache>({ base: "", pages: {}, last: null });
+  const pages = cache.base === base ? cache.pages : {};
+  const loading = !pages[needed];
 
   React.useEffect(() => {
+    if (!loading) return;
     const controller = new AbortController();
-    fetch(`/api/members/${membershipId}/sms?${queryString}`, {
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        let outcome: Outcome;
-        if (response.ok && body.reason === "no-phone") {
-          outcome = { kind: "no-phone" };
-        } else if (response.ok) {
-          outcome = { kind: "ok", data: body };
-        } else if (body.reason === "not-configured") {
-          outcome = {
-            kind: "error",
-            message: "SMS history isn't set up on this server (NOTIFIER_API_URL is missing).",
-          };
-        } else {
-          outcome = {
-            kind: "error",
-            message: "The SMS service couldn't be reached. Try again in a moment.",
-          };
-        }
-        setResult({ key: requestKey, outcome });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
+    loadPage(`/api/members/${membershipId}/sms?${query}&page=${needed}`, controller.signal)
+      .catch((error: unknown): Outcome | null => {
+        if (controller.signal.aborted) return null;
         console.error(error);
-        setResult({
-          key: requestKey,
-          outcome: { kind: "error", message: "Couldn't load SMS alerts." },
-        });
+        return { kind: "error", message: "Couldn't load SMS alerts." };
+      })
+      .then((outcome) => {
+        if (!outcome) return;
+        setCache((current) => ({
+          base,
+          pages: { ...(current.base === base ? current.pages : {}), [needed]: outcome },
+          last: outcome,
+        }));
       });
     return () => controller.abort();
-  }, [membershipId, queryString, requestKey]);
+  }, [membershipId, query, base, needed, loading]);
 
-  // Any filter change starts again from the first page.
-  const update = (patch: Partial<Omit<Filters, "page">>) =>
-    setFilters((current) => ({ ...current, ...patch, page: 1 }));
-  const goTo = (page: number) => setFilters((current) => ({ ...current, page }));
+  const onSent = () => setRevision((current) => current + 1);
+  const filtered = activeFilterCount(filters) > 0;
+  const reset = () => setFilters(NO_FILTERS);
 
-  const filtered =
-    filters.status !== "all" || filters.from !== "" || filters.to !== "";
-  const outcome = result?.outcome;
+  // Top right, above the content, full size — where the Lease tab puts
+  // "Create lease" and Documents puts "Upload document".
+  const sendButton = (
+    <div className="flex justify-end">
+      <SendSmsDialog membershipId={membershipId} defaultPhone={phone} onSent={onSent} />
+    </div>
+  );
+
+  if (isMobile) {
+    // Pages 1..n, stopping at the first that hasn't arrived. De-duplicated by
+    // id: a text sent between two batches shifts notifier's offsets by one.
+    const loaded: PageData[] = [];
+    let failure: Outcome | undefined;
+    for (let n = 1; n <= count; n++) {
+      const outcome = pages[n];
+      if (!outcome) break;
+      if (outcome.kind !== "ok") {
+        failure = outcome;
+        break;
+      }
+      loaded.push(outcome.data);
+    }
+    const seen = new Set<string>();
+    const alerts: SmsAlert[] = [];
+    for (const alert of loaded.flatMap((data) => data.alerts)) {
+      if (seen.has(alert.id)) continue;
+      seen.add(alert.id);
+      alerts.push(alert);
+    }
+    const latest = loaded.at(-1);
+    const hasMore = latest ? latest.page < latest.totalPages : false;
+    const remaining = latest ? Math.max(0, latest.total - alerts.length) : 0;
+
+    return (
+      <div className="space-y-3">
+        {sendButton}
+
+        {/* Sticky, bled to the gutter with `-mx-4 px-4`, as `DataTable`'s
+            mobile toolbar is. There's no search, so the count takes its place. */}
+        <div className="sticky top-0 z-20 -mx-4 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
+          <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+            {latest
+              ? `${latest.total} message${latest.total === 1 ? "" : "s"}`
+              : "SMS alerts"}
+          </p>
+          <Button
+            variant="outline"
+            className="h-9 shrink-0 bg-card"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Filters"
+          >
+            <SlidersHorizontalIcon />
+            Filters
+            {filtered && (
+              <span className="ml-0.5 flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground tabular-nums">
+                {activeFilterCount(filters)}
+              </span>
+            )}
+          </Button>
+        </div>
+
+        {failure?.kind === "no-phone" ? (
+          <NoPhone />
+        ) : failure?.kind === "error" ? (
+          <EmptyState tone="error">{failure.message}</EmptyState>
+        ) : !latest ? (
+          <Loading />
+        ) : alerts.length === 0 ? (
+          <NoAlerts filtered={filtered} />
+        ) : (
+          <SmsTimeline alerts={alerts} surface="page" animate />
+        )}
+
+        {latest && hasMore && !failure && (
+          loading ? (
+            <div className="flex justify-center py-4">
+              <Loader2Icon className="size-4 animate-spin text-muted-foreground" aria-label="Loading" />
+            </div>
+          ) : (
+            // Keyed on the count, as in `DataTable`: an observer fires on a
+            // change of intersection, so only a fresh node can fire again
+            // while still in view.
+            <LoadMoreSentinel
+              key={count}
+              remaining={remaining}
+              onReach={() => setMobileCount({ base, count: count + 1 })}
+            />
+          )
+        )}
+        {latest && !hasMore && alerts.length > 0 && (
+          <p className="pt-1 pb-2 text-center text-xs text-muted-foreground">
+            {latest.total} message{latest.total === 1 ? "" : "s"} to{" "}
+            <span className="font-mono">+{latest.recipient}</span>
+          </p>
+        )}
+
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetContent side="bottom" className="max-h-[85vh]">
+            {/* Keyed on open so the draft re-seeds from the live filters. */}
+            <FilterSheetBody
+              key={String(filtersOpen)}
+              current={filters}
+              onApply={(draft) => {
+                setFilters(draft);
+                setFiltersOpen(false);
+              }}
+              onReset={() => {
+                reset();
+                setFiltersOpen(false);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+      </div>
+    );
+  }
+
+  // While another page or filter loads, the last page that arrived stays on
+  // screen, dimmed, instead of flashing the placeholder.
+  const outcome = pages[page] ?? cache.last;
   const data = outcome?.kind === "ok" ? outcome.data : null;
 
   return (
