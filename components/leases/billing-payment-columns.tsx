@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import {
   DataTableColumnHeader,
+  facetFilterFn,
   RowActionButtons,
   type RowAction,
 } from "@/components/ui/data-table";
