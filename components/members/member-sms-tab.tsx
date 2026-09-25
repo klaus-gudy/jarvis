@@ -477,47 +477,106 @@ function FilterSheetBody({
               const isSelected = draft.status === option.value;
               return (
                 <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="First page"
-                  disabled={loading || filters.page <= 1}
-                  onClick={() => goTo(1)}
+                  key={option.value}
+                  role="radio"
+                  aria-checked={isSelected}
+                  variant={isSelected ? "default" : "outline"}
+                  // h-10 touch target; `bg-card` so an unselected chip isn't
+                  // just a border on the sheet's own colour.
+                  className={cn("h-10 rounded-full", !isSelected && "bg-card")}
+                  onClick={() => setDraft((d) => ({ ...d, status: option.value }))}
                 >
-                  <ChevronsLeftIcon />
+                  {option.label}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Previous page"
-                  disabled={loading || filters.page <= 1}
-                  onClick={() => goTo(filters.page - 1)}
-                >
-                  <ChevronLeftIcon />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Next page"
-                  disabled={loading || filters.page >= data.totalPages}
-                  onClick={() => goTo(filters.page + 1)}
-                >
-                  <ChevronRightIcon />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Last page"
-                  disabled={loading || filters.page >= data.totalPages}
-                  onClick={() => goTo(data.totalPages)}
-                >
-                  <ChevronsRightIcon />
-                </Button>
-              </>
-            )}
+              );
+            })}
           </div>
         </div>
-      )}
-    </Card>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Sent between</p>
+          <DateRange
+            filters={draft}
+            onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+            stacked
+          />
+        </div>
+      </div>
+
+      <SheetFooter className="flex-row gap-2 pb-6">
+        <Button variant="outline" className="flex-1" onClick={onReset}>
+          Reset
+        </Button>
+        <Button className="flex-1" onClick={() => onApply(draft)}>
+          Apply
+        </Button>
+      </SheetFooter>
+    </>
+  );
+}
+
+function Pager({
+  page,
+  totalPages,
+  disabled,
+  onPage,
+}: {
+  page: number;
+  totalPages: number;
+  disabled: boolean;
+  onPage: (page: number) => void;
+}) {
+  const buttons = [
+    { label: "First page", icon: ChevronsLeftIcon, to: 1, off: page <= 1 },
+    { label: "Previous page", icon: ChevronLeftIcon, to: page - 1, off: page <= 1 },
+    { label: "Next page", icon: ChevronRightIcon, to: page + 1, off: page >= totalPages },
+    { label: "Last page", icon: ChevronsRightIcon, to: totalPages, off: page >= totalPages },
+  ];
+  return (
+    <>
+      <span className="px-1 text-muted-foreground tabular-nums">
+        Page {page} of {totalPages}
+      </span>
+      {buttons.map(({ label, icon: Icon, to, off }) => (
+        <Button
+          key={label}
+          variant="outline"
+          size="icon-sm"
+          aria-label={label}
+          disabled={disabled || off}
+          onClick={() => onPage(to)}
+        >
+          <Icon />
+        </Button>
+      ))}
+    </>
+  );
+}
+
+function Loading() {
+  return (
+    <p className="py-10 text-center text-sm text-muted-foreground">
+      Loading SMS alerts…
+    </p>
+  );
+}
+
+function NoPhone() {
+  return (
+    <EmptyState>
+      This member has no valid phone number on file, so no SMS alerts can be
+      matched to them. You can still send one to any number.
+    </EmptyState>
+  );
+}
+
+function NoAlerts({ filtered }: { filtered: boolean }) {
+  return (
+    <EmptyState>
+      {filtered
+        ? "No SMS alerts match these filters."
+        : "No SMS alerts have been sent to this member yet."}
+    </EmptyState>
   );
 }
 
