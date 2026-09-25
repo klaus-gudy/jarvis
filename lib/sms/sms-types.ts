@@ -38,7 +38,19 @@ export type SmsAlertsPage = {
   alerts: SmsAlert[];
   total: number;
   page: number;
+  limit: number;
   totalPages: number;
 };
 
-export const SMS_PAGE_SIZE = 20;
+export const SMS_DEFAULT_PAGE_SIZE = 20;
+
+/**
+ * Three 160-character segments. A cost guard rather than a provider limit
+ * (notifier takes 1600): every segment is billed, and an alert that needs more
+ * than three belongs in a document, not a text.
+ */
+export const SMS_MAX_LENGTH = 480;
+export const SMS_SEGMENT_LENGTH = 160;
+
+/** Rows per page the tab offers; notifier's own ceiling is 100. */
+export const SMS_PAGE_SIZES = [10, 20, 50, 100] as const;
