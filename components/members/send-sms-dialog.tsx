@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -16,7 +15,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { usePhoneError } from "@/hooks/use-phone-error";
+import { normalizeTzPhone } from "@/lib/phone";
 import { SMS_MAX_LENGTH, SMS_SEGMENT_LENGTH } from "@/lib/sms/sms-types";
 
 type FieldErrors = Partial<Record<"phone" | "message", string[]>>;
