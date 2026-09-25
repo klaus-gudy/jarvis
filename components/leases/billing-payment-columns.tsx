@@ -56,7 +56,7 @@ export function buildBillingPaymentColumns({
       accessorKey: "method",
       header: "Method",
       cell: ({ row }) => row.original.method ?? "—",
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "paidAt",
