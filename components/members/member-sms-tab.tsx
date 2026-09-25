@@ -8,12 +8,15 @@ import {
   ChevronsRightIcon,
   Loader2Icon,
   MessageSquareIcon,
+  SlidersHorizontalIcon,
   XIcon,
 } from "lucide-react";
 
 import { SendSmsDialog } from "@/components/members/send-sms-dialog";
+import { SmsTimeline } from "@/components/members/sms-timeline";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { LoadMoreSentinel } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -23,10 +26,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
   SMS_DEFAULT_PAGE_SIZE,
   SMS_PAGE_SIZES,
   SMS_STATUSES,
   SMS_STATUS_LABELS,
+  type SmsAlert,
   type SmsAlertsPage,
   type SmsStatus,
 } from "@/lib/sms/sms-types";
