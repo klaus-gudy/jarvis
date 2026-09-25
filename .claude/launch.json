@@ -55,6 +55,16 @@
         "start"
       ],
       "port": 4450
+    },
+    {
+      "name": "rabbitmq",
+      "url": "http://localhost:15682",
+      "port": 15682
+    },
+    {
+      "name": "minio",
+      "url": "http://localhost:9001",
+      "port": 9001
     }
   ]
 }
