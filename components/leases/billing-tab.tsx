@@ -132,6 +132,7 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
             columnId: "method",
             placeholder: "All methods",
             label: "Method",
+            multiple: true,
             options: PAYMENT_METHOD_OPTIONS.map((option) => ({
               label: option,
               value: option,
