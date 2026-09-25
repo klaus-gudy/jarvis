@@ -45,49 +45,29 @@ import {
 } from "@/lib/sms/sms-types";
 import { cn } from "@/lib/utils";
 
-const STATUS_TONE: Record<SmsStatus, string> = {
-  PENDING: "bg-muted text-muted-foreground",
-  PROCESSING: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
-  SENT: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  DELIVERED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  FAILED: "bg-destructive/10 text-destructive",
-};
+type Filters = { status: SmsStatus | "all"; from: string; to: string };
 
-const dateTime = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Africa/Dar_es_Salaam",
-});
+const NO_FILTERS: Filters = { status: "all", from: "", to: "" };
 
-type Filters = {
-  status: SmsStatus | "all";
-  from: string;
-  to: string;
-  page: number;
-  limit: number;
-};
+/** Each batch a phone loads as the reader nears the bottom. */
+const MOBILE_BATCH = 20;
 
-const NO_FILTERS: Filters = {
-  status: "all",
-  from: "",
-  to: "",
-  page: 1,
-  limit: SMS_DEFAULT_PAGE_SIZE,
-};
+type PageData = SmsAlertsPage & { recipient: string };
 
 type Outcome =
-  | { kind: "ok"; data: SmsAlertsPage & { recipient: string } }
+  | { kind: "ok"; data: PageData }
   | { kind: "no-phone" }
   | { kind: "error"; message: string };
 
-function toQueryString(filters: Filters) {
-  const params = new URLSearchParams({
-    page: String(filters.page),
-    limit: String(filters.limit),
-  });
+type Cache = {
+  base: string;
+  pages: Record<number, Outcome>;
+  /** The page that arrived last — what desktop keeps showing, dimmed, while the next loads. */
+  last: Outcome | null;
+};
+
+function filterParams(filters: Filters) {
+  const params = new URLSearchParams();
   if (filters.status !== "all") params.set("status", filters.status);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
