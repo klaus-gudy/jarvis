@@ -1,4 +1,4 @@
-import { SMS_PAGE_SIZE, type SmsAlert, type SmsAlertsPage, type SmsStatus } from "@/lib/sms/sms-types";
+import type { SmsAlert, SmsAlertsPage, SmsStatus } from "@/lib/sms/sms-types";
 
 /**
  * Reads the SMS audit trail from `notifier` (`../notifier`,
@@ -23,6 +23,7 @@ export type SmsQuery = {
   from?: string;
   to?: string;
   page: number;
+  limit: number;
 };
 
 export type SmsLookupResult =
@@ -51,7 +52,7 @@ export async function searchSmsAlerts(query: SmsQuery): Promise<SmsLookupResult>
   const params = new URLSearchParams({
     recipient: query.recipient,
     page: String(query.page),
-    limit: String(SMS_PAGE_SIZE),
+    limit: String(query.limit),
   });
   if (query.status) params.set("status", query.status);
   if (query.from) params.set("from", query.from);
@@ -93,7 +94,62 @@ export async function searchSmsAlerts(query: SmsQuery): Promise<SmsLookupResult>
       alerts,
       total: body.meta.total,
       page: body.meta.page,
+      limit: body.meta.limit,
       totalPages: body.meta.total_pages,
     },
   };
+}
+
+/** What notifier's audit rows name as the sender for texts typed in Jarvis. */
+const SERVICE_NAME = "Jarvis";
+
+/**
+ * Longer than a search: notifier contacts the provider inside the request and
+ * may retry with backoff before it answers.
+ */
+const SEND_TIMEOUT_MS = 20_000;
+
+export type SmsSendResult =
+  | { ok: true; status: SmsStatus }
+  /** Notifier kept an audit row, marked FAILED — it shows in the list. */
+  | { ok: false; reason: "rejected"; error: string | null }
+  | { ok: false; reason: "not-configured" | "unavailable" };
+
+/**
+ * Sends one SMS through notifier's `POST /api/v1/sms/send`, synchronously, so
+ * the person who pressed Send hears whether the provider took it. Notifier
+ * writes the audit row before contacting the provider, so a refusal is still
+ * on record (502 with the row id).
+ */
+export async function sendSms(input: {
+  /** International `255…` form. */
+  recipient: string;
+  message: string;
+}): Promise<SmsSendResult> {
+  if (!NOTIFIER_API_URL) return { ok: false, reason: "not-configured" };
+
+  try {
+    const response = await fetch(`${NOTIFIER_API_URL}/api/v1/sms/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone_number: input.recipient,
+        message: input.message,
+        service_name: SERVICE_NAME,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
+    const body = await response.json().catch(() => ({}));
+
+    if (response.ok) return { ok: true, status: body.status as SmsStatus };
+    if (response.status === 502 && body.notification_id) {
+      return { ok: false, reason: "rejected", error: body.error ?? null };
+    }
+    console.error(`[sms] notifier send answered ${response.status}`, body);
+    return { ok: false, reason: "unavailable" };
+  } catch (error) {
+    console.error("[sms] notifier unreachable on send", error);
+    return { ok: false, reason: "unavailable" };
+  }
 }
