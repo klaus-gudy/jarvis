@@ -18,16 +18,21 @@ export function OrganizationDataActions({ canImport }: { canImport: boolean }) {
   const [importOpen, setImportOpen] = React.useState(false);
 
   return (
-    <div className="flex gap-2">
+    // Two equal halves when the header stacks them under its title (a narrow
+    // card), a plain pair beside the title otherwise — `stackAction` on the
+    // header decides which, by the same 28rem container query.
+    <div className="grid grid-cols-2 gap-2 @md/card-header:flex">
       <ExportButton
         url="/api/organizations/export"
         label="Export data"
         filenameFallback="organization-backup.xlsx"
         size="sm"
+        className="w-full @md/card-header:w-auto"
       />
       <Button
         variant="outline"
         size="sm"
+        className="w-full @md/card-header:w-auto"
         onClick={() => setImportOpen(true)}
         disabled={!canImport}
         title={
