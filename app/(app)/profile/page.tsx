@@ -86,6 +86,7 @@ export default async function ProfilePage() {
       <Card>
         <ProfileCardHeader
           title="Organization information"
+          stackAction
           action={
             // Owner-only: this is a full backup of the organization's data
             // (every tenant's NIDA number and emergency contacts included),
