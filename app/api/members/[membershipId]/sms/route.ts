@@ -146,7 +146,17 @@ export async function POST(
     );
   }
 
-  // Checked after validation so a typo doesn't spend the budget.
+  const recipient = membership.user.phone
+    ? toInternationalTzPhone(membership.user.phone)
+    : null;
+  if (!recipient) {
+    return Response.json(
+      { error: "This member has no valid phone number on file", reason: "no-phone" },
+      { status: 422 }
+    );
+  }
+
+  // Checked last, so a refused request doesn't spend the budget.
   for (const [key, window] of [
     [`sms:user:${auth.context.userId}`, PER_USER],
     [`sms:org:${auth.context.organizationId}`, PER_ORG],
@@ -155,8 +165,6 @@ export async function POST(
     if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds);
   }
 
-  // `tzPhoneSchema` already produced the local form, so this can't be null.
-  const recipient = toInternationalTzPhone(parsed.data.phone)!;
   const result = await sendSms({ recipient, message: parsed.data.message });
 
   if (result.ok) {
