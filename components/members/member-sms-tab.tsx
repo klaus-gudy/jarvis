@@ -174,7 +174,7 @@ export function MemberSmsTab({
   // puts "Create lease" and Documents puts "Upload document".
   const sendButton = (
     <div className="flex justify-end">
-      <SendSmsDialog membershipId={membershipId} defaultPhone={phone} onSent={onSent} />
+      <SendSmsDialog membershipId={membershipId} phone={phone} onSent={onSent} />
     </div>
   );
 
@@ -230,7 +230,7 @@ export function MemberSmsTab({
           </Button>
           <SendSmsDialog
             membershipId={membershipId}
-            defaultPhone={phone}
+            phone={phone}
             onSent={onSent}
             className="h-9 shrink-0"
           />
@@ -574,8 +574,8 @@ function Loading() {
 function NoPhone() {
   return (
     <EmptyState>
-      This member has no valid phone number on file, so no SMS alerts can be
-      matched to them. You can still send one to any number.
+      This member has no valid phone number on file, so there are no SMS
+      alerts to show and none can be sent.
     </EmptyState>
   );
 }
