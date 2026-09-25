@@ -10,14 +10,6 @@ const STATUS_TONE: Record<SmsStatus, string> = {
   FAILED: "bg-destructive/10 text-destructive",
 };
 
-const STATUS_DOT: Record<SmsStatus, string> = {
-  PENDING: "bg-muted-foreground",
-  PROCESSING: "bg-sky-500",
-  SENT: "bg-amber-500",
-  DELIVERED: "bg-emerald-500",
-  FAILED: "bg-destructive",
-};
-
 // Everything on the landlord's clock, so a text sent at 01:00 in Dar es Salaam
 // sits under that day rather than the UTC day before.
 const dayKey = new Intl.DateTimeFormat("en-CA", {
@@ -54,7 +46,8 @@ function groupByDay(alerts: SmsAlert[]) {
 
 /**
  * SMS alerts as a timeline: a day heading, then each message hanging off one
- * rail, its dot coloured by delivery status.
+ * rail. The dots are the app's gold (`--stat-accent`, the active sidebar
+ * item's colour) whatever the status — the badge on the card carries that.
  *
  * `surface` is what the timeline sits on — inside a card on desktop, straight
  * on the page on a phone — so the bubbles and the dot's ring can contrast with
@@ -91,8 +84,8 @@ export function SmsTimeline({
                   aria-hidden
                   className={cn(
                     "absolute top-3.5 -left-[25.5px] size-2.5 rounded-full ring-4",
-                    surface === "card" ? "ring-card" : "ring-background",
-                    STATUS_DOT[alert.status]
+                    "bg-stat-accent",
+                    surface === "card" ? "ring-card" : "ring-background"
                   )}
                 />
                 <div
