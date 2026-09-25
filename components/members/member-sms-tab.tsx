@@ -100,15 +100,20 @@ async function loadPage(url: string, signal: AbortSignal): Promise<Outcome> {
 
 /**
  * Every SMS sent to this member's phone number, read live from notifier
- * through `/api/members/[id]/sms`.
+ * through `/api/members/[id]/sms`, drawn as a timeline.
  *
- * Fetched on the client when the tab opens, not on the server with the rest of
- * the page: notifier is a separate service, and the member page must not wait
- * on — or fail with — it. Filtering and paging happen in notifier, so however
- * many texts a number has received, the browser only ever holds one page —
- * which is why this isn't a `DataTable` (that filters rows already in memory).
- * It borrows the same shape, though: one card, toolbar on top, count and
- * paging at the foot.
+ * Fetched on the client when the tab opens, not with the rest of the page:
+ * notifier is a separate service, and the member page must not wait on — or
+ * fail with — it. Notifier filters and pages, so however many texts a number
+ * has received the browser holds only what has been asked for — which is why
+ * this isn't a `DataTable` (that filters rows already in memory). It keeps the
+ * same shape, though: the action button above, and on a phone a sticky bar
+ * whose filters open in a bottom sheet, with more loading as you scroll.
+ *
+ * Both layouts read one cache: pages keyed by number under a `base` (filters,
+ * page size and send revision). Desktop shows one page; a phone shows pages
+ * 1..n run together. Changing the base drops the cache, and "loading" is
+ * derived from a missing page rather than set inside the effect.
  */
 export function MemberSmsTab({
   membershipId,
