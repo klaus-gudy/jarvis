@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DataTableColumnHeader,
+  facetFilterFn,
   RowActionButtons,
   type RowAction,
 } from "@/components/ui/data-table";
