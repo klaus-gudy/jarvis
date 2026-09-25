@@ -57,6 +57,7 @@ export function MemberLeasesTab({
             columnId: "status",
             placeholder: "All statuses",
             label: "Status",
+            multiple: true,
             options: [
               { label: "Active", value: "Active" },
               { label: "Upcoming", value: "Upcoming" },
