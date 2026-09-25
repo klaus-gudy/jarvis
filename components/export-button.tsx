@@ -5,6 +5,7 @@ import { DownloadIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * One button, fed a `url`, that downloads whatever `.xlsx` that endpoint
