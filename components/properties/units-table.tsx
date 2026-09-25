@@ -194,6 +194,7 @@ export function UnitsTable({
             columnId: "unitType",
             placeholder: "All types",
             label: "Unit type",
+            multiple: true,
             options: UNIT_TYPE_OPTIONS.map((type) => ({ label: type, value: type })),
           },
         ]}
