@@ -8,6 +8,7 @@ import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar"
 import { MemberLeasesTab } from "@/components/members/member-leases-tab";
 import { MemberPaymentsTab } from "@/components/members/member-payments-tab";
 import { MemberSmsTab } from "@/components/members/member-sms-tab";
+import { SignatureCard } from "@/components/members/signature-card";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -249,6 +250,15 @@ export default async function MemberDetailPage({
               </dl>
             </CardContent>
           </Card>
+
+          {/* Only the member can draw their own signature — everyone else
+              sees it read-only (the API enforces the same). */}
+          <SignatureCard
+            membershipId={member.membershipId}
+            name={member.name}
+            signatureKey={member.signatureKey}
+            isSelf={member.userId === user.id}
+          />
         </TabsContent>
 
         <TabsContent value="leases" className="pt-5">
