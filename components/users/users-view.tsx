@@ -87,8 +87,7 @@ export function UsersView({
             {row.original.roleName}
           </Badge>
         ),
-        filterFn: (row, columnId, filterValue) =>
-          row.getValue(columnId) === filterValue,
+        filterFn: facetFilterFn,
       },
       {
         accessorKey: "joinedAt",
@@ -177,8 +176,7 @@ export function UsersView({
             {row.original.roleName}
           </Badge>
         ),
-        filterFn: (row, columnId, filterValue) =>
-          row.getValue(columnId) === filterValue,
+        filterFn: facetFilterFn,
       },
       {
         accessorKey: "expiresAt",
@@ -304,6 +302,7 @@ export function UsersView({
                 columnId: "roleName",
                 placeholder: "All roles",
                 label: "Role",
+                multiple: true,
                 options: roles.map((role) => ({
                   label: role.name,
                   value: role.name,
@@ -358,6 +357,7 @@ export function UsersView({
                 columnId: "roleName",
                 placeholder: "All roles",
                 label: "Role",
+                multiple: true,
                 options: roles.map((role) => ({
                   label: role.name,
                   value: role.name,
