@@ -19,8 +19,7 @@ Multi-tenant property management app. See `plan.md` (architecture + decisions) a
 
 - `docker compose up -d` — start Postgres
 - `npm run dev` — dev server (port 3347)
-- `npm run worker` — document worker; consumes `document.stored`, files the `FileAsset` row
-- `npm run worker:leases` — lease worker; consumes `lease.renewal` / `lease.vacating` from **`automatifier`** (`../automatifier`, its own `automatifier.events` exchange) on `LEASE_LIFECYCLE_QUEUE` and renews or ends the lease. That service owns the cron; this app owns the tables
+- **Queue consumers run inside the server** (`npm run dev` / `npm start`, via `instrumentation.ts`) — there is no separate worker process. `[contract-filing]` consumes `document.stored` and files the `FileAsset` row; `[lease-lifecycle]` consumes `lease.renewal` / `lease.vacating` from **`automatifier`** (`../automatifier`, its own `automatifier.events` exchange) on `LEASE_LIFECYCLE_QUEUE` and renews or ends the lease. That service owns the cron; this app owns the tables
 - **PDF rendering lives in the separate `document-worker` service** (`../document-worker`, NestJS, port 3400). Jarvis publishes `lease.created` carrying `{ html, objectKey }`; that service renders and uploads, then announces `document.stored`. **No Playwright or Chromium in this repo** — an ESLint rule blocks importing one back in
 - `npm run backfill:contracts -- --dry-run` — queue contracts for leases missing one (`--org=`, `--limit=`)
 - `npm run templates:add-signatures -- --dry-run` — add `{{landlord/tenant_signature}}` to pre-existing templates (`--org=`). **Deploy the app first** — an older build prints unknown tokens literally
