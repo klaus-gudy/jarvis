@@ -103,7 +103,7 @@ export function buildMemberLeaseColumns(): ColumnDef<MemberLeaseRow>[] {
           {row.original.status}
         </Badge>
       ),
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "leaseAmount",
