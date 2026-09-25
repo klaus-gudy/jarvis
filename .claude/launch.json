@@ -33,6 +33,28 @@
         "start"
       ],
       "port": 3350
+    },
+    {
+      "name": "document-worker",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "../document-worker",
+        "run",
+        "start"
+      ],
+      "port": 3400
+    },
+    {
+      "name": "automatifier",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "../automatifier",
+        "run",
+        "start"
+      ],
+      "port": 4450
     }
   ]
 }
