@@ -21,7 +21,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DataTable, type RowAction } from "@/components/ui/data-table";
+import {
+  DataTable,
+  facetFilterFn,
+  type RowAction,
+} from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/format";
 import type { InvitationRow } from "@/lib/invitations";
