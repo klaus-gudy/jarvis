@@ -288,181 +288,194 @@ export function MemberSmsTab({
   const data = outcome?.kind === "ok" ? outcome.data : null;
 
   return (
-    <Card className="gap-4 p-4">
-      {/* Phone: status + Send on one row, the two dates sharing the next.
-          From `sm` up it's one inline toolbar, Send pushed to the end. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={filters.status}
-          onValueChange={(next) => update({ status: next as Filters["status"] })}
-        >
-          <SelectTrigger
-            size="sm"
-            className="min-w-0 flex-1 bg-background sm:w-36 sm:flex-none"
-            aria-label="Status"
-          >
-            <SelectValue>
-              {(selected: string) =>
-                selected === "all"
-                  ? "All statuses"
-                  : SMS_STATUS_LABELS[selected as SmsStatus]
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {SMS_STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {SMS_STATUS_LABELS[status]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="space-y-3">
+      {sendButton}
 
-        <div className="flex items-center gap-2 sm:order-last sm:ml-auto">
+      <Card className="gap-4 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={filters.status}
+            onValueChange={(next) =>
+              setFilters((current) => ({ ...current, status: next as Filters["status"] }))
+            }
+          >
+            <SelectTrigger size="sm" className="w-36 bg-background" aria-label="Status">
+              <SelectValue>
+                {(selected: string) =>
+                  selected === "all"
+                    ? "All statuses"
+                    : SMS_STATUS_LABELS[selected as SmsStatus]
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {SMS_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {SMS_STATUS_LABELS[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <DateRange
+            filters={filters}
+            onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+          />
+
+          {filtered && (
+            <Button variant="ghost" size="sm" onClick={reset}>
+              <XIcon />
+              Reset
+            </Button>
+          )}
+
           {loading && outcome && (
             <Loader2Icon
-              className="size-3.5 animate-spin text-muted-foreground"
+              className="ml-auto size-3.5 animate-spin text-muted-foreground"
               aria-label="Loading"
             />
           )}
-          <SendSmsDialog
-            membershipId={membershipId}
-            defaultPhone={phone}
-            onSent={() => setRevision((current) => current + 1)}
-          />
         </div>
 
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-          {/* No `text-sm` on these: under 16px iOS zooms the page on focus.
-              The Input's own `md:text-sm` takes over on wider screens. Labels
-              sit above on a phone so `dd/mm/yyyy` isn't clipped. */}
-          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1.5">
-            From
-            <Input
-              type="date"
-              className="h-8 w-full min-w-0 bg-background sm:h-7 sm:w-36"
-              value={filters.from}
-              max={filters.to || undefined}
-              onChange={(event) => update({ from: event.target.value })}
-            />
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1.5">
-            To
-            <Input
-              type="date"
-              className="h-8 w-full min-w-0 bg-background sm:h-7 sm:w-36"
-              value={filters.to}
-              min={filters.from || undefined}
-              onChange={(event) => update({ to: event.target.value })}
-            />
-          </label>
-        </div>
+        {!outcome ? (
+          <Loading />
+        ) : outcome.kind === "no-phone" ? (
+          <NoPhone />
+        ) : outcome.kind === "error" ? (
+          <EmptyState tone="error">{outcome.message}</EmptyState>
+        ) : data && data.alerts.length === 0 ? (
+          <NoAlerts filtered={filtered} />
+        ) : data ? (
+          <div className={cn("transition-opacity", loading && "opacity-60")}>
+            <SmsTimeline alerts={data.alerts} surface="card" />
+          </div>
+        ) : null}
 
-        {filtered && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setFilters((current) => ({ ...NO_FILTERS, limit: current.limit }))}
-          >
-            <XIcon />
-            Reset
-          </Button>
-        )}
-      </div>
+        {data && data.total > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <p className="text-muted-foreground tabular-nums">
+              {data.total > data.alerts.length
+                ? `${(data.page - 1) * data.limit + 1}–${
+                    (data.page - 1) * data.limit + data.alerts.length
+                  } of `
+                : ""}
+              {data.total} message{data.total === 1 ? "" : "s"} to{" "}
+              <span className="font-mono">+{data.recipient}</span>
+            </p>
 
-      {!outcome && (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          Loading SMS alerts…
-        </p>
-      )}
+            <div className="flex items-center gap-2">
+              <Select value={String(pageSize)} onValueChange={(next) => setPageSize(Number(next))}>
+                <SelectTrigger size="sm" className="w-17 bg-background" aria-label="Rows per page">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SMS_PAGE_SIZES.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-      {outcome?.kind === "no-phone" && (
-        <EmptyState>
-          This member has no valid phone number on file, so no SMS alerts can be
-          matched to them. You can still send one to any number.
-        </EmptyState>
-      )}
-
-      {outcome?.kind === "error" && (
-        <EmptyState tone="error">{outcome.message}</EmptyState>
-      )}
-
-      {data && data.alerts.length === 0 && (
-        <EmptyState>
-          {filtered
-            ? "No SMS alerts match these filters."
-            : "No SMS alerts have been sent to this member yet."}
-        </EmptyState>
-      )}
-
-      {data && data.alerts.length > 0 && (
-        <ul
-          className={cn(
-            "divide-y rounded-xl bg-background/60 ring-1 ring-foreground/10 transition-opacity",
-            loading && "opacity-60"
-          )}
-        >
-          {data.alerts.map((alert) => (
-            <li key={alert.id} className="space-y-1.5 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 font-medium",
-                    STATUS_TONE[alert.status]
-                  )}
-                >
-                  {SMS_STATUS_LABELS[alert.status] ?? alert.status}
-                </span>
-                <time dateTime={alert.createdAt}>
-                  {dateTime.format(new Date(alert.createdAt))}
-                </time>
-                <span aria-hidden>·</span>
-                <span>{alert.serviceName}</span>
-              </div>
-              <p className="text-sm whitespace-pre-line">{alert.message}</p>
-              {alert.status === "FAILED" && alert.errorMessage && (
-                <p className="text-xs text-destructive">{alert.errorMessage}</p>
+              {data.totalPages > 1 && (
+                <Pager
+                  page={data.page}
+                  totalPages={data.totalPages}
+                  disabled={loading}
+                  onPage={(next) => setDesktopPage({ base, page: next })}
+                />
               )}
-            </li>
-          ))}
-        </ul>
-      )}
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
 
-      {data && data.total > 0 && (
-        <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-muted-foreground tabular-nums">
-            {data.total > data.alerts.length
-              ? `${(data.page - 1) * data.limit + 1}–${
-                  (data.page - 1) * data.limit + data.alerts.length
-                } of `
-              : ""}
-            {data.total} message{data.total === 1 ? "" : "s"} to{" "}
-            <span className="font-mono">+{data.recipient}</span>
-          </p>
+function DateRange({
+  filters,
+  onChange,
+  stacked = false,
+}: {
+  filters: Filters;
+  onChange: (patch: Partial<Filters>) => void;
+  /** Labels above, two columns — the sheet's layout. */
+  stacked?: boolean;
+}) {
+  // No `text-sm` on the inputs: under 16px iOS zooms the page on focus. The
+  // Input's own `md:text-sm` takes over on wider screens.
+  const label = stacked
+    ? "flex min-w-0 flex-col gap-1.5 text-xs text-muted-foreground"
+    : "flex items-center gap-1.5 text-xs text-muted-foreground";
+  const input = stacked ? "h-10 w-full min-w-0 bg-card" : "h-7 w-36 bg-background";
 
-          <div className="flex items-center gap-2">
-            <Select
-              value={String(filters.limit)}
-              onValueChange={(next) => update({ limit: Number(next) })}
-            >
-              <SelectTrigger size="sm" className="w-17 bg-background" aria-label="Rows per page">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SMS_PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+  return (
+    <div className={stacked ? "grid grid-cols-2 gap-3" : "contents"}>
+      <label className={label}>
+        From
+        <Input
+          type="date"
+          className={input}
+          value={filters.from}
+          max={filters.to || undefined}
+          onChange={(event) => onChange({ from: event.target.value })}
+        />
+      </label>
+      <label className={label}>
+        To
+        <Input
+          type="date"
+          className={input}
+          value={filters.to}
+          min={filters.from || undefined}
+          onChange={(event) => onChange({ to: event.target.value })}
+        />
+      </label>
+    </div>
+  );
+}
 
-            {data.totalPages > 1 && (
-              <>
-                <span className="mr-auto px-1 text-muted-foreground tabular-nums sm:mr-0">
-                  Page {data.page} of {data.totalPages}
-                </span>
+/**
+ * The phone's filter sheet: a draft applied in one go, chips for the status —
+ * the same as `DataTable`'s sheet, where a select popup has nowhere to open
+ * from a sheet pinned to the bottom of the screen.
+ */
+function FilterSheetBody({
+  current,
+  onApply,
+  onReset,
+}: {
+  current: Filters;
+  onApply: (draft: Filters) => void;
+  onReset: () => void;
+}) {
+  const [draft, setDraft] = React.useState<Filters>(current);
+  const count = activeFilterCount(draft);
+  const options: { label: string; value: Filters["status"] }[] = [
+    { label: "All statuses", value: "all" },
+    ...SMS_STATUSES.map((status) => ({ label: SMS_STATUS_LABELS[status], value: status })),
+  ];
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>Filters</SheetTitle>
+        <SheetDescription>
+          {count === 0
+            ? "Narrow the SMS alerts down."
+            : `${count} filter${count === 1 ? "" : "s"} selected.`}
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-2">
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Status</p>
+          <div role="radiogroup" aria-label="Status" className="flex flex-wrap gap-2">
+            {options.map((option) => {
+              const isSelected = draft.status === option.value;
+              return (
                 <Button
                   variant="outline"
                   size="icon-sm"
