@@ -85,7 +85,7 @@ async function main() {
   }
 
   console.log(
-    `[backfill] queued ${queued}/${missing.length} — run \`npm run worker\` to render them`
+    `[backfill] queued ${queued}/${missing.length} — the document-worker service renders them and the app files them`
   );
 }
 

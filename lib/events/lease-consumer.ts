@@ -22,11 +22,10 @@ import {
  * one owns the tables and decides *what that means* — `lease.renewal` writes
  * the successor lease, `lease.vacating` closes the tenancy.
  *
- * A separate process from `document-worker` on purpose: one is the reply to a
- * PDF this app asked for, the other is another service's clock, and a bad
- * message in either should not stop the other. Run it alongside:
- *
- *   npm run worker:leases
+ * Its own connection and channel, apart from contract filing, on purpose: one
+ * is the reply to a PDF this app asked for, the other is another service's
+ * clock, and a bad message in either should not stop the other. Started with
+ * the server by `instrumentation.ts`, like every consumer here.
  */
 
 /** One lease at a time — each message is a write, and ordering costs nothing here. */
@@ -78,11 +77,11 @@ async function attach(): Promise<StopConsumer> {
   });
 
   model.on("disconnect", (error) =>
-    console.error("[lease-worker] RabbitMQ disconnected:", describeError(error))
+    console.error("[lease-lifecycle] RabbitMQ disconnected:", describeError(error))
   );
   model.on("reconnect-scheduled", ({ attempt, delay }) =>
     console.warn(
-      `[lease-worker] RabbitMQ reconnect attempt ${attempt} in ${delay}ms`
+      `[lease-lifecycle] RabbitMQ reconnect attempt ${attempt} in ${delay}ms`
     )
   );
 
@@ -93,7 +92,7 @@ async function attach(): Promise<StopConsumer> {
   // exchange, and a binding that silently matches nothing looks exactly like a
   // quiet broker, so the startup line should be enough to tell them apart.
   console.log(
-    `[lease-worker] consuming ${LEASE_LIFECYCLE_QUEUE} on "${AUTOMATIFIER_EXCHANGE}" ` +
+    `[lease-lifecycle] consuming ${LEASE_LIFECYCLE_QUEUE} on "${AUTOMATIFIER_EXCHANGE}" ` +
       `for "${RENEWAL_KEY}" and "${VACATING_KEY}"`
   );
 
@@ -119,14 +118,14 @@ async function attach(): Promise<StopConsumer> {
     } catch {
       // Unparseable will never become parseable. Straight to the DLQ, where a
       // person can look at it, rather than round and round the retry loop.
-      console.error("[lease-worker] dropping unparseable message");
+      console.error("[lease-lifecycle] dropping unparseable message");
       channel.nack(message, false, false);
       return;
     }
 
     const leaseId = leaseIdOf(event);
     if (!leaseId) {
-      console.error(`[lease-worker] dropping ${routingKey} with no lease id`);
+      console.error(`[lease-lifecycle] dropping ${routingKey} with no lease id`);
       channel.nack(message, false, false);
       return;
     }
@@ -142,7 +141,7 @@ async function attach(): Promise<StopConsumer> {
         // Bound to two keys, so this means the binding and this file disagree.
         // Acked rather than dead-lettered: it is not a broken message, it is a
         // message for somebody else.
-        console.warn(`[lease-worker] ignoring unexpected key "${routingKey}"`);
+        console.warn(`[lease-lifecycle] ignoring unexpected key "${routingKey}"`);
         channel.ack(message);
         return;
       }
@@ -152,19 +151,19 @@ async function attach(): Promise<StopConsumer> {
       }
 
       if (outcome.action === "drop") {
-        console.error(`[lease-worker] ${routingKey}: ${outcome.detail}`);
+        console.error(`[lease-lifecycle] ${routingKey}: ${outcome.detail}`);
         channel.nack(message, false, false);
         return;
       }
 
-      console.log(`[lease-worker] ${routingKey}: ${outcome.detail}`);
+      console.log(`[lease-lifecycle] ${routingKey}: ${outcome.detail}`);
       channel.ack(message);
     } catch (error) {
       const reason = describeError(error);
 
       if (attempts >= MAX_ATTEMPTS) {
         console.error(
-          `[lease-worker] ${routingKey} for lease ${leaseId} failed ${attempts}x, dead-lettering: ${reason}`
+          `[lease-lifecycle] ${routingKey} for lease ${leaseId} failed ${attempts}x, dead-lettering: ${reason}`
         );
         channel.nack(message, false, false);
         return;
@@ -177,7 +176,7 @@ async function attach(): Promise<StopConsumer> {
        * the attempt count is what makes the retry terminate.
        */
       console.warn(
-        `[lease-worker] ${routingKey} for lease ${leaseId} failed (attempt ${attempts}), retrying: ${reason}`
+        `[lease-lifecycle] ${routingKey} for lease ${leaseId} failed (attempt ${attempts}), retrying: ${reason}`
       );
       channel.sendToQueue(LEASE_LIFECYCLE_QUEUE, message.content, {
         ...message.properties,
