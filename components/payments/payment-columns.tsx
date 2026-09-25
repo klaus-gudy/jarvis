@@ -6,6 +6,7 @@ import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
 import {
   DataTableColumnHeader,
+  facetFilterFn,
   RowActionButtons,
   type RowAction,
 } from "@/components/ui/data-table";
@@ -68,7 +69,7 @@ export function buildPaymentColumns({
           <span className="text-muted-foreground"> / {row.original.unitLabel}</span>
         </span>
       ),
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       id: "invoiceAmount",
@@ -99,7 +100,7 @@ export function buildPaymentColumns({
       accessorKey: "method",
       header: "Method",
       cell: ({ row }) => row.original.method ?? "—",
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       id: "invoiceStatus",
@@ -113,7 +114,7 @@ export function buildPaymentColumns({
           {row.original.invoiceStatus}
         </Badge>
       ),
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "amount",
