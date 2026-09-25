@@ -32,6 +32,8 @@ export type Profile = {
   /** Payment accounts are the owner's, so only an Owner manages them. */
   isOwner: boolean;
   membershipId: string | null;
+  /** Object key of the user's own drawn signature in this organization. */
+  signatureKey: string | null;
   paymentAccounts: PaymentAccountRow[];
 };
 
@@ -41,6 +43,7 @@ const EMPTY: Profile = {
   canSignIn: false,
   isOwner: false,
   membershipId: null,
+  signatureKey: null,
   paymentAccounts: [],
 };
 
@@ -70,6 +73,7 @@ export async function getProfile(
             id: true,
             createdAt: true,
             role: { select: { name: true } },
+            profile: { select: { signatureKey: true } },
             organization: {
               select: {
                 id: true,
@@ -119,6 +123,7 @@ export async function getProfile(
     canSignIn,
     isOwner,
     membershipId: membership.id,
+    signatureKey: membership.profile?.signatureKey ?? null,
     paymentAccounts,
   };
 }
