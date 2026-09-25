@@ -23,6 +23,7 @@ Multi-tenant property management app. See `plan.md` (architecture + decisions) a
 - `npm run worker:leases` — lease worker; consumes `lease.renewal` / `lease.vacating` from **`automatifier`** (`../automatifier`, its own `automatifier.events` exchange) on `LEASE_LIFECYCLE_QUEUE` and renews or ends the lease. That service owns the cron; this app owns the tables
 - **PDF rendering lives in the separate `document-worker` service** (`../document-worker`, NestJS, port 3400). Jarvis publishes `lease.created` carrying `{ html, objectKey }`; that service renders and uploads, then announces `document.stored`. **No Playwright or Chromium in this repo** — an ESLint rule blocks importing one back in
 - `npm run backfill:contracts -- --dry-run` — queue contracts for leases missing one (`--org=`, `--limit=`)
+- `npm run templates:add-signatures -- --dry-run` — add `{{landlord/tenant_signature}}` to pre-existing templates (`--org=`). **Deploy the app first** — an older build prints unknown tokens literally
 - `npx prisma migrate dev --name <name>` — migrate; `npx prisma generate` — regenerate client
 - `npx prisma studio --port 5555 --browser none` — data browser
 
