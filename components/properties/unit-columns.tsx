@@ -88,7 +88,7 @@ export function buildUnitColumns({
           </div>
         );
       },
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "status",
@@ -101,7 +101,7 @@ export function buildUnitColumns({
           {row.original.status}
         </Badge>
       ),
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "tenantName",
