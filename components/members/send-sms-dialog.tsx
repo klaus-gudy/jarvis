@@ -39,7 +39,7 @@ export function SendSmsDialog({
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button onClick={() => setOpen(true)}>
         <SendIcon />
         Send SMS
       </Button>
