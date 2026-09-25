@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { Badge } from "@/components/ui/badge";
-import { DataTableColumnHeader } from "@/components/ui/data-table";
+import { DataTableColumnHeader, facetFilterFn } from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import type { LeaseExpiry, LeaseStatus } from "@/lib/leases";
 
