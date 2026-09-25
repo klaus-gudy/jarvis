@@ -114,10 +114,10 @@ export async function GET(
 }
 
 /**
- * Sends one SMS from the member page. The number is whatever was typed —
- * usually the member's own, prefilled — but a text only shows in a member's
- * SMS alerts tab when it went to that member's number, because notifier
- * records a phone, not a member.
+ * Sends one SMS to this member's own phone number — the one on file, never
+ * one from the request, so the member page can't be used to text strangers.
+ * That also keeps every text sent here in this member's SMS alerts, since
+ * notifier files messages by phone.
  */
 export async function POST(
   request: Request,
