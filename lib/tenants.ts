@@ -148,6 +148,8 @@ export type TenantDetail = {
   canSignIn: boolean;
   status: TenantStatus;
   profile: MemberProfileFields;
+  /** Object key of the member's drawn signature, null until they sign. */
+  signatureKey: string | null;
   leases: {
     id: string;
     reference: string;
@@ -213,6 +215,7 @@ export async function getTenantDetail(
           emergencyContactRelation: membership.profile.emergencyContactRelation,
         }
       : EMPTY_PROFILE,
+    signatureKey: membership.profile?.signatureKey ?? null,
     leases: membership.leases.map((lease) => ({
       id: lease.id,
       reference: leaseReference(lease.id),
