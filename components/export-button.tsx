@@ -17,11 +17,13 @@ export function ExportButton({
   label = "Export",
   filenameFallback = "export.xlsx",
   size,
+  className,
 }: {
   url: string;
   label?: string;
   filenameFallback?: string;
   size?: React.ComponentProps<typeof Button>["size"];
+  className?: string;
 }) {
   const [downloading, setDownloading] = React.useState(false);
 
