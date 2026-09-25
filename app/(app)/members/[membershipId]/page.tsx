@@ -7,6 +7,7 @@ import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
 import { MemberLeasesTab } from "@/components/members/member-leases-tab";
 import { MemberPaymentsTab } from "@/components/members/member-payments-tab";
+import { MemberSmsTab } from "@/components/members/member-sms-tab";
 import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,6 +172,9 @@ export default async function MemberDetailPage({
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="sms" className="flex-none px-3">
+            SMS alerts
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5 pt-5">
@@ -292,6 +296,12 @@ export default async function MemberDetailPage({
               createdAt: document.createdAt.toISOString(),
             }))}
           />
+        </TabsContent>
+
+        <TabsContent value="sms" className="pt-5">
+          {/* Mounted only while open (base-ui unmounts inactive panels), so
+              notifier is asked only when someone looks. */}
+          <MemberSmsTab membershipId={member.membershipId} />
         </TabsContent>
       </Tabs>
     </div>
