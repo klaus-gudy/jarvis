@@ -18,8 +18,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { normalizeTzPhone } from "@/lib/phone";
 import { SMS_MAX_LENGTH, SMS_SEGMENT_LENGTH } from "@/lib/sms/sms-types";
 
-type FieldErrors = Partial<Record<"phone" | "message", string[]>>;
-
 /**
  * Types and sends one SMS through notifier. The number starts as the member's
  * own; it can be changed, but a text to another number won't appear in this
