@@ -10,6 +10,7 @@ import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar"
 import { AccountSettingsCard } from "@/components/profile/account-settings-card";
 import { OrganizationDataActions } from "@/components/profile/organization-data-actions";
 import { PaymentAccountsCard } from "@/components/profile/payment-accounts-card";
+import { SignatureCard } from "@/components/members/signature-card";
 import { PersonalInfoCard } from "@/components/profile/personal-info-card";
 import { ProfileCardHeader } from "@/components/profile/profile-card-header";
 import { ProfileField } from "@/components/profile/profile-field";
@@ -70,6 +71,17 @@ export default async function ProfilePage() {
       </Card>
 
       <PersonalInfoCard personal={personal} membershipId={membershipId} />
+
+      {/* A signature belongs to a membership, so an account with no
+          organization has nowhere to keep one. */}
+      {membershipId && (
+        <SignatureCard
+          membershipId={membershipId}
+          name={name}
+          signatureKey={profile.signatureKey}
+          isSelf
+        />
+      )}
 
       <Card>
         <ProfileCardHeader
