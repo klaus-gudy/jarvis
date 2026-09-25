@@ -28,21 +28,28 @@ import { SMS_MAX_LENGTH, SMS_SEGMENT_LENGTH } from "@/lib/sms/sms-types";
  */
 export function SendSmsDialog({
   membershipId,
-  defaultPhone,
+  phone,
   onSent,
   className,
 }: {
   membershipId: string;
-  defaultPhone: string | null;
+  /** The member's phone as stored. */
+  phone: string | null;
   onSent: () => void;
   /** For the trigger — the phone toolbar sizes it to sit beside Filters. */
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const number = phone ? normalizeTzPhone(phone) : null;
 
   return (
     <>
-      <Button className={className} onClick={() => setOpen(true)}>
+      <Button
+        className={className}
+        onClick={() => setOpen(true)}
+        disabled={!number}
+        title={number ? undefined : "This member has no valid phone number on file"}
+      >
         <SendIcon />
         Send SMS
       </Button>
@@ -53,7 +60,7 @@ export function SendSmsDialog({
         <DialogContent className="sm:max-w-md">
           <SendSmsForm
             membershipId={membershipId}
-            defaultPhone={defaultPhone}
+            phone={number ?? ""}
             onClose={() => setOpen(false)}
             onSent={onSent}
           />
@@ -65,21 +72,19 @@ export function SendSmsDialog({
 
 function SendSmsForm({
   membershipId,
-  defaultPhone,
+  phone,
   onClose,
   onSent,
 }: {
   membershipId: string;
-  defaultPhone: string | null;
+  phone: string;
   onClose: () => void;
   onSent: () => void;
 }) {
-  const [phone, setPhone] = React.useState(defaultPhone ?? "");
   const [message, setMessage] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
-  const phoneError = usePhoneError(phone);
+  const [messageErrors, setMessageErrors] = React.useState<string[]>([]);
 
   const length = message.trim().length;
   const segments = Math.max(1, Math.ceil(length / SMS_SEGMENT_LENGTH));
@@ -88,12 +93,12 @@ function SendSmsForm({
     event.preventDefault();
     setPending(true);
     setFormError(null);
-    setFieldErrors({});
+    setMessageErrors([]);
 
     const response = await fetch(`/api/members/${membershipId}/sms`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, message }),
+      body: JSON.stringify({ message }),
     }).catch(() => null);
     const data = await response?.json().catch(() => null);
 
@@ -106,7 +111,7 @@ function SendSmsForm({
       return;
     }
 
-    setFieldErrors(data?.issues ?? {});
+    setMessageErrors(data?.issues?.message ?? []);
     const error = data?.issues
       ? null
       : [data?.error ?? "Couldn't send the SMS", data?.detail]
@@ -117,16 +122,10 @@ function SendSmsForm({
     setPending(false);
   }
 
-  const phoneErrors = fieldErrors.phone ?? (phoneError ? [phoneError] : []);
-
   return (
     <form onSubmit={handleSubmit}>
       <DialogHeader>
         <DialogTitle>Send SMS</DialogTitle>
-        <DialogDescription>
-          Sent straight away through the SMS provider. Texts to this
-          member&apos;s own number appear in their SMS alerts.
-        </DialogDescription>
       </DialogHeader>
 
       <div className="grid gap-4 py-4">
@@ -135,13 +134,12 @@ function SendSmsForm({
           <Input
             id="sms-phone"
             type="tel"
-            inputMode="tel"
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            placeholder="0712 345 678"
-            required
+            readOnly
+            // Not `disabled`: a disabled field drops out of the accessibility
+            // tree's focus order and can't be selected to copy.
+            className="bg-muted text-muted-foreground focus-visible:ring-0"
           />
-          <FieldError errors={phoneErrors.map((m) => ({ message: m }))} />
         </Field>
 
         <Field>
@@ -164,7 +162,7 @@ function SendSmsForm({
             </span>
           </FieldDescription>
           <FieldError
-            errors={(fieldErrors.message ?? []).map((m) => ({ message: m }))}
+            errors={messageErrors.map((m) => ({ message: m }))}
           />
         </Field>
       </div>
