@@ -164,6 +164,7 @@ export function TenantsTable({
             columnId: "propertyName",
             placeholder: "All properties",
             label: "Property",
+            multiple: true,
             // From the tenants on screen, so the list can't offer a property
             // with nobody in it. Tenants with no unit yet carry null and are
             // simply excluded once a property is chosen.
@@ -181,6 +182,7 @@ export function TenantsTable({
             columnId: "status",
             placeholder: "All statuses",
             label: "Status",
+            multiple: true,
             options: [
               { label: "Active", value: "Active" },
               { label: "Upcoming", value: "Upcoming" },
