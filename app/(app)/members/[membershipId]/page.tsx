@@ -301,7 +301,10 @@ export default async function MemberDetailPage({
         <TabsContent value="sms" className="pt-5">
           {/* Mounted only while open (base-ui unmounts inactive panels), so
               notifier is asked only when someone looks. */}
-          <MemberSmsTab membershipId={member.membershipId} />
+          <MemberSmsTab
+            membershipId={member.membershipId}
+            phone={member.phone}
+          />
         </TabsContent>
       </Tabs>
     </div>
