@@ -68,6 +68,10 @@ const RULES = `
   .jarvis-doc .signatures { margin-top: 40px; width: 100%; }
   .jarvis-doc .signatures td { width: 50%; padding: 10px 16px 28px 0; vertical-align: top; border: none; }
   .jarvis-doc .rule { border-bottom: 1px solid #333; height: 26px; margin-bottom: 4px; }
+  /* Where a drawn signature goes: the image, or — none on file — the dotted
+     blank line sitting where the signing rule would be. */
+  .jarvis-doc .signature-slot { height: 52px; display: flex; align-items: flex-end; margin-bottom: 4px; }
+  .jarvis-doc .jarvis-signature { display: block; height: 48px; max-width: 220px; object-fit: contain; margin-bottom: -6px; }
 `;
 
 /** The stylesheet body, for a `<style>` tag in the editor or the preview iframe. */
