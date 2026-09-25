@@ -16,18 +16,32 @@ const OWNER_ROLE_NAME = "Owner";
  * decide what to say instead.
  */
 export const getOrganizationOwner = cache(async (organizationId: string) => {
-  const ownerMembership = await prisma.membership.findFirst({
+  return (await findOwnerMembership(organizationId))?.user ?? null;
+});
+
+/**
+ * The owner's drawn signature, as an object key — the contract's
+ * `{{landlord_signature}}`. Shares `getOrganizationOwner`'s cached query.
+ */
+export const getOrganizationOwnerSignatureKey = cache(
+  async (organizationId: string) =>
+    (await findOwnerMembership(organizationId))?.profile?.signatureKey ?? null
+);
+
+const findOwnerMembership = cache((organizationId: string) =>
+  prisma.membership.findFirst({
     where: {
       organizationId,
       // Role names are free text and editable, so match loosely.
       role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
     },
     orderBy: { createdAt: "asc" },
-    include: { user: { select: { name: true, email: true, phone: true } } },
-  });
-
-  return ownerMembership?.user ?? null;
-});
+    include: {
+      user: { select: { name: true, email: true, phone: true } },
+      profile: { select: { signatureKey: true } },
+    },
+  })
+);
 
 /**
  * Properties don't store an owner — it is whoever holds the Owner role in the
