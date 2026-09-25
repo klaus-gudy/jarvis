@@ -15,8 +15,12 @@ import {
   DEFAULT_TEMPLATE_NAME,
   starterBody,
 } from "@/lib/lease-template-starters";
-import { getOrganizationOwner } from "@/lib/organizations";
+import {
+  getOrganizationOwner,
+  getOrganizationOwnerSignatureKey,
+} from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
+import { signatureDataUri } from "@/lib/signatures";
 
 export type LeaseTemplateRow = {
   id: string;
@@ -277,6 +281,15 @@ export async function buildLeaseContext(
 
   const { user, profile } = lease.membership;
   const { unit } = lease;
+
+  // Inlined as data URIs: document-worker refuses every remote URL, so an
+  // image the PDF can print has to travel inside the HTML. Each is a few KB.
+  const [tenantSignature, landlordSignature] = await Promise.all([
+    signatureDataUri(organizationId, profile?.signatureKey),
+    getOrganizationOwnerSignatureKey(organizationId).then((key) =>
+      signatureDataUri(organizationId, key)
+    ),
+  ]);
   const { property } = unit;
 
   return {
@@ -287,6 +300,7 @@ export async function buildLeaseContext(
       name: owner?.name ?? null,
       email: owner?.email ?? null,
       phone: owner?.phone ?? null,
+      signature: landlordSignature,
     },
     tenant: {
       // Falls back the same way every other surface does, so a tenant with no
@@ -299,6 +313,7 @@ export async function buildLeaseContext(
       occupation: profile?.occupation ?? null,
       nextOfKin: profile?.emergencyContactName ?? null,
       nextOfKinPhone: profile?.emergencyContactPhone ?? null,
+      signature: tenantSignature,
     },
     property: {
       name: property.name,
