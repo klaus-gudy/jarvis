@@ -58,7 +58,7 @@ export function ExportButton({
   return (
     <Button
       variant="outline"
-      className="bg-card"
+      className={cn("bg-card", className)}
       size={size}
       onClick={handleExport}
       disabled={downloading}
