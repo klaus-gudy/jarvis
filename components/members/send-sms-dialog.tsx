@@ -30,16 +30,19 @@ export function SendSmsDialog({
   membershipId,
   defaultPhone,
   onSent,
+  className,
 }: {
   membershipId: string;
   defaultPhone: string | null;
   onSent: () => void;
+  /** For the trigger — the phone toolbar sizes it to sit beside Filters. */
+  className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button className={className} onClick={() => setOpen(true)}>
         <SendIcon />
         Send SMS
       </Button>
