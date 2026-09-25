@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { requireActiveOrg } from "@/lib/api-auth";
-import { toInternationalTzPhone, tzPhoneSchema } from "@/lib/phone";
+import { toInternationalTzPhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { searchSmsAlerts, sendSms } from "@/lib/sms/notifier";
