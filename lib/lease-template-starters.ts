@@ -129,11 +129,11 @@ const ENGLISH = `<div class="contract">
   <table class="signatures">
     <tr>
       <td>
-        <div class="rule"></div>
+        <div class="signature-slot">{{landlord_signature}}</div>
         <strong>LANDLORD</strong><br />{{landlord_name}}
       </td>
       <td>
-        <div class="rule"></div>
+        <div class="signature-slot">{{tenant_signature}}</div>
         <strong>TENANT</strong><br />{{tenant_name}}
       </td>
     </tr>
@@ -264,11 +264,11 @@ const SWAHILI = `<div class="contract">
   <table class="signatures">
     <tr>
       <td>
-        <div class="rule"></div>
+        <div class="signature-slot">{{landlord_signature}}</div>
         <strong>MPANGISHAJI</strong><br />{{landlord_name}}
       </td>
       <td>
-        <div class="rule"></div>
+        <div class="signature-slot">{{tenant_signature}}</div>
         <strong>MPANGAJI</strong><br />{{tenant_name}}
       </td>
     </tr>
