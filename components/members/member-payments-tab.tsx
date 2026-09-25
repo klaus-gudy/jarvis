@@ -60,6 +60,7 @@ export function MemberPaymentsTab({
           columnId: "propertyName",
           placeholder: "All properties",
           label: "Property",
+          multiple: true,
           // Derived from the rows on screen, so the filter can never offer a
           // property this member has never paid against.
           options: [...new Set(payments.map((payment) => payment.propertyName))]
@@ -70,6 +71,7 @@ export function MemberPaymentsTab({
           columnId: "invoiceStatus",
           placeholder: "All invoice statuses",
           label: "Invoice status",
+          multiple: true,
           options: INVOICE_STATUSES.map((status) => ({
             label: status,
             value: status,
@@ -79,6 +81,7 @@ export function MemberPaymentsTab({
           columnId: "method",
           placeholder: "All methods",
           label: "Method",
+          multiple: true,
           options: PAYMENT_METHOD_OPTIONS.map((option) => ({
             label: option,
             value: option,
