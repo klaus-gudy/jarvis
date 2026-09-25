@@ -34,6 +34,8 @@ export type LeaseContractContext = {
     name: string | null;
     email: string | null;
     phone: string | null;
+    /** `data:image/png;base64,…` of the owner's drawn signature. */
+    signature: string | null;
   };
   tenant: {
     name: string | null;
@@ -44,6 +46,8 @@ export type LeaseContractContext = {
     occupation: string | null;
     nextOfKin: string | null;
     nextOfKinPhone: string | null;
+    /** `data:image/png;base64,…` of the tenant's drawn signature. */
+    signature: string | null;
   };
   property: {
     name: string | null;
@@ -73,6 +77,11 @@ export type Placeholder = {
   group: PlaceholderGroup;
   /** Stands in for the real value while previewing an unsaved template. */
   example: string;
+  /**
+   * `signature` renders its value as an image rather than text — see
+   * `renderLeaseTemplate`. Text when left out.
+   */
+  kind?: "text" | "signature";
   resolve: (context: LeaseContractContext) => string | null;
 };
 
@@ -122,6 +131,14 @@ export const LEASE_PLACEHOLDERS: Placeholder[] = [
     group: "Landlord",
     example: "+255712345678",
     resolve: (context) => context.landlord.phone,
+  },
+  {
+    key: "landlord_signature",
+    label: "Owner signature",
+    group: "Landlord",
+    example: "[Owner signature]",
+    kind: "signature",
+    resolve: (context) => context.landlord.signature,
   },
   {
     key: "tenant_name",
@@ -178,6 +195,14 @@ export const LEASE_PLACEHOLDERS: Placeholder[] = [
     group: "Tenant",
     example: "+255768990011",
     resolve: (context) => context.tenant.nextOfKinPhone,
+  },
+  {
+    key: "tenant_signature",
+    label: "Tenant signature",
+    group: "Tenant",
+    example: "[Tenant signature]",
+    kind: "signature",
+    resolve: (context) => context.tenant.signature,
   },
   {
     key: "property_name",
@@ -301,6 +326,14 @@ const PLACEHOLDERS_BY_KEY = new Map(
 
 /** `{{ key }}` — whitespace inside the braces is tolerated, case is not. */
 const TOKEN_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+
+/**
+ * The only shape a signature value may take to become an `<img>`: an inlined
+ * PNG, nothing else. The image is built *after* the body is sanitized, so this
+ * test is what stands between a value and raw HTML — base64 has no quote, no
+ * angle bracket, no space, so a match cannot break out of the attribute.
+ */
+const SIGNATURE_DATA_URI = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/;
 
 /** What a token with nothing behind it renders as: a line to fill in by hand. */
 export const BLANK_VALUE = "……………………";
@@ -468,13 +501,17 @@ export function renderLeaseTemplate(
           : escaped;
       }
 
+      const placeholder = PLACEHOLDERS_BY_KEY.get(key)!;
       const value = values[key];
       const blank = value === null || value === undefined || value === "";
       if (blank) missing.add(key);
-      const escaped = escapeHtml(blank ? BLANK_VALUE : value);
-      return decorate
-        ? decorate({ key, html: escaped, known: true, blank })
-        : escaped;
+      // A signature is an image only when it really is an inlined PNG. Any
+      // other value — the preview's "[Owner signature]" — stays escaped text.
+      const html =
+        placeholder.kind === "signature" && !blank && SIGNATURE_DATA_URI.test(value)
+          ? `<img class="jarvis-signature" alt="${escapeHtml(placeholder.label)}" src="${value}" />`
+          : escapeHtml(blank ? BLANK_VALUE : value);
+      return decorate ? decorate({ key, html, known: true, blank }) : html;
     }
   );
 
