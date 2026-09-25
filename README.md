@@ -165,8 +165,6 @@ Open **[http://localhost:3347](http://localhost:3347)**, register, and the accou
 | `npm run build` | Production build. |
 | `npm start` | `prisma migrate deploy`, then `next start`. |
 | `npm run lint` | ESLint. |
-| `npm run worker` | Run the document consumer on its own — consumes `document.stored` and files the `FileAsset` row. Handy for watching one consumer's log in isolation. |
-| `npm run worker:leases` | Run the lease consumer on its own — renews or ends leases on `lease.renewal` / `lease.vacating` from `automatifier`. |
 | `npm run backfill:contracts` | Queue contracts for leases that have none. Flags: `--dry-run`, `--org=<id>`, `--limit=<n>`. |
 | `npm run studio:local` | Prisma Studio on port 5555. |
 | `npx prisma migrate dev --name <name>` | Create and apply a migration. |
