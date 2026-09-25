@@ -170,8 +170,8 @@ export function MemberSmsTab({
   const filtered = activeFilterCount(filters) > 0;
   const reset = () => setFilters(NO_FILTERS);
 
-  // Top right, above the content, full size — where the Lease tab puts
-  // "Create lease" and Documents puts "Upload document".
+  // Desktop: top right, above the content, full size — where the Lease tab
+  // puts "Create lease" and Documents puts "Upload document".
   const sendButton = (
     <div className="flex justify-end">
       <SendSmsDialog membershipId={membershipId} defaultPhone={phone} onSent={onSent} />
@@ -205,10 +205,9 @@ export function MemberSmsTab({
 
     return (
       <div className="space-y-3">
-        {sendButton}
-
         {/* Sticky, bled to the gutter with `-mx-4 px-4`, as `DataTable`'s
-            mobile toolbar is. There's no search, so the count takes its place. */}
+            mobile toolbar is. There's no search, so the count takes its place,
+            and Send SMS joins Filters here rather than costing its own row. */}
         <div className="sticky top-0 z-20 -mx-4 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
           <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             {latest
@@ -229,6 +228,12 @@ export function MemberSmsTab({
               </span>
             )}
           </Button>
+          <SendSmsDialog
+            membershipId={membershipId}
+            defaultPhone={phone}
+            onSent={onSent}
+            className="h-9 shrink-0"
+          />
         </div>
 
         {failure?.kind === "no-phone" ? (
