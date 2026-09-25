@@ -19,9 +19,12 @@ import { normalizeTzPhone } from "@/lib/phone";
 import { SMS_MAX_LENGTH, SMS_SEGMENT_LENGTH } from "@/lib/sms/sms-types";
 
 /**
- * Types and sends one SMS through notifier. The number starts as the member's
- * own; it can be changed, but a text to another number won't appear in this
- * member's list — notifier files messages by phone, not by member.
+ * Types and sends one SMS to this member, through notifier.
+ *
+ * The number is the member's own and can't be edited here — the API ignores
+ * any number a caller sends and uses the one on file, so the field is shown
+ * read-only for the record rather than as an input. A member with no usable
+ * number gets a disabled button instead of a dialog that can't send.
  */
 export function SendSmsDialog({
   membershipId,
