@@ -959,7 +959,7 @@ export function RowActionButtons({ actions }: { actions: RowAction[] }) {
  * set-state-in-effect rule. `rootMargin` starts the next batch before the
  * reader reaches the bottom, so the list feels continuous rather than paged.
  */
-function LoadMoreSentinel({
+export function LoadMoreSentinel({
   remaining,
   onReach,
 }: {
