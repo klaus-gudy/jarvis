@@ -32,8 +32,9 @@ import { prisma } from "@/lib/prisma";
  * exactly the code that handles a scanned one.
  *
  * Started by `instrumentation.ts` inside the Next.js server, so a deploy of the
- * app is a deploy of the consumer and neither can be forgotten. `npm run worker`
- * still runs the same code as its own process for local debugging.
+ * app is a deploy of the consumer and neither can be forgotten — locally too,
+ * `npm run dev` starts it. Its log lines are `[contract-filing]`, so they can't
+ * be mistaken for the `document-worker` service that renders.
  *
  * No `npx playwright install` on this host, or any other running this app.
  */
@@ -115,11 +116,11 @@ async function attach(): Promise<StopConsumer> {
   });
 
   model.on("disconnect", (error) =>
-    console.error("[document-worker] RabbitMQ disconnected:", error.message)
+    console.error("[contract-filing] RabbitMQ disconnected:", error.message)
   );
   model.on("reconnect-scheduled", ({ attempt, delay }) =>
     console.warn(
-      `[document-worker] RabbitMQ reconnect attempt ${attempt} in ${delay}ms`
+      `[contract-filing] RabbitMQ reconnect attempt ${attempt} in ${delay}ms`
     )
   );
 
@@ -130,7 +131,7 @@ async function attach(): Promise<StopConsumer> {
   // nothing and looks exactly like a quiet broker, so the one line this
   // process prints at startup should be enough to tell those apart.
   console.log(
-    `[document-worker] consuming ${DOCUMENTS_QUEUE} ` +
+    `[contract-filing] consuming ${DOCUMENTS_QUEUE} ` +
       `for "${CONSUMED_ROUTING_KEY["document.stored"]}"`
   );
 
@@ -145,13 +146,13 @@ async function attach(): Promise<StopConsumer> {
     } catch {
       // Unparseable will never become parseable. Straight to the DLQ, where a
       // person can look at it, rather than round and round the retry loop.
-      console.error("[document-worker] dropping unparseable message");
+      console.error("[contract-filing] dropping unparseable message");
       channel.nack(message, false, false);
       return;
     }
 
     if (!isUsable(event)) {
-      console.error("[document-worker] dropping message with missing fields");
+      console.error("[contract-filing] dropping message with missing fields");
       channel.nack(message, false, false);
       return;
     }
@@ -168,7 +169,7 @@ async function attach(): Promise<StopConsumer> {
 
     if (!subject) {
       console.warn(
-        `[document-worker] ignoring ${event.objectKey} — not a lease contract key`
+        `[contract-filing] ignoring ${event.objectKey} — not a lease contract key`
       );
       channel.ack(message);
       return;
@@ -205,7 +206,7 @@ async function attach(): Promise<StopConsumer> {
 
     if (!metaAgrees) {
       console.warn(
-        `[document-worker] meta disagrees with the object key for ${label} — ` +
+        `[contract-filing] meta disagrees with the object key for ${label} — ` +
           `meta says lease ${claimedLease} (org ${claimedOrg}); ` +
           `discarding it and deriving from the key`
       );
@@ -264,7 +265,7 @@ async function attach(): Promise<StopConsumer> {
         // is a forged or broken producer. Acked so the queue moves on, and
         // said out loud rather than swallowed.
         console.error(
-          `[document-worker] refusing ${event.objectKey} for ${label}: ${result.error}`
+          `[contract-filing] refusing ${event.objectKey} for ${label}: ${result.error}`
         );
         channel.ack(message);
         return;
@@ -272,7 +273,7 @@ async function attach(): Promise<StopConsumer> {
 
       if (result.duplicate) {
         console.log(
-          `[document-worker] ${fileName} for ${label} was already filed — ignoring redelivery`
+          `[contract-filing] ${fileName} for ${label} was already filed — ignoring redelivery`
         );
         channel.ack(message);
         return;
@@ -282,13 +283,13 @@ async function attach(): Promise<StopConsumer> {
         ? ` — ${missing.length} placeholder(s) had no data: ${missing.join(", ")}`
         : "";
       console.log(
-        `[document-worker] filed ${fileName} for ${label} — ${event.sizeBytes} bytes${blanks}`
+        `[contract-filing] filed ${fileName} for ${label} — ${event.sizeBytes} bytes${blanks}`
       );
       channel.ack(message);
     } catch (cause) {
       const reason = describeError(cause);
       console.error(
-        `[document-worker] attempt ${attempts}/${MAX_ATTEMPTS} failed for ${label}: ${reason}`
+        `[contract-filing] attempt ${attempts}/${MAX_ATTEMPTS} failed for ${label}: ${reason}`
       );
 
       if (attempts >= MAX_ATTEMPTS) {
@@ -316,7 +317,7 @@ async function attach(): Promise<StopConsumer> {
     }
     // Deliberately no `prisma.$disconnect()`: this is the shared singleton, and
     // in the Next.js server it belongs to the request path too. Disconnecting
-    // it here would close the web app's pool. The CLI shim owns that instead.
+    // it here would close the web app's pool; the server owns its lifetime.
     running = null;
   };
 }
