@@ -110,7 +110,7 @@ export function buildTenantColumns({
       // Exact match, not the default substring: a facet offering "Likely" must
       // not also sweep in "Likely Annex". A tenant with no property is null and
       // matches nothing, which is right — they aren't in any of them.
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       accessorKey: "unitLabel",
@@ -141,7 +141,7 @@ export function buildTenantColumns({
           {row.original.status}
         </Badge>
       ),
-      filterFn: (row, columnId, filterValue) => row.getValue(columnId) === filterValue,
+      filterFn: facetFilterFn,
     },
     {
       id: "actions",
