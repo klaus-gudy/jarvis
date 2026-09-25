@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
 import { CardAction, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 /**
  * The header every card on the profile page uses, so the four stay the same
