@@ -161,12 +161,18 @@ export function MemberSmsTab({
 
   return (
     <Card className="gap-4 p-4">
+      {/* Phone: status + Send on one row, the two dates sharing the next.
+          From `sm` up it's one inline toolbar, Send pushed to the end. */}
       <div className="flex flex-wrap items-center gap-2">
         <Select
           value={filters.status}
           onValueChange={(next) => update({ status: next as Filters["status"] })}
         >
-          <SelectTrigger size="sm" className="w-36 bg-background" aria-label="Status">
+          <SelectTrigger
+            size="sm"
+            className="min-w-0 flex-1 bg-background sm:w-36 sm:flex-none"
+            aria-label="Status"
+          >
             <SelectValue>
               {(selected: string) =>
                 selected === "all"
@@ -185,39 +191,7 @@ export function MemberSmsTab({
           </SelectContent>
         </Select>
 
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          From
-          <Input
-            type="date"
-            className="h-7 w-36 bg-background text-sm"
-            value={filters.from}
-            max={filters.to || undefined}
-            onChange={(event) => update({ from: event.target.value })}
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          To
-          <Input
-            type="date"
-            className="h-7 w-36 bg-background text-sm"
-            value={filters.to}
-            min={filters.from || undefined}
-            onChange={(event) => update({ to: event.target.value })}
-          />
-        </label>
-
-        {filtered && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setFilters((current) => ({ ...NO_FILTERS, limit: current.limit }))}
-          >
-            <XIcon />
-            Reset
-          </Button>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:order-last sm:ml-auto">
           {loading && outcome && (
             <Loader2Icon
               className="size-3.5 animate-spin text-muted-foreground"
@@ -230,6 +204,43 @@ export function MemberSmsTab({
             onSent={() => setRevision((current) => current + 1)}
           />
         </div>
+
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          {/* No `text-sm` on these: under 16px iOS zooms the page on focus.
+              The Input's own `md:text-sm` takes over on wider screens. Labels
+              sit above on a phone so `dd/mm/yyyy` isn't clipped. */}
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1.5">
+            From
+            <Input
+              type="date"
+              className="h-8 w-full min-w-0 bg-background sm:h-7 sm:w-36"
+              value={filters.from}
+              max={filters.to || undefined}
+              onChange={(event) => update({ from: event.target.value })}
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1.5">
+            To
+            <Input
+              type="date"
+              className="h-8 w-full min-w-0 bg-background sm:h-7 sm:w-36"
+              value={filters.to}
+              min={filters.from || undefined}
+              onChange={(event) => update({ to: event.target.value })}
+            />
+          </label>
+        </div>
+
+        {filtered && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFilters((current) => ({ ...NO_FILTERS, limit: current.limit }))}
+          >
+            <XIcon />
+            Reset
+          </Button>
+        )}
       </div>
 
       {!outcome && (
@@ -291,7 +302,7 @@ export function MemberSmsTab({
       )}
 
       {data && data.total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground tabular-nums">
             {data.total > data.alerts.length
               ? `${(data.page - 1) * data.limit + 1}–${
@@ -321,7 +332,7 @@ export function MemberSmsTab({
 
             {data.totalPages > 1 && (
               <>
-                <span className="px-1 text-muted-foreground tabular-nums">
+                <span className="mr-auto px-1 text-muted-foreground tabular-nums sm:mr-0">
                   Page {data.page} of {data.totalPages}
                 </span>
                 <Button
