@@ -71,7 +71,31 @@ function filterParams(filters: Filters) {
   if (filters.status !== "all") params.set("status", filters.status);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
-  return params.toString();
+  return params;
+}
+
+function activeFilterCount(filters: Filters) {
+  return (
+    Number(filters.status !== "all") +
+    Number(filters.from !== "" || filters.to !== "")
+  );
+}
+
+async function loadPage(url: string, signal: AbortSignal): Promise<Outcome> {
+  const response = await fetch(url, { signal });
+  const body = await response.json().catch(() => ({}));
+  if (response.ok && body.reason === "no-phone") return { kind: "no-phone" };
+  if (response.ok) return { kind: "ok", data: body };
+  if (body.reason === "not-configured") {
+    return {
+      kind: "error",
+      message: "SMS history isn't set up on this server (NOTIFIER_API_URL is missing).",
+    };
+  }
+  return {
+    kind: "error",
+    message: "The SMS service couldn't be reached. Try again in a moment.",
+  };
 }
 
 /**
