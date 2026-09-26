@@ -6,7 +6,6 @@ import { toast } from "sonner";
 
 import { usePermissions } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -17,23 +16,15 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  PERMISSION_GROUPS,
-  ROLE_TEMPLATES,
-  type Permission,
-} from "@/lib/permissions";
-import type { RoleRow } from "@/lib/roles";
+import { ROLE_TEMPLATES, type Permission } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
+
+const BLANK = { id: "blank", name: "Blank", permissions: [] as Permission[] };
 
 /**
- * Creating or editing a role: a name, and — for custom roles — which
- * permissions it grants, laid out by `PERMISSION_GROUPS`.
- *
- * Owner and Tenant are built in: they can be renamed here, but their
- * permission sets are fixed, so the checklist is shown read-only for them.
- *
- * A permission the editor doesn't hold themselves is disabled: the server
- * refuses to let anyone grant (or strip) what they don't have, and a checkbox
- * that can only fail is worse than one that says why it can't be changed.
+ * Creating a role, or renaming one. Choosing permissions happens on the role's
+ * own page (`RolePermissionsEditor`) — creating only picks a name and a
+ * starting point, then opens that page so it can be fine-tuned.
  */
 export function RoleFormDialog({
   open,
@@ -42,63 +33,57 @@ export function RoleFormDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Editing when set, creating otherwise. */
-  role?: RoleRow;
+  /** Renaming when set, creating otherwise. */
+  role?: { id: string; name: string };
 }) {
   const router = useRouter();
   const viewer = usePermissions();
-  const editing = Boolean(role);
-  const fixed = role?.isSystem ?? false;
+  const renaming = Boolean(role);
 
   const [name, setName] = React.useState(role?.name ?? "");
-  const [selected, setSelected] = React.useState<Set<Permission>>(
-    () => new Set(role?.permissions ?? [])
-  );
+  const [templateId, setTemplateId] = React.useState(BLANK.id);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const mayChange = (p: Permission) =>
-    !fixed && (viewer.kind === "OWNER" || viewer.permissions.has(p));
-
-  function toggle(p: Permission, on: boolean) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (on) next.add(p);
-      else next.delete(p);
-      return next;
-    });
-  }
-
-  function applyTemplate(permissions: Permission[]) {
-    // Only what the editor may grant — a template never smuggles in more.
-    setSelected(new Set(permissions.filter(mayChange)));
-  }
+  const templates = [BLANK, ...ROLE_TEMPLATES];
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setError(null);
 
-    const body = fixed ? { name } : { name, permissions: [...selected] };
-    const response = await fetch(editing ? `/api/roles/${role!.id}` : "/api/roles", {
-      method: editing ? "PATCH" : "POST",
+    const template = templates.find((t) => t.id === templateId) ?? BLANK;
+    // A template never smuggles in more than the creator holds.
+    const permissions = template.permissions.filter(
+      (p) => viewer.kind === "OWNER" || viewer.permissions.has(p)
+    );
+
+    const response = await fetch(renaming ? `/api/roles/${role!.id}` : "/api/roles", {
+      method: renaming ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(renaming ? { name } : { name, permissions }),
     });
+    const data = await response.json().catch(() => null);
 
     if (response.ok) {
       onOpenChange(false);
       setPending(false);
-      toast.success(editing ? `Role "${name}" saved` : `Role "${name}" created`);
-      router.refresh();
+      if (renaming) {
+        toast.success(`Renamed to "${name}"`);
+        router.refresh();
+      } else {
+        toast.success(`Role "${name}" created`, {
+          description: "Review its permissions, then save.",
+        });
+        router.push(`/roles/${data.role.id}`);
+      }
       return;
     }
 
-    const data = await response.json().catch(() => null);
     const message =
       data?.issues?.name?.[0] ??
       data?.error ??
-      (editing ? "Could not save this role" : "Could not create this role");
+      (renaming ? "Could not rename this role" : "Could not create this role");
     setError(message);
     toast.error(message);
     setPending(false);
@@ -106,16 +91,14 @@ export function RoleFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>{editing ? `Edit ${role!.name}` : "New role"}</DialogTitle>
+            <DialogTitle>{renaming ? "Rename role" : "New role"}</DialogTitle>
             <DialogDescription>
-              {fixed
-                ? role!.kind === "OWNER"
-                  ? "Owners can do everything, including deleting the organization. Only the name can change."
-                  : "Tenants use the tenant portal and have no access to the staff app. Only the name can change."
-                : "Choose what people in this role can see and do."}
+              {renaming
+                ? "Only the name changes — permissions and members stay as they are."
+                : "Name the role and pick a starting point. You'll choose its exact permissions next."}
             </DialogDescription>
           </DialogHeader>
 
@@ -128,76 +111,41 @@ export function RoleFormDialog({
                 id="role-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Manager"
+                placeholder="Caretaker"
                 required
               />
               {error && <FieldError>{error}</FieldError>}
             </Field>
 
-            {!fixed && (
-              <>
-                {!editing && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Start from:</span>
-                    {ROLE_TEMPLATES.map((template) => (
-                      <Button
-                        key={template.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyTemplate(template.permissions)}
-                      >
-                        {template.name}
-                      </Button>
-                    ))}
-                    <Button
+            {!renaming && (
+              <Field>
+                <FieldLabel>Start from</FieldLabel>
+                <div role="radiogroup" aria-label="Start from" className="grid gap-2 sm:grid-cols-3">
+                  {templates.map((template) => (
+                    <button
+                      key={template.id}
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelected(new Set())}
+                      role="radio"
+                      aria-checked={templateId === template.id}
+                      onClick={() => setTemplateId(template.id)}
+                      className={cn(
+                        "rounded-lg border p-3 text-left text-sm transition-colors",
+                        templateId === template.id
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-muted/50"
+                      )}
                     >
-                      Clear
-                    </Button>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {PERMISSION_GROUPS.map((group) => (
-                    <fieldset key={group.label} className="space-y-2">
-                      <legend className="mb-1 text-sm font-medium">{group.label}</legend>
-                      {group.permissions.map((permission) => {
-                        const id = `perm-${permission.key}`;
-                        const disabled = !mayChange(permission.key);
-                        return (
-                          <label
-                            key={permission.key}
-                            htmlFor={id}
-                            className="flex items-start gap-3 rounded-md px-1 py-1 has-disabled:opacity-60"
-                            title={disabled ? "You don't hold this permission yourself" : undefined}
-                          >
-                            <Checkbox
-                              id={id}
-                              className="mt-0.5"
-                              checked={selected.has(permission.key)}
-                              disabled={disabled}
-                              onCheckedChange={(checked) => toggle(permission.key, checked)}
-                            />
-                            <span className="min-w-0">
-                              <span className="block text-sm">{permission.label}</span>
-                              <span className="block text-xs text-muted-foreground">
-                                {permission.description}
-                              </span>
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </fieldset>
+                      <span className="block font-medium">{template.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {template.permissions.length === 0
+                          ? "No permissions"
+                          : `${template.permissions.length} permissions`}
+                      </span>
+                    </button>
                   ))}
                 </div>
-                <FieldDescription>
-                  Changes apply to everyone in this role on their next page load.
-                </FieldDescription>
-              </>
+                <FieldDescription>You can change every permission afterwards.</FieldDescription>
+              </Field>
             )}
           </div>
 
@@ -212,12 +160,12 @@ export function RoleFormDialog({
             </Button>
             <Button type="submit" disabled={pending}>
               {pending
-                ? editing
+                ? renaming
                   ? "Saving…"
                   : "Creating…"
-                : editing
-                  ? "Save role"
-                  : "Create role"}
+                : renaming
+                  ? "Rename"
+                  : "Create and choose permissions"}
             </Button>
           </DialogFooter>
         </form>
