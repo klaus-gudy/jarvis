@@ -73,7 +73,7 @@ async function exportResponse(id: string, ids: string[] | null) {
       },
       { header: "Amenities", width: 30, value: (u) => u.amenities.join(", ") },
     ],
-    rows: property.units,
+    rows: pickExportRows(property.units, ids),
   });
 
   return xlsxResponse(buffer, `units-${slugify(property.name)}-${exportStamp()}.xlsx`);
