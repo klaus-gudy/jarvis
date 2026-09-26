@@ -19,6 +19,7 @@ import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { TenantCard } from "@/components/tenants/tenant-card";
 import { buildTenantColumns } from "@/components/tenants/tenant-columns";
 import { TenantFormDialog } from "@/components/tenants/tenant-form-dialog";
+import { gateActions, useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   DataTable,
@@ -67,7 +68,10 @@ export function TenantsTable({
    * strip is built from it, and `DataTable` hands the same list to its mobile
    * actions sheet — so neither surface can drift from the other.
    */
-  const rowActions = React.useCallback(
+  const canLease = useCan("lease:write");
+  const canWrite = useCan("tenant:write");
+  const canEdit = useCan(["tenant:write", "member:write"]);
+  const baseRowActions = React.useCallback(
     (tenant: TenantRow): RowAction[] => [
       /*
        * Leads, because putting a tenant into a unit is the job this page
@@ -105,6 +109,11 @@ export function TenantsTable({
       },
     ],
     []
+  );
+  // Greyed out, not hidden, when the role can't use them; the API enforces it.
+  const rowActions = React.useCallback(
+    (row: TenantRow) => gateActions(baseRowActions(row), [["Assign lease", canLease], ["Edit", canEdit], ["Remove", canWrite]]),
+    [baseRowActions, canLease, canWrite, canEdit]
   );
 
   const columns = React.useMemo(
@@ -149,6 +158,8 @@ export function TenantsTable({
         />
         {/* bg-card, not the variant's bg-background, which is the page colour. */}
         <Button
+          disabled={!canWrite}
+          title={canWrite ? undefined : "Your role doesn't allow this"}
           variant="outline"
           className="bg-card"
           onClick={() => setImportOpen(true)}
@@ -156,7 +167,9 @@ export function TenantsTable({
           <UploadIcon />
           Import tenants
         </Button>
-        <Button data-tour="add-tenant" onClick={() => setFormOpen(true)}>
+        <Button
+          disabled={!canWrite}
+          title={canWrite ? undefined : "Your role doesn't allow this"} data-tour="add-tenant" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Add tenant
         </Button>
