@@ -18,9 +18,22 @@ export {
   TENANT_ROLE_NAME,
 } from "@/lib/role-constants";
 
+/** Shown for a built-in role until an owner writes their own. */
+const DEFAULT_DESCRIPTIONS: Record<RoleKind, string | null> = {
+  OWNER: "Full access to everything, including roles, backups and deleting the organization.",
+  TENANT: "Tenant portal only: their own leases, invoices, payments and documents.",
+  STAFF: null,
+};
+
+function describe(kind: RoleKind, description: string | null) {
+  return description?.trim() || DEFAULT_DESCRIPTIONS[kind];
+}
+
 export type RoleRow = {
   id: string;
   name: string;
+  /** Null for a custom role nobody has described yet. */
+  description: string | null;
   kind: RoleKind;
   /** Effective: every permission for an Owner, none for a Tenant. */
   permissions: Permission[];
@@ -52,6 +65,7 @@ export async function getRoles(organizationId: string): Promise<RoleRow[]> {
   return roles.map((role) => ({
     id: role.id,
     name: role.name,
+    description: describe(role.kind, role.description),
     kind: role.kind,
     permissions: effectivePermissions(role.kind, role.permissions),
     memberCount: role._count.memberships,
@@ -97,7 +111,7 @@ function exceedsActor(ctx: AuthContext, permissions: Permission[]) {
 
 export async function createRole(
   ctx: AuthContext,
-  input: { name: string; permissions: string[] }
+  input: { name: string; description?: string | null; permissions: string[] }
 ) {
   const permissions = parsePermissions(input.permissions);
   if (exceedsActor(ctx, permissions)) return { error: "escalation" as const };
@@ -109,6 +123,7 @@ export async function createRole(
     data: {
       organizationId: ctx.organizationId,
       name: input.name,
+      description: input.description ?? null,
       kind: "STAFF",
       permissions,
     },
@@ -125,7 +140,7 @@ export async function createRole(
 export async function updateRole(
   ctx: AuthContext,
   roleId: string,
-  input: { name?: string; permissions?: string[] }
+  input: { name?: string; description?: string | null; permissions?: string[] }
 ) {
   const role = await prisma.role.findFirst({
     where: { id: roleId, organizationId: ctx.organizationId },
@@ -156,6 +171,7 @@ export async function updateRole(
     where: { id: role.id },
     data: {
       ...(input.name ? { name: input.name } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
       ...(permissions ? { permissions } : {}),
     },
     select: { id: true, name: true },
@@ -224,6 +240,7 @@ export async function getRole(
   return {
     id: role.id,
     name: role.name,
+    description: describe(role.kind, role.description),
     kind: role.kind,
     permissions: effectivePermissions(role.kind, role.permissions),
     memberCount: role.memberships.length,
