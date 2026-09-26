@@ -1,14 +1,14 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { buildContractPlan } from "@/lib/contracts";
 import { publishEvent } from "@/lib/events/publisher";
 import { announceLeaseCreated, createLease, getLeases } from "@/lib/leases";
 import { createLeaseSchema } from "@/lib/leases-schemas";
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("lease:read");
   if (!auth.ok) return auth.response;
 
   const leases = await getLeases(auth.context.organizationId);
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("lease:write");
   if (!auth.ok) return auth.response;
 
   let body: unknown;

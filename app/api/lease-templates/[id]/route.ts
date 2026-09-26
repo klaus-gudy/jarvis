@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { updateLeaseTemplateSchema } from "@/lib/lease-template-schemas";
 import {
   deleteLeaseTemplate,
@@ -12,7 +12,7 @@ export async function GET(
   _request: Request,
   ctx: RouteContext<"/api/lease-templates/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize(["template:manage", "contract:generate", "lease:write"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -29,7 +29,7 @@ export async function PATCH(
   request: Request,
   ctx: RouteContext<"/api/lease-templates/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("template:manage");
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -72,7 +72,7 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/lease-templates/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("template:manage");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { buildContractPlan } from "@/lib/contracts";
 import { publishEvent } from "@/lib/events/publisher";
 import { generateLeaseContract } from "@/lib/lease-templates";
@@ -17,7 +17,7 @@ export async function GET(
   request: Request,
   ctx: RouteContext<"/api/leases/[id]/contract">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("lease:read");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -83,7 +83,7 @@ export async function POST(
   _request: Request,
   ctx: RouteContext<"/api/leases/[id]/contract">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("contract:generate");
   if (!auth.ok) return auth.response;
 
   const { organizationId } = auth.context;

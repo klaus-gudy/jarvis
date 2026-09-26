@@ -1,11 +1,11 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { createLeaseTemplateSchema } from "@/lib/lease-template-schemas";
 import { createLeaseTemplate, getLeaseTemplates } from "@/lib/lease-templates";
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize(["template:manage", "contract:generate", "lease:write"]);
   if (!auth.ok) return auth.response;
 
   const templates = await getLeaseTemplates(auth.context.organizationId);
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("template:manage");
   if (!auth.ok) return auth.response;
 
   let body: unknown;
