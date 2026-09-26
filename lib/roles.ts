@@ -196,3 +196,43 @@ export async function deleteRole(ctx: AuthContext, roleId: string) {
   ]);
   return { ok: true as const };
 }
+
+export type RoleDetail = RoleRow & {
+  members: { membershipId: string; name: string; contact: string | null }[];
+};
+
+/** One role with the people holding it, for `/roles/[id]`. */
+export async function getRole(
+  organizationId: string,
+  roleId: string
+): Promise<RoleDetail | null> {
+  const role = await prisma.role.findFirst({
+    where: { id: roleId, organizationId },
+    include: {
+      memberships: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          user: { select: { name: true, email: true, phone: true } },
+        },
+      },
+      _count: { select: { invitations: { where: { status: "PENDING" } } } },
+    },
+  });
+  if (!role) return null;
+
+  return {
+    id: role.id,
+    name: role.name,
+    kind: role.kind,
+    permissions: effectivePermissions(role.kind, role.permissions),
+    memberCount: role.memberships.length,
+    pendingInviteCount: role._count.invitations,
+    isSystem: role.kind !== "STAFF",
+    members: role.memberships.map((m) => ({
+      membershipId: m.id,
+      name: m.user.name ?? m.user.email ?? m.user.phone ?? "Unnamed",
+      contact: m.user.email ?? m.user.phone,
+    })),
+  };
+}
