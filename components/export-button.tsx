@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
  * One button, fed a `url`, that downloads whatever `.xlsx` that endpoint
  * streams. Same fetch-blob-anchor dance `ImportDialog` uses for its template
  * download — export is the same shape of request, just with no dialog around it.
+ *
+ * With `getIds`, the export follows the table: when it returns ids, they are
+ * POSTed and only those rows come back, in that order; `null` means the table
+ * isn't narrowed and the plain GET exports everything.
  */
 export function ExportButton({
   url,
