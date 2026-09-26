@@ -1,12 +1,12 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { createPaymentAccount, getPaymentAccounts } from "@/lib/payment-accounts";
 import { paymentAccountSchema } from "@/lib/payment-accounts-schemas";
 
 /** Always the signed-in member's own accounts — there is no id to pass. */
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   const accounts = await getPaymentAccounts(auth.context);
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   let body: unknown;

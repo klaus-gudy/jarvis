@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import {
   deletePaymentAccount,
   updatePaymentAccount,
@@ -11,7 +11,7 @@ export async function PATCH(
   request: Request,
   ctx: RouteContext<"/api/payment-accounts/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -46,7 +46,7 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/payment-accounts/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
