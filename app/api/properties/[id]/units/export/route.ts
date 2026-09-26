@@ -16,10 +16,25 @@ export async function GET(
   _request: Request,
   ctx: RouteContext<"/api/properties/[id]/units/export">
 ) {
+  const { id } = await ctx.params;
+  return exportResponse(id, null);
+}
+
+/** A filtered export: only the rows the table was showing, in its order. */
+export async function POST(
+  request: Request,
+  ctx: RouteContext<"/api/properties/[id]/units/export">
+) {
+  const body = await readExportIds(request);
+  if (!body.ok) return body.response;
+  const { id } = await ctx.params;
+  return exportResponse(id, body.ids);
+}
+
+async function exportResponse(id: string, ids: string[] | null) {
   const auth = await requireActiveOrg();
   if (!auth.ok) return auth.response;
 
-  const { id } = await ctx.params;
   const property = await getProperty(auth.context.organizationId, id);
   if (!property) {
     return Response.json({ error: "Property not found" }, { status: 404 });
