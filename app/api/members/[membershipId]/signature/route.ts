@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorizeMember, can } from "@/lib/authz";
 import {
   SIGNATURE_MAX_BYTES,
   findSignatureSubject,
@@ -30,10 +30,18 @@ const STORAGE_DOWN = () =>
  * the membership is *yours*.
  */
 export async function GET(_request: Request, ctx: Context) {
-  const auth = await requireActiveOrg();
+  // Open to tenants too, for their own signature (they sign from the portal).
+  const auth = await authorizeMember();
   if (!auth.ok) return auth.response;
 
   const { membershipId } = await ctx.params;
+  if (
+    membershipId !== auth.context.membershipId &&
+    (auth.context.kind === "TENANT" ||
+      !can(auth.context, ["member:read", "tenant:read", "lease:read"]))
+  ) {
+    return Response.json({ error: "You don't have permission to do that" }, { status: 403 });
+  }
   const member = await findSignatureSubject(auth.context.organizationId, membershipId);
   const objectKey = member?.profile?.signatureKey;
   if (!objectKey) {
@@ -69,7 +77,8 @@ export async function GET(_request: Request, ctx: Context) {
 
 /** The caller's own membership, or the response that refuses them. */
 async function ownMembership(ctx: Context) {
-  const auth = await requireActiveOrg();
+  // Any member, tenants included — the ownership check below is the gate.
+  const auth = await authorizeMember();
   if (!auth.ok) return { ok: false as const, response: auth.response };
 
   const { membershipId } = await ctx.params;

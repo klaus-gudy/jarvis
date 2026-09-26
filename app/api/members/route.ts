@@ -1,8 +1,8 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { getMembers } from "@/lib/members";
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("member:read");
   if (!auth.ok) return auth.response;
 
   const members = await getMembers(auth.context.organizationId);

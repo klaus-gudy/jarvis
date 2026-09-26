@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { toInternationalTzPhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
@@ -63,7 +63,7 @@ export async function GET(
   request: Request,
   ctx: RouteContext<"/api/members/[membershipId]/sms">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize(["member:read", "tenant:read"]);
   if (!auth.ok) return auth.response;
 
   const { membershipId } = await ctx.params;
@@ -123,7 +123,7 @@ export async function POST(
   request: Request,
   ctx: RouteContext<"/api/members/[membershipId]/sms">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("sms:send");
   if (!auth.ok) return auth.response;
 
   const { membershipId } = await ctx.params;
