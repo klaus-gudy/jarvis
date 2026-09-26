@@ -9,6 +9,17 @@ import {
 } from "@/lib/xlsx-export";
 
 export async function GET() {
+  return exportResponse(null);
+}
+
+/** A filtered export: only the rows the table was showing, in its order. */
+export async function POST(request: Request) {
+  const body = await readExportIds(request);
+  if (!body.ok) return body.response;
+  return exportResponse(body.ids);
+}
+
+async function exportResponse(ids: string[] | null) {
   const auth = await requireActiveOrg();
   if (!auth.ok) return auth.response;
 
