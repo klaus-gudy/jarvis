@@ -37,6 +37,7 @@ export function PaymentsTable({
   payableInvoices: PayableInvoice[];
 }) {
   const router = useRouter();
+  const viewRef = React.useRef<DataTableView<PaymentRow>>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<PaymentRow | null>(null);
   const [paying, setPaying] = React.useState<PaymentRow | null>(null);
