@@ -34,9 +34,21 @@ export function ExportButton({
   const [downloading, setDownloading] = React.useState(false);
 
   async function handleExport() {
+    const ids = getIds?.() ?? null;
+    if (ids?.length === 0) {
+      toast.error("No rows match the current filters");
+      return;
+    }
+
     setDownloading(true);
     try {
-      const response = await fetch(url);
+      const response = ids
+        ? await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids }),
+          })
+        : await fetch(url);
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         throw new Error(data?.error ?? "Could not build the export");
