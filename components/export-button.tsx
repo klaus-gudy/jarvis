@@ -63,7 +63,11 @@ export function ExportButton({
           ?.match(/filename="(.+)"/)?.[1] ?? filenameFallback;
       anchor.click();
       URL.revokeObjectURL(objectUrl);
-      toast.success("Export downloaded");
+      toast.success(
+        ids
+          ? `Exported ${ids.length} filtered ${ids.length === 1 ? "row" : "rows"}`
+          : "Export downloaded"
+      );
     } catch (cause) {
       toast.error(
         cause instanceof Error ? cause.message : "Could not build the export"
