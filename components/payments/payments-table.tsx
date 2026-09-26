@@ -11,7 +11,11 @@ import { MakePaymentDialog } from "@/components/payments/make-payment-dialog";
 import { PaymentCard } from "@/components/payments/payment-card";
 import { buildPaymentColumns } from "@/components/payments/payment-columns";
 import { Button } from "@/components/ui/button";
-import { DataTable, type RowAction } from "@/components/ui/data-table";
+import {
+  DataTable,
+  type DataTableView,
+  type RowAction,
+} from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
