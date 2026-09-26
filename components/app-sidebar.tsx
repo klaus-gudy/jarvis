@@ -26,9 +26,10 @@ import {
 import {
   findActiveNavItem,
   findActiveSubItem,
-  visibleNavItems,
+  navItemsFor,
   type NavItem,
 } from "@/lib/nav"
+import { usePermissions } from "@/components/permissions-provider"
 
 export function AppSidebar({
   organizations,
@@ -49,6 +50,8 @@ export function AppSidebar({
   const activeItem = findActiveNavItem(pathname)
   const activeSubItem = findActiveSubItem(pathname)
   const { isMobile, setOpenMobile } = useSidebar()
+  const viewer = usePermissions()
+  const items = React.useMemo(() => navItemsFor(viewer), [viewer])
 
   // On mobile the sidebar is an overlay sheet; dismiss it after navigating so
   // the destination page isn't left hidden behind it.
@@ -67,7 +70,7 @@ export function AppSidebar({
           {/* <SidebarGroupLabel>Manage</SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu data-tour="sidebar-nav">
-              {visibleNavItems.map((item) =>
+              {items.map((item) =>
                 item.items?.length ? (
                   <NavGroup
                     key={item.url}

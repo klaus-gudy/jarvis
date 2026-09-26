@@ -4,6 +4,7 @@ import * as React from "react";
 import { SendIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,14 +42,22 @@ export function SendSmsDialog({
 }) {
   const [open, setOpen] = React.useState(false);
   const number = phone ? normalizeTzPhone(phone) : null;
+  // SMS is billed per message, so it has its own permission.
+  const canSend = useCan("sms:send");
 
   return (
     <>
       <Button
         className={className}
         onClick={() => setOpen(true)}
-        disabled={!number}
-        title={number ? undefined : "This member has no valid phone number on file"}
+        disabled={!number || !canSend}
+        title={
+          !canSend
+            ? "Your role doesn't allow this"
+            : number
+              ? undefined
+              : "This member has no valid phone number on file"
+        }
       >
         <SendIcon />
         Send SMS

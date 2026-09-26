@@ -10,6 +10,7 @@ import { LeaseCard } from "@/components/leases/lease-card";
 import { buildLeaseColumns } from "@/components/leases/lease-columns";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
 import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
+import { gateActions, useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   DataTable,
@@ -43,7 +44,10 @@ export function LeasesTable({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const rowActions = React.useCallback(
+  const canPay = useCan("payment:record");
+  const canWrite = useCan("lease:write");
+  const canDelete = useCan("lease:delete");
+  const baseRowActions = React.useCallback(
     (lease: LeaseRow): RowAction[] => {
       const balance = lease.invoice
         ? lease.invoice.amount - lease.invoice.paid
@@ -89,6 +93,11 @@ export function LeasesTable({
     },
     []
   );
+  // Greyed out, not hidden, when the role can't use them; the API enforces it.
+  const rowActions = React.useCallback(
+    (row: LeaseRow) => gateActions(baseRowActions(row), [["Make payment", canPay], ["Edit", canWrite], ["Delete", canDelete]]),
+    [baseRowActions, canPay, canWrite, canDelete]
+  );
 
   const columns = React.useMemo(
     () => buildLeaseColumns({ rowActions }),
@@ -130,7 +139,9 @@ export function LeasesTable({
             viewRef.current?.visibleRows()?.map((l) => l.id) ?? null
           }
         />
-        <Button data-tour="add-lease" onClick={() => setFormOpen(true)}>
+        <Button
+          disabled={!canWrite}
+          title={canWrite ? undefined : "Your role doesn't allow this"} data-tour="add-lease" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Create lease
         </Button>

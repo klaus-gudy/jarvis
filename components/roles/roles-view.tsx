@@ -1,18 +1,72 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { LockIcon, PlusIcon, ShieldCheckIcon } from "lucide-react";
+import { LockIcon, PencilIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 
-import { RoleCard } from "@/components/roles/role-card";
+import { RoleCard, permissionSummary } from "@/components/roles/role-card";
 import { RoleFormDialog } from "@/components/roles/role-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import {
+  DataTable,
+  RowActionButtons,
+  type RowAction,
+} from "@/components/ui/data-table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { RoleRow } from "@/lib/roles";
 
 export function RolesView({ roles }: { roles: RoleRow[] }) {
+  const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<RoleRow | null>(null);
+  const [deleting, setDeleting] = React.useState<RoleRow | null>(null);
+  const [pending, setPending] = React.useState(false);
+
+  const actionsFor = React.useCallback(
+    (role: RoleRow): RowAction[] => [
+      {
+        label: `Edit ${role.name}`,
+        icon: PencilIcon,
+        onSelect: () => setEditing(role),
+      },
+      {
+        label: `Delete ${role.name}`,
+        icon: Trash2Icon,
+        tone: "destructive",
+        onSelect: () => setDeleting(role),
+        disabled: role.isSystem || role.memberCount > 0 || role.pendingInviteCount > 0,
+        disabledReason: role.isSystem
+          ? "Built-in roles can't be deleted"
+          : "Move this role's members and invitations first",
+      },
+    ],
+    []
+  );
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setPending(true);
+    const response = await fetch(`/api/roles/${deleting.id}`, { method: "DELETE" });
+    setPending(false);
+    if (response.ok) {
+      toast.success(`Role "${deleting.name}" deleted`);
+      setDeleting(null);
+      router.refresh();
+      return;
+    }
+    const data = await response.json().catch(() => null);
+    toast.error(data?.error ?? "Could not delete this role");
+  }
 
   const columns = React.useMemo<ColumnDef<RoleRow>[]>(
     () => [
@@ -68,15 +122,20 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
       {
         id: "permissions",
         header: "Permissions",
-        // Deliberately inert until permissions exist. Showing the column now
-        // says where they will live without implying any are in force.
-        cell: () => (
-          <span className="text-sm text-muted-foreground">Not configured</span>
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {permissionSummary(row.original)}
+          </span>
         ),
         enableSorting: false,
       },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => <RowActionButtons actions={actionsFor(row.original)} />,
+      },
     ],
-    []
+    [actionsFor]
   );
 
   return (
@@ -105,9 +164,8 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
           },
         ]}
         emptyMessage="No roles yet."
-        // No `rowActions`: roles can't be renamed or deleted yet, so the card
-        // shows no actions button rather than one that opens an empty sheet.
         renderCard={(role) => <RoleCard role={role} />}
+        rowActions={actionsFor}
       />
 
       <RoleFormDialog
@@ -115,6 +173,31 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
         open={formOpen}
         onOpenChange={setFormOpen}
       />
+      <RoleFormDialog
+        key={editing?.id ?? "none"}
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+        role={editing ?? undefined}
+      />
+
+      <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {deleting?.name}?</DialogTitle>
+            <DialogDescription>
+              Nobody holds this role, so nothing else changes. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleting(null)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={pending}>
+              {pending ? "Deleting…" : "Delete role"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

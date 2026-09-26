@@ -1,15 +1,18 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { OWNER_ONLY_PERMISSIONS, PERMISSIONS } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/roles";
 
-/**
- * A role as one card, for the mobile list on the Roles & permissions page.
- *
- * The Permissions column carries over as plain text rather than being dropped:
- * it ships inert on purpose, marking where permissions will live without
- * implying any are enforced, and that is as true on a phone as on a desk.
- */
+/** One line for the Permissions column and the mobile card. */
+export function permissionSummary(role: RoleRow) {
+  if (role.kind === "OWNER") return "Everything";
+  if (role.kind === "TENANT") return "Tenant portal only";
+  if (role.permissions.length === 0) return "None";
+  return `${role.permissions.length} of ${PERMISSIONS.length - OWNER_ONLY_PERMISSIONS.size}`;
+}
+
+/** A role as one card, for the mobile list on the Roles & permissions page. */
 export function RoleCard({ role }: { role: RoleRow }) {
   return (
     <div className="min-w-0 space-y-2">
@@ -37,7 +40,9 @@ export function RoleCard({ role }: { role: RoleRow }) {
         )}
       </p>
 
-      <p className="text-xs text-muted-foreground">Permissions: not configured</p>
+      <p className="text-xs text-muted-foreground">
+        Permissions: {permissionSummary(role)}
+      </p>
     </div>
   );
 }

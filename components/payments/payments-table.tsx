@@ -10,6 +10,7 @@ import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
 import { MakePaymentDialog } from "@/components/payments/make-payment-dialog";
 import { PaymentCard } from "@/components/payments/payment-card";
 import { buildPaymentColumns } from "@/components/payments/payment-columns";
+import { gateActions, useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   DataTable,
@@ -44,7 +45,9 @@ export function PaymentsTable({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const rowActions = React.useCallback(
+  const canRecord = useCan("payment:record");
+  const canReverse = useCan("payment:reverse");
+  const baseRowActions = React.useCallback(
     (payment: PaymentRow): RowAction[] => {
       const balance = payment.invoiceAmount - payment.invoicePaid;
 
@@ -74,6 +77,11 @@ export function PaymentsTable({
       ];
     },
     []
+  );
+  // Greyed out, not hidden, when the role can't use them; the API enforces it.
+  const rowActions = React.useCallback(
+    (row: PaymentRow) => gateActions(baseRowActions(row), [["Add payment", canRecord], ["Remove payment", canReverse]]),
+    [baseRowActions, canRecord, canReverse]
   );
 
   const columns = React.useMemo(
@@ -118,7 +126,9 @@ export function PaymentsTable({
             viewRef.current?.visibleRows()?.map((p) => p.id) ?? null
           }
         />
-        <Button data-tour="add-payment" onClick={() => setFormOpen(true)}>
+        <Button
+          disabled={!canRecord}
+          title={canRecord ? undefined : "Your role doesn't allow this"} data-tour="add-payment" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           Make payment
         </Button>

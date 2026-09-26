@@ -25,6 +25,7 @@ import {
 import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
 import { PhotoUploadDialog } from "@/components/documents/photo-upload-dialog";
 import { ImportDialog } from "@/components/import-dialog";
+import { gateActions, useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   DataTable,
@@ -88,7 +89,9 @@ export function UnitsTable({
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
   /** One description of what you can do to a unit, for both surfaces. */
-  const rowActions = React.useCallback(
+  const canWrite = useCan("property:write");
+  const canPhoto = useCan(["property:write", "document:write"]);
+  const baseRowActions = React.useCallback(
     (unit: UnitRow): RowAction[] => [
       {
         label: `View unit ${unit.label}`,
@@ -119,6 +122,11 @@ export function UnitsTable({
       },
     ],
     []
+  );
+  // Greyed out, not hidden, when the role can't use them; the API enforces it.
+  const rowActions = React.useCallback(
+    (row: UnitRow) => gateActions(baseRowActions(row), [["Edit", canWrite], ["Upload photos", canPhoto], ["Delete", canWrite]]),
+    [baseRowActions, canWrite, canPhoto]
   );
 
   const columns = React.useMemo(
@@ -166,6 +174,8 @@ export function UnitsTable({
             the page rather than on a card, where `outline`'s fill is the exact
             same colour as the page and only the border shows. */}
         <Button
+          disabled={!canWrite}
+          title={canWrite ? undefined : "Your role doesn't allow this"}
           variant="outline"
           className="bg-card"
           onClick={() => setImportOpen(true)}
@@ -174,6 +184,8 @@ export function UnitsTable({
           Import units
         </Button>
         <Button
+          disabled={!canWrite}
+          title={canWrite ? undefined : "Your role doesn't allow this"}
           onClick={() => {
             setEditing(null);
             setFormOpen(true);

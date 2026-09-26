@@ -7,6 +7,7 @@ import { PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { MemberEditDialog } from "@/components/member-edit-dialog";
+import { useCan, usePermissions } from "@/components/permissions-provider";
 import { PersonCell } from "@/components/person-cell";
 import { InvitationCard } from "@/components/users/invitation-card";
 import { InviteDialog } from "@/components/users/invite-dialog";
@@ -47,6 +48,16 @@ export function UsersView({
   invitations: InvitationRow[];
 }) {
   const router = useRouter();
+  const viewer = usePermissions();
+  const canInvite = useCan("member:invite");
+  const canWrite = useCan("member:write");
+  // Courtesy only — the API re-checks (`canManageMember`). Owners are
+  // manageable only by Owners.
+  const mayManage = React.useCallback(
+    (member: MemberRow) => (member.isOwner ? viewer.kind === "OWNER" : canWrite),
+    [viewer.kind, canWrite]
+  );
+  const noAccess = "Your role can't change this member";
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [removing, setRemoving] = React.useState<MemberRow | null>(null);
   const [inviting, setInviting] = React.useState<MemberRow | null>(null);
@@ -105,7 +116,7 @@ export function UsersView({
           <div className="flex items-center justify-end gap-1">
             {/* Members onboarded by staff have no password — this is how they
                 get a link to set one and gain access. */}
-            {!row.original.canSignIn && (
+            {!row.original.canSignIn && canInvite && (
               <Button
                 variant="outline"
                 size="sm"
@@ -119,6 +130,8 @@ export function UsersView({
               variant="outline"
               size="icon-sm"
               onClick={() => setEditing(row.original)}
+              disabled={!mayManage(row.original)}
+              title={mayManage(row.original) ? undefined : noAccess}
               aria-label={`Edit ${row.original.name}`}
             >
               <PencilIcon />
@@ -131,6 +144,8 @@ export function UsersView({
                 setError(null);
                 setRemoving(row.original);
               }}
+              disabled={!mayManage(row.original)}
+              title={mayManage(row.original) ? undefined : noAccess}
               aria-label={`Remove ${row.original.name}`}
             >
               <Trash2Icon />
@@ -140,7 +155,7 @@ export function UsersView({
         enableSorting: false,
       },
     ],
-    []
+    [canInvite, mayManage]
   );
 
   const invitationColumns = React.useMemo<ColumnDef<InvitationRow>[]>(
@@ -200,6 +215,7 @@ export function UsersView({
         cell: ({ row }) => (
           <div className="flex justify-end">
             <Button
+              disabled={!canInvite}
               variant="ghost"
               size="sm"
               onClick={() => {
@@ -215,7 +231,7 @@ export function UsersView({
         enableSorting: false,
       },
     ],
-    []
+    [canInvite]
   );
 
   async function handleRemove() {
@@ -268,11 +284,13 @@ export function UsersView({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button data-tour="invite-user" onClick={() => setInviteOpen(true)}>
-          Invite user
-        </Button>
-      </div>
+      {canInvite && (
+        <div className="flex justify-end">
+          <Button data-tour="invite-user" onClick={() => setInviteOpen(true)}>
+            Invite user
+          </Button>
+        </div>
+      )}
 
       <Tabs defaultValue="members">
         <TabsList variant="line" className="w-full justify-start border-b">
@@ -320,7 +338,7 @@ export function UsersView({
              * by hand, including the same `canSignIn` condition on Invite.
              */
             rowActions={(member): RowAction[] => [
-              ...(member.canSignIn
+              ...(member.canSignIn || !canInvite
                 ? []
                 : [
                     {
@@ -333,11 +351,15 @@ export function UsersView({
                 label: `Edit ${member.name}`,
                 icon: PencilIcon,
                 onSelect: () => setEditing(member),
+                disabled: !mayManage(member),
+                disabledReason: noAccess,
               },
               {
                 label: `Remove ${member.name}`,
                 icon: Trash2Icon,
                 tone: "destructive",
+                disabled: !mayManage(member),
+                disabledReason: noAccess,
                 onSelect: () => {
                   setError(null);
                   setRemoving(member);
@@ -370,6 +392,8 @@ export function UsersView({
             )}
             rowActions={(invitation): RowAction[] => [
               {
+                disabled: !canInvite,
+                disabledReason: "Your role can't revoke invitations",
                 label: "Revoke invite",
                 icon: XIcon,
                 tone: "destructive",
@@ -394,6 +418,13 @@ export function UsersView({
         key={`edit-${editing?.membershipId ?? "none"}`}
         member={editing}
         onOpenChange={(open) => !open && setEditing(null)}
+        // Only Owners may offer the Owner role; others see the roles they
+        // could plausibly assign (the server has the final say).
+        roles={
+          canWrite
+            ? roles.filter((role) => viewer.kind === "OWNER" || role.kind !== "OWNER")
+            : undefined
+        }
       />
 
       {inviting && (

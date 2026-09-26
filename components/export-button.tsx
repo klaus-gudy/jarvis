@@ -4,7 +4,9 @@ import * as React from "react";
 import { DownloadIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
+import type { Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,8 +25,11 @@ export function ExportButton({
   size,
   className,
   getIds,
+  permission = "export:run",
 }: {
   url: string;
+  /** Hidden without it; the endpoint enforces the same one. */
+  permission?: Permission;
   label?: string;
   filenameFallback?: string;
   size?: React.ComponentProps<typeof Button>["size"];
@@ -32,6 +37,7 @@ export function ExportButton({
   getIds?: () => string[] | null;
 }) {
   const [downloading, setDownloading] = React.useState(false);
+  const allowed = useCan(permission);
 
   async function handleExport() {
     const ids = getIds?.() ?? null;
@@ -76,6 +82,8 @@ export function ExportButton({
       setDownloading(false);
     }
   }
+
+  if (!allowed) return null;
 
   return (
     <Button

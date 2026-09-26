@@ -7,6 +7,7 @@ import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { PropertyFormDialog } from "@/components/properties/property-form-dialog";
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +28,7 @@ import type { PropertySummary } from "@/lib/properties";
  * `RowActionButtons`, so an action means the same thing wherever it appears.
  */
 export function PropertyCardActions({ property }: { property: PropertySummary }) {
+  const canWrite = useCan("property:write");
   const router = useRouter();
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -73,6 +75,8 @@ export function PropertyCardActions({ property }: { property: PropertySummary })
         size="icon-sm"
         aria-label={`Edit ${property.name}`}
         onClick={() => setEditOpen(true)}
+        disabled={!canWrite}
+        title={canWrite ? undefined : "Your role doesn't allow this"}
       >
         <PencilIcon />
       </Button>
@@ -82,6 +86,8 @@ export function PropertyCardActions({ property }: { property: PropertySummary })
         size="icon-sm"
         className="text-destructive"
         aria-label={`Delete ${property.name}`}
+        disabled={!canWrite}
+        title={canWrite ? undefined : "Your role doesn't allow this"}
         onClick={() => {
           setError(null);
           setDeleteOpen(true);

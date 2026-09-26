@@ -11,6 +11,7 @@ import {
   type BillingPaymentRow,
 } from "@/components/leases/billing-payment-columns";
 import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable, type RowAction } from "@/components/ui/data-table";
@@ -51,6 +52,8 @@ export type BillingInvoice = {
  * against it.
  */
 export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
+  const canRecord = useCan("payment:record");
+  const canReverse = useCan("payment:reverse");
   const router = useRouter();
   const [recording, setRecording] = React.useState(false);
   const [deleting, setDeleting] = React.useState<BillingPaymentRow | null>(null);
@@ -63,9 +66,11 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
         icon: Trash2Icon,
         tone: "destructive",
         onSelect: () => setDeleting(payment),
+        disabled: !canReverse,
+        disabledReason: "Your role doesn't allow this",
       },
     ],
-    []
+    [canReverse]
   );
 
   const columns = React.useMemo(
@@ -118,7 +123,11 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
       {/* Outside the table's card, matching the payments page and the leases
           page — the action belongs to the page, not to a card. */}
       <div className="flex justify-end">
-        <Button onClick={() => setRecording(true)} disabled={invoice.balance <= 0}>
+        <Button
+          onClick={() => setRecording(true)}
+          disabled={invoice.balance <= 0 || !canRecord}
+          title={canRecord ? undefined : "Your role doesn't allow this"}
+        >
           Record payment
         </Button>
       </div>

@@ -20,6 +20,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { usePhoneError } from "@/hooks/use-phone-error";
 
 export type EditableMember = {
@@ -27,18 +34,28 @@ export type EditableMember = {
   rawName: string | null;
   phone: string | null;
   email: string | null;
+  roleId?: string;
 };
 
-type Values = { name: string; phone: string; email: string };
+type Values = { name: string; phone: string; email: string; roleId: string };
 type FieldErrors = Partial<Record<keyof Values, string[]>>;
 
-/** Shared by the Users and Tenants pages — both edit the same underlying user. */
+/**
+ * Shared by the Users and Tenants pages — both edit the same underlying user.
+ *
+ * With `roles`, a role picker is shown too (the Users page passes them only to
+ * members allowed to change roles). The server re-checks everything: nobody
+ * changes their own role, only an Owner makes an Owner, and nobody hands out a
+ * role holding permissions they lack.
+ */
 export function MemberEditDialog({
   member,
   onOpenChange,
+  roles,
 }: {
   member: EditableMember | null;
   onOpenChange: (open: boolean) => void;
+  roles?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [values, setValues] = React.useState<Values>({
@@ -47,6 +64,7 @@ export function MemberEditDialog({
     name: member?.rawName ?? "",
     phone: member?.phone ?? "",
     email: member?.email ?? "",
+    roleId: member?.roleId ?? "",
   });
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -68,7 +86,16 @@ export function MemberEditDialog({
     const response = await fetch(`/api/members/${member.membershipId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify({
+        name: values.name,
+        phone: values.phone,
+        email: values.email,
+        // Only sent when it changed, so a plain details edit never trips the
+        // role guards.
+        ...(roles && values.roleId && values.roleId !== member.roleId
+          ? { roleId: values.roleId }
+          : {}),
+      }),
     });
 
     if (response.ok) {
@@ -139,6 +166,32 @@ export function MemberEditDialog({
               <FieldDescription>Leave blank to remove it.</FieldDescription>
               <FieldError errors={fieldErrors.email?.map((m) => ({ message: m }))} />
             </Field>
+
+            {roles && member?.roleId && (
+              <Field>
+                <FieldLabel htmlFor="member-role">Role</FieldLabel>
+                <Select
+                  value={values.roleId}
+                  onValueChange={(next) => next && set("roleId", next)}
+                >
+                  <SelectTrigger id="member-role" className="w-full">
+                    <SelectValue>
+                      {(selected: string) =>
+                        roles.find((r) => r.id === selected)?.name ?? "Pick a role"
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldDescription>Takes effect on their next page load.</FieldDescription>
+              </Field>
+            )}
 
             {formError && <FieldError>{formError}</FieldError>}
           </div>

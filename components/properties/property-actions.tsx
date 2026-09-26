@@ -9,6 +9,7 @@ import {
   PropertyFormDialog,
   type PropertyFormValues,
 } from "@/components/properties/property-form-dialog";
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,6 +35,7 @@ export function PropertyActions({
   ownerName: string;
   initialValues: PropertyFormValues;
 }) {
+  const canWrite = useCan("property:write");
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -76,6 +78,8 @@ export function PropertyActions({
         size="sm"
         className="w-full sm:w-auto"
         onClick={() => setEditOpen(true)}
+        disabled={!canWrite}
+        title={canWrite ? undefined : "Your role doesn't allow this"}
       >
         <PencilIcon />
         Edit
@@ -97,7 +101,13 @@ export function PropertyActions({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger
           render={
-            <Button variant="outline" size="sm" className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              disabled={!canWrite}
+              title={canWrite ? undefined : "Your role doesn't allow this"}
+            >
               <Trash2Icon />
               Delete
             </Button>

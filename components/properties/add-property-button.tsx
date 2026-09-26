@@ -4,14 +4,21 @@ import * as React from "react";
 import { PlusIcon } from "lucide-react";
 
 import { PropertyFormDialog } from "@/components/properties/property-form-dialog";
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 
 export function AddPropertyButton({ ownerName }: { ownerName: string }) {
+  const canWrite = useCan("property:write");
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
-      <Button data-tour="add-property" onClick={() => setOpen(true)}>
+      <Button
+        data-tour="add-property"
+        onClick={() => setOpen(true)}
+        disabled={!canWrite}
+        title={canWrite ? undefined : "Your role doesn't allow this"}
+      >
         <PlusIcon />
         Add property
       </Button>

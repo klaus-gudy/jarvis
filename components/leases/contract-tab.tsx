@@ -6,6 +6,7 @@ import { FileSignatureIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import type { AssetTypeView } from "@/lib/asset-types";
 
@@ -82,6 +83,7 @@ export function ContractTab({
   documents: DocumentView[];
   assetTypes: AssetTypeView[];
 }) {
+  const canGenerate = useCan("contract:generate");
   const router = useRouter();
   const [running, setRunning] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -188,7 +190,8 @@ export function ContractTab({
             variant="outline"
             className="bg-card"
             onClick={handleGenerate}
-            disabled={running}
+            disabled={running || !canGenerate}
+            title={canGenerate ? undefined : "Your role doesn't allow this"}
           >
             <FileSignatureIcon />
             {running ? "Queueing…" : failed ? "Try again" : "Generate contract"}
