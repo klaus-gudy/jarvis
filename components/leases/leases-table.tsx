@@ -11,7 +11,11 @@ import { buildLeaseColumns } from "@/components/leases/lease-columns";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
 import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
 import { Button } from "@/components/ui/button";
-import { DataTable, type RowAction } from "@/components/ui/data-table";
+import {
+  DataTable,
+  type DataTableView,
+  type RowAction,
+} from "@/components/ui/data-table";
 import { INVOICE_STATUSES } from "@/lib/invoice-types";
 import {
   Dialog,
