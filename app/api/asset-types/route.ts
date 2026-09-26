@@ -1,10 +1,10 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { createAssetType, listAssetTypes } from "@/lib/asset-types";
 import { createAssetTypeSchema } from "@/lib/documents-schemas";
 import { FileAssetSubject } from "@/lib/generated/prisma/enums";
 
 export async function GET(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   const subject = new URL(request.url).searchParams.get("subject");
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("document:write");
   if (!auth.ok) return auth.response;
 
   let body: unknown;

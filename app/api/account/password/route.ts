@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 /**
  * Changes the signed-in user's own password. Not org-scoped — a password
  * belongs to the User, not to a membership — so this uses `getCurrentUser`
- * rather than `requireActiveOrg`, and an org-less user can still use it.
+ * rather than `authorize`, and an org-less user can still use it.
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser();

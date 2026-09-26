@@ -71,12 +71,12 @@ export async function POST(request: Request) {
         data: { name: organizationName },
       });
       const ownerRole = await tx.role.create({
-        data: { name: OWNER_ROLE_NAME, organizationId: organization.id },
+        data: { name: OWNER_ROLE_NAME, kind: "OWNER", organizationId: organization.id },
       });
       // Created alongside Owner so a fresh org can add its first tenant
       // without `ensureRole` having to lazily create it on the fly.
       await tx.role.create({
-        data: { name: TENANT_ROLE_NAME, organizationId: organization.id },
+        data: { name: TENANT_ROLE_NAME, kind: "TENANT", organizationId: organization.id },
       });
       const membership = await tx.membership.create({
         data: {
