@@ -158,6 +158,9 @@ export function UnitsTable({
           url={`/api/properties/${propertyId}/units/export`}
           label="Export units"
           filenameFallback="units.xlsx"
+          getIds={() =>
+            viewRef.current?.visibleRows()?.map((u) => u.id) ?? null
+          }
         />
         {/* bg-card, not the variant's bg-background: this button sits directly on
             the page rather than on a card, where `outline`'s fill is the exact
@@ -182,6 +185,7 @@ export function UnitsTable({
       </div>
 
       <DataTable
+        viewRef={viewRef}
         columns={columns}
         data={units}
         searchPlaceholder="Filter units…"
