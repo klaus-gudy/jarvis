@@ -125,3 +125,48 @@ export function xlsxResponse(buffer: Buffer, filename: string) {
     },
   });
 }
+
+const exportIdsSchema = z.object({ ids: z.array(z.string()).max(10_000) });
+
+/**
+ * The rows a filtered export asked for, as posted by `ExportButton` — the ids
+ * of what the table is showing, in its on-screen order. Ids are only ever used
+ * to pick from rows the route already loaded for the caller's org, so an id
+ * from elsewhere matches nothing rather than leaking a row.
+ */
+export async function readExportIds(
+  request: Request
+): Promise<{ ok: true; ids: string[] } | { ok: false; response: Response }> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return {
+      ok: false,
+      response: Response.json({ error: "Invalid JSON body" }, { status: 400 }),
+    };
+  }
+
+  const parsed = exportIdsSchema.safeParse(body);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      response: Response.json({ error: "Validation failed" }, { status: 400 }),
+    };
+  }
+  return { ok: true, ids: parsed.data.ids };
+}
+
+/**
+ * `rows` narrowed to `ids` and put in their order; `null` keeps every row.
+ * `idOf` must read the same key the page sent — tenants go by membership id.
+ */
+export function pickExportRows<T>(
+  rows: T[],
+  ids: string[] | null,
+  idOf: (row: T) => string = (row) => (row as { id: string }).id
+): T[] {
+  if (!ids) return rows;
+  const byId = new Map(rows.map((row) => [idOf(row), row]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
