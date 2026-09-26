@@ -49,7 +49,7 @@ async function exportResponse(ids: string[] | null) {
         value: (p) => p.invoiceAmount,
       },
     ],
-    rows: payments,
+    rows: pickExportRows(payments, ids),
   });
 
   return xlsxResponse(buffer, exportFilename("payments"));
