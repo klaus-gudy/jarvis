@@ -143,6 +143,9 @@ export function TenantsTable({
           url="/api/tenants/export"
           label="Export tenants"
           filenameFallback="tenants.xlsx"
+          getIds={() =>
+            viewRef.current?.visibleRows()?.map((t) => t.membershipId) ?? null
+          }
         />
         {/* bg-card, not the variant's bg-background, which is the page colour. */}
         <Button
@@ -160,6 +163,7 @@ export function TenantsTable({
       </div>
 
       <DataTable
+        viewRef={viewRef}
         stateKey="tenants"
         columns={columns}
         data={tenants}
