@@ -26,7 +26,11 @@ import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
 import { PhotoUploadDialog } from "@/components/documents/photo-upload-dialog";
 import { ImportDialog } from "@/components/import-dialog";
 import { Button } from "@/components/ui/button";
-import { DataTable, type RowAction } from "@/components/ui/data-table";
+import {
+  DataTable,
+  type DataTableView,
+  type RowAction,
+} from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
