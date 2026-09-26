@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize, can } from "@/lib/authz";
+import { documentRequirement, subjectOfRow } from "@/lib/document-access";
 import { deleteDocument, getDocument } from "@/lib/documents";
 import { getObjectStream, StorageNotConfiguredError } from "@/lib/storage";
 
@@ -18,7 +19,7 @@ export async function GET(
   request: Request,
   ctx: RouteContext<"/api/documents/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -27,6 +28,14 @@ export async function GET(
   const document = await getDocument(auth.context.organizationId, id);
   if (!document) {
     return Response.json({ error: "Document not found" }, { status: 404 });
+  }
+  const required = documentRequirement(
+    subjectOfRow(document),
+    "read",
+    auth.context.membershipId
+  );
+  if (required && !can(auth.context, required)) {
+    return Response.json({ error: "You don't have permission to do that" }, { status: 403 });
   }
 
   let body: ReadableStream | null;
@@ -75,10 +84,23 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/documents/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
+
+  const document = await getDocument(auth.context.organizationId, id);
+  if (!document) {
+    return Response.json({ error: "Document not found" }, { status: 404 });
+  }
+  const required = documentRequirement(
+    subjectOfRow(document),
+    "write",
+    auth.context.membershipId
+  );
+  if (required && !can(auth.context, required)) {
+    return Response.json({ error: "You don't have permission to do that" }, { status: 403 });
+  }
 
   try {
     const result = await deleteDocument(auth.context.organizationId, id);
