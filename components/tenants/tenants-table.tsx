@@ -53,6 +53,7 @@ export function TenantsTable({
   leaseOptions: LeaseOptions;
 }) {
   const router = useRouter();
+  const viewRef = React.useRef<DataTableView<TenantRow>>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<TenantRow | null>(null);
