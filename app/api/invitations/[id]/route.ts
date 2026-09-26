@@ -1,13 +1,13 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { revokeInvitation } from "@/lib/invitations";
 
 export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/invitations/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("member:invite");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

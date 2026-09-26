@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { createInvitation, getInvitations } from "@/lib/invitations";
 import { mayEmailInvitation } from "@/lib/mail/config";
 import { sendInvitationEmail } from "@/lib/mail/invitations";
@@ -23,7 +23,7 @@ const createInvitationSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize(["member:read", "member:invite"]);
   if (!auth.ok) return auth.response;
 
   const invitations = await getInvitations(auth.context.organizationId);
@@ -31,7 +31,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("member:invite");
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -49,9 +49,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await createInvitation(auth.context.organizationId, parsed.data);
+  const result = await createInvitation(auth.context, parsed.data);
   if (result.error === "role-not-found") {
     return Response.json({ error: "Role not found" }, { status: 404 });
+  }
+  if (result.error === "forbidden") {
+    return Response.json({ error: "Only an Owner can invite an Owner" }, { status: 403 });
+  }
+  if (result.error === "escalation") {
+    return Response.json(
+      { error: "That role has permissions you don't hold yourself" },
+      { status: 403 }
+    );
   }
 
   /*
@@ -71,7 +80,7 @@ export async function POST(request: Request) {
    * leaving them waiting for a message that is never coming.
    */
   const invitedEmail = parsed.data.email ?? null;
-  const roleMayBeEmailed = mayEmailInvitation(result.roleName);
+  const roleMayBeEmailed = mayEmailInvitation(result.roleKind);
   const willEmail = Boolean(invitedEmail) && roleMayBeEmailed;
 
   after(async () => {
