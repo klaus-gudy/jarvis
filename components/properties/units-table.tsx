@@ -72,6 +72,7 @@ export function UnitsTable({
   photoAssetTypes: AssetTypeView[];
 }) {
   const router = useRouter();
+  const viewRef = React.useRef<DataTableView<UnitRow>>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
   const [viewing, setViewing] = React.useState<UnitRow | null>(null);
