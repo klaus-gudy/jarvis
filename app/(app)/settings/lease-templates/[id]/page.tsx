@@ -5,6 +5,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { LeaseTemplateForm } from "@/components/settings/lease-template-form";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import { getLeaseTemplate } from "@/lib/lease-templates";
 
 export default async function EditLeaseTemplatePage({
@@ -12,6 +13,7 @@ export default async function EditLeaseTemplatePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireStaffPage("template:manage");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.activeOrgId) redirect("/settings/lease-templates");

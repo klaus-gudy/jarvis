@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types";
 import { listAssetTypes } from "@/lib/asset-types";
@@ -40,6 +41,7 @@ export default async function LeaseDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireStaffPage("lease:read");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.activeOrgId) redirect("/leases");

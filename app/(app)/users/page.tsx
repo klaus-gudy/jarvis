@@ -4,11 +4,13 @@ import { UserCogIcon } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { UsersView } from "@/components/users/users-view";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import { getInvitations } from "@/lib/invitations";
 import { getMembers } from "@/lib/members";
 import { getRoles } from "@/lib/roles";
 
 export default async function UsersPage() {
+  await requireStaffPage("member:read");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 

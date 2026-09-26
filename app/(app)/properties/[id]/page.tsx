@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { getProperty } from "@/lib/properties";
@@ -22,6 +23,7 @@ export default async function PropertyDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireStaffPage("property:read");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.activeOrgId) redirect("/properties");

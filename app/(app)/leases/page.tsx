@@ -4,9 +4,11 @@ import { FileTextIcon } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { LeasesTable } from "@/components/leases/leases-table";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import { getLeaseOptions, getLeases } from "@/lib/leases";
 
 export default async function LeasesPage() {
+  await requireStaffPage("lease:read");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 

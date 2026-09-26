@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/empty-state";
 import { LeaseTemplateForm } from "@/components/settings/lease-template-form";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import { countLeaseTemplates } from "@/lib/lease-templates";
 import {
   LEASE_TEMPLATE_LANGUAGES,
@@ -23,6 +24,7 @@ export default async function NewLeaseTemplatePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireStaffPage("template:manage");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 

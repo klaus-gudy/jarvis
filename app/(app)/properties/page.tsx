@@ -8,6 +8,7 @@ import { ExportButton } from "@/components/export-button";
 import { PropertyCard } from "@/components/properties/property-card";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import type { PropertyType } from "@/lib/generated/prisma/enums";
 import { getOrganizationOwnerName } from "@/lib/organizations";
 import { getProperties } from "@/lib/properties";
@@ -24,6 +25,7 @@ export default async function PropertiesPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
+  await requireStaffPage("property:read");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 

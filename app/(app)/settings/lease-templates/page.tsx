@@ -4,9 +4,11 @@ import { ScrollTextIcon } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { LeaseTemplatesView } from "@/components/settings/lease-templates-view";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireStaffPage } from "@/lib/authz";
 import { getLeaseTemplates } from "@/lib/lease-templates";
 
 export default async function LeaseTemplatesPage() {
+  await requireStaffPage("template:manage");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 

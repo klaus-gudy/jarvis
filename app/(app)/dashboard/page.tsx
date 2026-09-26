@@ -18,6 +18,7 @@ import {
   VacantUnitsPanel,
 } from "@/components/dashboard/panels"
 import { getCurrentUser } from "@/lib/auth/session"
+import { requireStaffPage } from "@/lib/authz"
 import { getDashboardStats, getDashboardPanels } from "@/lib/dashboard"
 import { formatCurrency, formatCurrencyFull } from "@/lib/format"
 import { getProperties } from "@/lib/properties"
@@ -30,6 +31,7 @@ function greeting(hour: number) {
 }
 
 export default async function DashboardPage() {
+  await requireStaffPage("dashboard:read")
   const user = await getCurrentUser()
   if (!user) redirect("/login")
 

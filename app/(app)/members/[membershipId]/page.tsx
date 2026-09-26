@@ -14,12 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { can, requireStaffPage } from "@/lib/authz";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { getLeaseOptions } from "@/lib/leases";
 import { getPayments } from "@/lib/payments";
-import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { getTenantDetail, type TenantStatus } from "@/lib/tenants";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +48,7 @@ export default async function MemberDetailPage({
 }: {
   params: Promise<{ membershipId: string }>;
 }) {
+  const access = await requireStaffPage(["tenant:read", "member:read"]);
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.activeOrgId) redirect("/users");
@@ -59,8 +60,17 @@ export default async function MemberDetailPage({
   const { profile } = member;
 
   // Send people back where the member is actually listed.
-  const isTenant =
-    member.roleName.toLowerCase() === TENANT_ROLE_NAME.toLowerCase();
+  const isTenant = member.roleKind === "TENANT";
+  // The page gate admits either permission; this one person needs the right
+  // one for their kind (your own page is always yours). 404, not 403: whether
+  // a given member exists is itself something the page would reveal.
+  if (
+    access &&
+    member.membershipId !== access.membershipId &&
+    !can(access, isTenant ? "tenant:read" : "member:read")
+  ) {
+    notFound();
+  }
   const backHref = isTenant ? "/tenants" : "/users";
   const backLabel = isTenant ? "All tenants" : "All users";
 
