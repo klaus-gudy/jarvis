@@ -4,7 +4,7 @@ import { markTourSeen, resetToursSeen } from "@/lib/tour-progress";
 /**
  * A person's own tour progress.
  *
- * Authenticated with `getCurrentUser` rather than `requireActiveOrg`: which
+ * Authenticated with `getCurrentUser` rather than `authorize`: which
  * tours somebody has watched is theirs, not their organization's, and a user
  * who has not joined one yet still moves around an app that offers tours.
  *
