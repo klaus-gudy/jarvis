@@ -20,7 +20,11 @@ import { TenantCard } from "@/components/tenants/tenant-card";
 import { buildTenantColumns } from "@/components/tenants/tenant-columns";
 import { TenantFormDialog } from "@/components/tenants/tenant-form-dialog";
 import { Button } from "@/components/ui/button";
-import { DataTable, type RowAction } from "@/components/ui/data-table";
+import {
+  DataTable,
+  type DataTableView,
+  type RowAction,
+} from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
