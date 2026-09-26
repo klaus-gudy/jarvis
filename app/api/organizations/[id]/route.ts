@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { clearSession } from "@/lib/auth/session";
 import { deleteOrganization } from "@/lib/organizations";
 
@@ -16,7 +16,7 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/organizations/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("org:delete");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

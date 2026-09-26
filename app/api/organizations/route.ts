@@ -11,7 +11,7 @@ const createOrganizationSchema = z.object({
 });
 
 /**
- * Deliberately does NOT use requireActiveOrg: the whole point is that the
+ * Deliberately does NOT use authorize: the whole point is that the
  * caller has no organization yet. It only requires a signed-in user.
  */
 export async function POST(request: Request) {

@@ -8,7 +8,7 @@ const querySchema = z.object({
 
 /**
  * Public, like `POST /api/organizations`'s reasoning for skipping
- * `requireActiveOrg`: this runs from the registration form, before an account
+ * `authorize`: this runs from the registration form, before an account
  * exists to authenticate. It only answers yes/no on a name — nothing about an
  * organization's membership or data is exposed.
  */

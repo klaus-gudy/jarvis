@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { getOrganizationExportData } from "@/lib/organization-export";
 import {
   buildMultiSheetWorkbook,
@@ -54,6 +54,8 @@ const MEMBERSHIP_COLUMNS: ExportColumn<MembershipExportRow>[] = [
   { header: "email", width: 26, value: (m) => m.email ?? "" },
   { header: "phone", width: 18, value: (m) => m.phone ?? "" },
   { header: "role", width: 16, value: (m) => m.role },
+  { header: "roleKind", width: 10, value: (m) => m.roleKind },
+  { header: "rolePermissions", width: 40, value: (m) => m.rolePermissions.join(",") },
   { header: "occupation", width: 20, value: (m) => m.occupation ?? "" },
   { header: "nidaNumber", width: 20, value: (m) => m.nidaNumber ?? "" },
   { header: "nationality", width: 18, value: (m) => m.nationality ?? "" },
@@ -125,7 +127,7 @@ const PAYMENT_COLUMNS: ExportColumn<PaymentExportRow>[] = [
 ];
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("org:backup");
   if (!auth.ok) return auth.response;
 
   const data = await getOrganizationExportData(auth.context.organizationId);

@@ -1,10 +1,9 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import {
   importOrganizationBackup,
   parseOrganizationBackup,
 } from "@/lib/organization-import";
-import { OWNER_ROLE_NAME } from "@/lib/roles";
 import { MAX_IMPORT_BYTES } from "@/lib/xlsx-import";
 
 /**
@@ -15,24 +14,8 @@ import { MAX_IMPORT_BYTES } from "@/lib/xlsx-import";
  * unrelated organizations' histories, neither of which "restore" should mean.
  */
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("org:restore");
   if (!auth.ok) return auth.response;
-
-  const membership = await prisma.membership.findFirst({
-    where: {
-      userId: auth.context.userId,
-      organizationId: auth.context.organizationId,
-    },
-    select: { role: { select: { name: true } } },
-  });
-  const isOwner =
-    membership?.role.name.toLowerCase() === OWNER_ROLE_NAME.toLowerCase();
-  if (!isOwner) {
-    return Response.json(
-      { error: "Only the organization's owner can restore a backup" },
-      { status: 403 }
-    );
-  }
 
   const [propertyCount, membershipCount] = await Promise.all([
     prisma.property.count({ where: { organizationId: auth.context.organizationId } }),
