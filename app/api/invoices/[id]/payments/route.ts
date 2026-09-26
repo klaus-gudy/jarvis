@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
 import { recordPaymentSchema } from "@/lib/invoices-schemas";
 import { announceInvoiceSettled, recordPayment } from "@/lib/invoices";
@@ -10,7 +10,7 @@ export async function POST(
   request: Request,
   ctx: RouteContext<"/api/invoices/[id]/payments">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("payment:record");
   if (!auth.ok) return auth.response;
 
   let body: unknown;

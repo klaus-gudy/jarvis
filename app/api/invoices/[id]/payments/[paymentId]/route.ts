@@ -1,13 +1,13 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { deletePayment } from "@/lib/invoices";
 
 export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/invoices/[id]/payments/[paymentId]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("payment:reverse");
   if (!auth.ok) return auth.response;
 
   const { id, paymentId } = await ctx.params;
