@@ -158,6 +158,25 @@ type StickyTableState = {
  */
 const stickyTableState = new Map<string, StickyTableState>();
 
+/**
+ * Facet popups size to their options instead of the w-36 trigger, which is
+ * too narrow for a property name plus its count — never narrower, though.
+ */
+const FACET_POPUP_WIDTH = "w-auto min-w-(--anchor-width)";
+
+/**
+ * What a page can ask a table about its current view, through `viewRef`.
+ * Read on demand (e.g. when Export is clicked) rather than pushed up on every
+ * filter change, so the page doesn't re-render as the user types.
+ */
+export type DataTableView<TData> = {
+  /**
+   * The rows passing the search and filters, in on-screen sort order — or
+   * `null` when nothing narrows the table, meaning "all of them".
+   */
+  visibleRows: () => TData[] | null;
+};
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -170,6 +189,7 @@ export function DataTable<TData, TValue>({
   stateKey,
   renderCard,
   rowActions,
+  viewRef,
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -209,6 +229,8 @@ export function DataTable<TData, TValue>({
   renderCard?: (row: TData) => React.ReactNode;
   /** Row actions for the mobile sheet. See `RowAction`. */
   rowActions?: (row: TData) => RowAction[];
+  /** Lets the page read the current view — see `DataTableView`. */
+  viewRef?: React.Ref<DataTableView<TData>>;
 }) {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -280,6 +302,11 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    // Per-option counts for the facet selects. Each column's facets are
+    // computed with every *other* filter applied, so a count reads as "how
+    // many rows picking this would show" given the rest of the toolbar.
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: handleSortingChange,
     onColumnFiltersChange: handleColumnFiltersChange,
@@ -315,6 +342,19 @@ export function DataTable<TData, TValue>({
       globalFilter,
     },
   });
+  React.useImperativeHandle(
+    viewRef,
+    () => ({
+      // The sorted model is built on the filtered one, so this is the
+      // filtered rows in display order, across every page.
+      visibleRows: () =>
+        columnFilters.length > 0 || globalFilter.trim() !== ""
+          ? table.getSortedRowModel().rows.map((row) => row.original)
+          : null,
+    }),
+    [table, columnFilters, globalFilter]
+  );
+
   const selectedCount = table.getFilteredSelectedRowModel().rows.length;
   const filteredCount = table.getFilteredRowModel().rows.length;
 
@@ -629,18 +669,105 @@ export function DataTable<TData, TValue>({
           const column = table.getColumn(filter.columnId);
           if (!column) return null;
 
+          const counts = column.getFacetedUniqueValues();
+          const active = column.getFilterValue() !== undefined;
+          const fieldName = filter.label ?? filter.placeholder;
+
+          /** Option label plus how many rows it would match. */
+          const optionContent = (option: FacetFilter["options"][number]) => (
+            <>
+              {option.label}
+              <span className="ml-auto pl-4 text-xs text-muted-foreground tabular-nums">
+                {counts.get(option.value) ?? 0}
+              </span>
+            </>
+          );
+
+          /*
+           * Clears just this facet. A sibling laid over the chevron, not a
+           * child of the trigger — a <button> inside a <button> is invalid and
+           * the click would open the popup too. `bg-background` hides the
+           * chevron underneath; it comes back once the facet is cleared.
+           */
+          const clearButton = active && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="absolute top-1/2 right-1 size-5 -translate-y-1/2 bg-background text-muted-foreground"
+              onClick={() => column.setFilterValue(undefined)}
+              aria-label={`Clear ${fieldName} filter`}
+            >
+              <XIcon className="size-3.5" />
+            </Button>
+          );
+
           if (filter.multiple) {
             const selected = facetValues(column.getFilterValue());
             return (
+              <div key={filter.columnId} className="relative">
+                <Select
+                  multiple
+                  value={selected}
+                  onValueChange={(next: string[]) =>
+                    // Cleared back to `undefined` rather than left as an empty
+                    // array, so Clear filters and the "any filters active?"
+                    // checks see a facet with nothing chosen as absent.
+                    column.setFilterValue(next.length > 0 ? next : undefined)
+                  }
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="w-36 bg-background"
+                    aria-label={filter.placeholder}
+                  >
+                    {/* Base UI renders the raw value unless given a formatter —
+                        here an array, which would print as "A,B". One choice
+                        still reads as itself; past that the trigger is too narrow
+                        for a list, so it counts instead. */}
+                    <SelectValue>
+                      {(values: string[]) => {
+                        if (values.length === 0) return filter.placeholder;
+                        if (values.length === 1) {
+                          return (
+                            filter.options.find(
+                              (option) => option.value === values[0]
+                            )?.label ?? values[0]
+                          );
+                        }
+                        return `${values.length} selected`;
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  {/* Dropped below the trigger like a menu. The default aligns
+                      the *selected* item with the trigger, which has no single
+                      answer once several are selected. */}
+                  <SelectContent
+                    align="start"
+                    alignItemWithTrigger={false}
+                    className={FACET_POPUP_WIDTH}
+                  >
+                    {/* No "all" row: with checkable items, clearing is
+                        unticking, and an option that silently unticks the others
+                        would read as just another choice. */}
+                    {filter.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {optionContent(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {clearButton}
+              </div>
+            );
+          }
+
+          const value = (column.getFilterValue() as string) ?? "all";
+          return (
+            <div key={filter.columnId} className="relative">
               <Select
-                key={filter.columnId}
-                multiple
-                value={selected}
-                onValueChange={(next: string[]) =>
-                  // Cleared back to `undefined` rather than left as an empty
-                  // array, so the Reset button and the "any filters active?"
-                  // checks see a facet with nothing chosen as absent.
-                  column.setFilterValue(next.length > 0 ? next : undefined)
+                value={value}
+                onValueChange={(next) =>
+                  column.setFilterValue(next === "all" ? undefined : next)
                 }
               >
                 <SelectTrigger
@@ -648,72 +775,25 @@ export function DataTable<TData, TValue>({
                   className="w-36 bg-background"
                   aria-label={filter.placeholder}
                 >
-                  {/* Base UI renders the raw value unless given a formatter —
-                      here an array, which would print as "A,B". One choice
-                      still reads as itself; past that the trigger is too narrow
-                      for a list, so it counts instead. */}
+                  {/* Base UI renders the raw value unless given a formatter. */}
                   <SelectValue>
-                    {(values: string[]) => {
-                      if (values.length === 0) return filter.placeholder;
-                      if (values.length === 1) {
-                        return (
-                          filter.options.find(
-                            (option) => option.value === values[0]
-                          )?.label ?? values[0]
-                        );
-                      }
-                      return `${values.length} selected`;
-                    }}
+                    {(selected: string) =>
+                      filter.options.find((option) => option.value === selected)?.label ??
+                      filter.placeholder
+                    }
                   </SelectValue>
                 </SelectTrigger>
-                {/* Dropped below the trigger like a menu. The default aligns
-                    the *selected* item with the trigger, which has no single
-                    answer once several are selected. */}
-                <SelectContent align="start" alignItemWithTrigger={false}>
-                  {/* No "all" row: with checkable items, clearing is
-                      unticking, and an option that silently unticks the others
-                      would read as just another choice. */}
+                <SelectContent className={FACET_POPUP_WIDTH}>
+                  <SelectItem value="all">{filter.placeholder}</SelectItem>
                   {filter.options.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {optionContent(option)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            );
-          }
-
-          const value = (column.getFilterValue() as string) ?? "all";
-          return (
-            <Select
-              key={filter.columnId}
-              value={value}
-              onValueChange={(next) =>
-                column.setFilterValue(next === "all" ? undefined : next)
-              }
-            >
-              <SelectTrigger
-                size="sm"
-                className="w-36 bg-background"
-                aria-label={filter.placeholder}
-              >
-                {/* Base UI renders the raw value unless given a formatter. */}
-                <SelectValue>
-                  {(selected: string) =>
-                    filter.options.find((option) => option.value === selected)?.label ??
-                    filter.placeholder
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{filter.placeholder}</SelectItem>
-                {filter.options.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {clearButton}
+            </div>
           );
         })}
 
@@ -724,7 +804,8 @@ export function DataTable<TData, TValue>({
             onClick={() => table.resetColumnFilters()}
             className="h-8"
           >
-            Reset
+            <XIcon />
+            Clear filters
           </Button>
         )}
       </div>
@@ -1128,7 +1209,7 @@ function FilterSheetBody({
 
       <SheetFooter className="flex-row gap-2 pb-6">
         <Button variant="outline" className="flex-1" onClick={onReset}>
-          Reset
+          Clear filters
         </Button>
         <Button className="flex-1" onClick={() => onApply(draft)}>
           Apply
