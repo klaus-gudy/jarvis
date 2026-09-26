@@ -35,6 +35,7 @@ export function LeasesTable({
   options: LeaseOptions;
 }) {
   const router = useRouter();
+  const viewRef = React.useRef<DataTableView<LeaseRow>>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<LeaseRow | null>(null);
   const [deleting, setDeleting] = React.useState<LeaseRow | null>(null);
