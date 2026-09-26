@@ -1,15 +1,12 @@
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { createRole, getRoles } from "@/lib/roles";
+import { createRoleSchema } from "@/lib/roles-schemas";
 
-const createRoleSchema = z.object({
-  name: z.string().trim().min(1, "Role name is required").max(40),
-});
-
+/** Also read by the invite dialog and the member role picker. */
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize(["role:manage", "member:invite", "member:write"]);
   if (!auth.ok) return auth.response;
 
   const roles = await getRoles(auth.context.organizationId);
@@ -17,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("role:manage");
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -35,11 +32,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await createRole(auth.context.organizationId, parsed.data.name);
+  const result = await createRole(auth.context, parsed.data);
   if (result.error === "duplicate") {
     return Response.json(
       { error: "A role with this name already exists" },
       { status: 409 }
+    );
+  }
+  if (result.error === "escalation") {
+    return Response.json(
+      { error: "You can't grant permissions you don't hold yourself" },
+      { status: 403 }
     );
   }
 
