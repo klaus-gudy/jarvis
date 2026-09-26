@@ -6,7 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { LockIcon, PencilIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
-import { RoleCard, permissionSummary } from "@/components/roles/role-card";
+import { PermissionAreas, RoleCard } from "@/components/roles/role-card";
 import { RoleFormDialog } from "@/components/roles/role-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,16 +28,15 @@ import type { RoleRow } from "@/lib/roles";
 export function RolesView({ roles }: { roles: RoleRow[] }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<RoleRow | null>(null);
   const [deleting, setDeleting] = React.useState<RoleRow | null>(null);
   const [pending, setPending] = React.useState(false);
 
   const actionsFor = React.useCallback(
     (role: RoleRow): RowAction[] => [
       {
-        label: `Edit ${role.name}`,
+        label: `Open ${role.name}`,
         icon: PencilIcon,
-        onSelect: () => setEditing(role),
+        href: `/roles/${role.id}`,
       },
       {
         label: `Delete ${role.name}`,
@@ -122,11 +121,7 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
       {
         id: "permissions",
         header: "Permissions",
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {permissionSummary(row.original)}
-          </span>
-        ),
+        cell: ({ row }) => <PermissionAreas role={row.original} />,
         enableSorting: false,
       },
       {
@@ -165,6 +160,7 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
         ]}
         emptyMessage="No roles yet."
         renderCard={(role) => <RoleCard role={role} />}
+        getRowHref={(role) => `/roles/${role.id}`}
         rowActions={actionsFor}
       />
 
@@ -172,12 +168,6 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
         key={String(formOpen)}
         open={formOpen}
         onOpenChange={setFormOpen}
-      />
-      <RoleFormDialog
-        key={editing?.id ?? "none"}
-        open={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
-        role={editing ?? undefined}
       />
 
       <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
