@@ -126,6 +126,9 @@ export function LeasesTable({
           url="/api/leases/export"
           label="Export leases"
           filenameFallback="leases.xlsx"
+          getIds={() =>
+            viewRef.current?.visibleRows()?.map((l) => l.id) ?? null
+          }
         />
         <Button data-tour="add-lease" onClick={() => setFormOpen(true)}>
           <PlusIcon />
@@ -134,6 +137,7 @@ export function LeasesTable({
       </div>
 
       <DataTable
+        viewRef={viewRef}
         stateKey="leases"
         columns={columns}
         data={leases}
