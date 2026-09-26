@@ -33,7 +33,7 @@ const findOwnerMembership = cache((organizationId: string) =>
     where: {
       organizationId,
       // Role names are free text and editable, so match loosely.
-      role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
+      role: { kind: "OWNER" as const },
     },
     orderBy: { createdAt: "asc" },
     include: {
@@ -98,7 +98,7 @@ export async function createOrganizationForUser(userId: string, name: string) {
     const existingOwnership = await tx.membership.findFirst({
       where: {
         userId,
-        role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
+        role: { kind: "OWNER" as const },
       },
       select: { organization: { select: { name: true } } },
     });
@@ -111,7 +111,7 @@ export async function createOrganizationForUser(userId: string, name: string) {
 
     const organization = await tx.organization.create({ data: { name } });
     const ownerRole = await tx.role.create({
-      data: { name: OWNER_ROLE_NAME, organizationId: organization.id },
+      data: { name: OWNER_ROLE_NAME, kind: "OWNER", organizationId: organization.id },
     });
     await tx.membership.create({
       data: { userId, organizationId: organization.id, roleId: ownerRole.id },
@@ -156,13 +156,11 @@ export async function deleteOrganization(
   return prisma.$transaction(async (tx) => {
     const membership = await tx.membership.findUnique({
       where: { userId_organizationId: { userId, organizationId } },
-      select: { role: { select: { name: true } } },
+      select: { role: { select: { kind: true } } },
     });
     if (!membership) return { error: "not-found" as const };
 
-    const isOwner =
-      membership.role.name.toLowerCase() === OWNER_ROLE_NAME.toLowerCase();
-    if (!isOwner) return { error: "not-owner" as const };
+    if (membership.role.kind !== "OWNER") return { error: "not-owner" as const };
 
     await tx.membership.deleteMany({ where: { organizationId } });
     await tx.invitation.deleteMany({ where: { organizationId } });

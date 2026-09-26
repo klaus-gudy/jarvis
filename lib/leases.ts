@@ -14,7 +14,6 @@ import {
   type UpdateLeaseInput,
 } from "@/lib/leases-schemas";
 import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoices";
-import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
 
 /** Mirrors the Prisma `LeaseStatus` enum; kept literal so client components can import it. */
@@ -306,7 +305,7 @@ export async function getLeaseOptions(organizationId: string): Promise<LeaseOpti
     prisma.membership.findMany({
       where: {
         organizationId,
-        role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+        role: { kind: "TENANT" as const },
       },
       orderBy: { createdAt: "asc" },
       include: { user: { select: { name: true, email: true, phone: true } } },
@@ -430,7 +429,7 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
     where: {
       id: input.membershipId,
       organizationId,
-      role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+      role: { kind: "TENANT" as const },
     },
     select: { id: true },
   });
@@ -501,7 +500,7 @@ export async function updateLease(
     where: {
       id: input.membershipId,
       organizationId,
-      role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+      role: { kind: "TENANT" as const },
     },
     select: { id: true },
   });

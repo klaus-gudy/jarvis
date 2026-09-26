@@ -11,6 +11,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { Permission, RoleKind } from "@/lib/permissions";
+
 export type NavItem = {
   title: string;
   url: string;
@@ -32,68 +34,75 @@ export type NavItem = {
    * redirect in its `page.tsx`.
    */
   hidden?: boolean;
+  /**
+   * What a staff member needs to see this entry (any one of them). The page
+   * enforces the same requirement through `requireStaffPage` — hiding the link
+   * is only a courtesy.
+   */
+  permission?: Permission | readonly Permission[];
 };
 
 export const navItems: NavItem[] = [
   {
     title: "Dashboard",
     url: "/dashboard",
+    permission: "dashboard:read",
     icon: LayoutDashboardIcon,
     description: "Overview of your organization",
   },
   {
     title: "Properties",
     url: "/properties",
+    permission: "property:read",
     icon: BuildingIcon,
     description: "Buildings and the units inside them",
   },
   {
     title: "Tenants",
     url: "/tenants",
+    permission: "tenant:read",
     icon: UsersIcon,
     description: "People renting units in your properties",
   },
   {
     title: "Leases",
     url: "/leases",
+    permission: "lease:read",
     icon: FileTextIcon,
     description: "Agreements linking tenants to units",
   },
   {
     title: "Payments",
     url: "/payments",
+    permission: "payment:read",
     icon: WalletIcon,
     description: "Rent payments recorded against invoices",
   },
   {
     title: "Users",
     url: "/users",
+    permission: "member:read",
     icon: UserCogIcon,
     description: "Members of your organization and their roles",
   },
   {
     title: "Roles & permissions",
     url: "/roles",
+    permission: "role:manage",
     icon: ShieldCheckIcon,
     description: "Roles people can hold, and what each one may do",
-    /*
-      Hidden for now: roles are seeded and read (registration, the Users page,
-      tenant creation all depend on `lib/roles.ts`), but nothing yet *enforces*
-      a permission, so the page offers a control that does not control
-      anything. `app/(app)/roles/page.tsx` redirects to match — a hidden tab
-      whose URL still worked would be a section you can only reach by accident.
-    */
-    hidden: true,
   },
   {
     title: "Settings",
     url: "/settings",
+    permission: ["template:manage"],
     icon: SettingsIcon,
     description: "How your organization works",
     items: [
       {
         title: "Lease templates",
         url: "/settings/lease-templates",
+        permission: "template:manage",
         icon: ScrollTextIcon,
         description: "Contract wording reused for every lease you generate",
       },
@@ -109,6 +118,38 @@ export const navItems: NavItem[] = [
  * highlighting rather than falling back to the bare app name.
  */
 export const visibleNavItems = navItems.filter((item) => !item.hidden);
+
+type Viewer = { kind: RoleKind; permissions: ReadonlySet<Permission> | readonly Permission[] };
+
+function allows(viewer: Viewer, requirement?: Permission | readonly Permission[]) {
+  if (viewer.kind === "OWNER" || !requirement) return true;
+  const held = viewer.permissions;
+  const has = (p: Permission) =>
+    held instanceof Set ? held.has(p) : (held as readonly Permission[]).includes(p);
+  return typeof requirement === "string" ? has(requirement) : requirement.some(has);
+}
+
+/** The sidebar for one viewer: hidden sections and unpermitted ones removed. */
+export function navItemsFor(viewer: Viewer): NavItem[] {
+  return visibleNavItems
+    .filter((item) => allows(viewer, item.permission))
+    .map((item) =>
+      item.items
+        ? { ...item, items: item.items.filter((child) => allows(viewer, child.permission)) }
+        : item
+    )
+    .filter((item) => !item.items || item.items.length > 0);
+}
+
+/**
+ * Where to send a staff member who opened a page they may not see: the first
+ * sidebar entry they can open, or null when there is none.
+ */
+export function firstAllowedPath(viewer: Viewer): string | null {
+  const first = navItemsFor(viewer)[0];
+  if (!first) return null;
+  return first.items?.[0]?.url ?? first.url;
+}
 
 /**
  * Pages reachable from somewhere other than the sidebar — the user menu, for

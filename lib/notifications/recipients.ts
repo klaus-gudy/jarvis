@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { OWNER_ROLE_NAME } from "@/lib/roles";
 
 export type Recipient = { email: string | null; name: string | null };
 
@@ -18,7 +17,7 @@ export async function getOwnerRecipients(
   const memberships = await prisma.membership.findMany({
     where: {
       organizationId,
-      role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
+      role: { kind: "OWNER" as const },
     },
     select: { user: { select: { email: true, name: true } } },
   });

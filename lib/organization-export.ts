@@ -50,6 +50,9 @@ export type MembershipExportRow = {
   email: string | null;
   phone: string | null;
   role: string;
+  roleKind: "OWNER" | "STAFF" | "TENANT";
+  /** Stored permissions (custom roles only); comma-joined in the sheet. */
+  rolePermissions: string[];
   occupation: string | null;
   nidaNumber: string | null;
   nationality: string | null;
@@ -143,6 +146,8 @@ export async function getOrganizationExportData(
       email: membership.user.email,
       phone: membership.user.phone,
       role: membership.role.name,
+      roleKind: membership.role.kind,
+      rolePermissions: membership.role.permissions,
       occupation: membership.profile?.occupation ?? null,
       nidaNumber: membership.profile?.nidaNumber ?? null,
       nationality: membership.profile?.nationality ?? null,

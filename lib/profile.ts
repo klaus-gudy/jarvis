@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getOrganizationOwnerName } from "@/lib/organizations";
 import { getPaymentAccounts, type PaymentAccountRow } from "@/lib/payment-accounts";
-import { OWNER_ROLE_NAME } from "@/lib/roles";
 
 export type ProfilePersonal = {
   name: string | null;
@@ -72,7 +71,7 @@ export async function getProfile(
           select: {
             id: true,
             createdAt: true,
-            role: { select: { name: true } },
+            role: { select: { name: true, kind: true } },
             profile: { select: { signatureKey: true } },
             organization: {
               select: {
@@ -103,10 +102,7 @@ export async function getProfile(
     return { ...EMPTY, personal, canSignIn };
   }
 
-  // Role names are free text and editable, so match the way every other guard
-  // in the codebase does rather than on an exact string.
-  const isOwner =
-    membership.role.name.toLowerCase() === OWNER_ROLE_NAME.toLowerCase();
+  const isOwner = membership.role.kind === "OWNER";
 
   return {
     personal,

@@ -1,8 +1,9 @@
+import { can, type AuthContext } from "@/lib/authz";
 import { formatCurrency, formatDayMonth } from "@/lib/format";
+import type { Permission } from "@/lib/permissions";
 import { invoiceReference } from "@/lib/invoice-types";
 import { leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
-import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { MIN_QUERY_LENGTH, type SearchResult } from "@/lib/search-types";
 import { displayName } from "@/lib/user-display";
 
@@ -32,25 +33,33 @@ const leaseIdSuffix = (query: string) => referenceSuffix(query, /^l-/i);
 const invoiceIdSuffix = (query: string) => referenceSuffix(query, /^inv-/i);
 
 /**
- * One search across everything the organization owns.
+ * One search across everything the organization owns — or rather, everything
+ * in it the caller's role may see.
  *
  * Every branch is scoped by organizationId, and leases additionally through
  * both the membership and the unit's property — the same double scoping the
  * lease queries use, so a cross-org row can't surface here either.
  */
 export async function searchOrganization(
-  organizationId: string,
+  ctx: AuthContext,
   query: string
 ): Promise<SearchResult[]> {
   const q = query.trim();
   if (q.length < MIN_QUERY_LENGTH) return [];
+
+  const { organizationId } = ctx;
+  // A branch the caller may not see is never queried, so search can't become
+  // a side door around the page permissions.
+  function only<T>(requirement: Permission, query: () => Promise<T[]>) {
+    return can(ctx, requirement) ? query() : Promise.resolve([] as T[]);
+  }
 
   const contains = { contains: q, mode: "insensitive" as const };
   const suffix = leaseIdSuffix(q);
   const invoiceSuffix = invoiceIdSuffix(q);
 
   const [properties, units, tenants, users, leases, payments] = await Promise.all([
-    prisma.property.findMany({
+    only("property:read", () => prisma.property.findMany({
       where: {
         organizationId,
         OR: [{ name: contains }, { address: contains }, { category: contains }],
@@ -58,9 +67,9 @@ export async function searchOrganization(
       orderBy: { name: "asc" },
       take: PER_TYPE_LIMIT,
       select: { id: true, name: true, address: true, category: true },
-    }),
+    })),
 
-    prisma.unit.findMany({
+    only("property:read", () => prisma.unit.findMany({
       where: {
         property: { organizationId },
         OR: [{ label: contains }, { unitType: contains }],
@@ -74,12 +83,12 @@ export async function searchOrganization(
         unitType: true,
         property: { select: { id: true, name: true } },
       },
-    }),
+    })),
 
-    prisma.membership.findMany({
+    only("tenant:read", () => prisma.membership.findMany({
       where: {
         organizationId,
-        role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+        role: { kind: "TENANT" as const },
         user: {
           OR: [{ name: contains }, { email: contains }, { phone: contains }],
         },
@@ -90,19 +99,19 @@ export async function searchOrganization(
         id: true,
         user: { select: { name: true, email: true, phone: true } },
       },
-    }),
+    })),
 
     // Everyone who isn't a tenant — Owner, Manager, Caretaker. Exactly the
     // complement of the branch above, so a member surfaces once, under the
     // heading that describes what they actually are.
-    prisma.membership.findMany({
+    only("member:read", () => prisma.membership.findMany({
       where: {
         organizationId,
         // NOT at this level, not `name: { not: ... }` — Prisma rejects `mode`
         // inside a nested `not`, and Role is a required relation so this is
         // an exact complement of the tenant branch.
         NOT: {
-          role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+          role: { kind: "TENANT" as const },
         },
         user: {
           OR: [{ name: contains }, { email: contains }, { phone: contains }],
@@ -115,9 +124,9 @@ export async function searchOrganization(
         role: { select: { name: true } },
         user: { select: { name: true, email: true, phone: true } },
       },
-    }),
+    })),
 
-    prisma.lease.findMany({
+    only("lease:read", () => prisma.lease.findMany({
       where: {
         membership: { organizationId },
         unit: { property: { organizationId } },
@@ -148,12 +157,12 @@ export async function searchOrganization(
           select: { user: { select: { name: true, email: true, phone: true } } },
         },
       },
-    }),
+    })),
 
     // Scoped through the invoice's lease with the same double filter every
     // other lease query uses — the membership's org *and* the unit's property's
     // org — so a payment can't surface from a lease that crosses organizations.
-    prisma.payment.findMany({
+    only("payment:read", () => prisma.payment.findMany({
       where: {
         invoice: {
           lease: {
@@ -208,7 +217,7 @@ export async function searchOrganization(
           },
         },
       },
-    }),
+    })),
   ]);
 
   return [

@@ -1,7 +1,9 @@
 import { leaseStatus } from "@/lib/leases";
 import ExcelJS from "exceljs";
 
+import { parsePermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/role-constants";
 import { cellText } from "@/lib/xlsx-import";
 import { PropertyStatus, PropertyType } from "@/lib/generated/prisma/enums";
 
@@ -58,6 +60,9 @@ type ParsedMembership = {
   email: string | null;
   phone: string | null;
   role: string;
+  /** Absent in backups made before roles had kinds — derived from the name then. */
+  roleKind: "OWNER" | "STAFF" | "TENANT";
+  rolePermissions: string[];
   occupation: string | null;
   nidaNumber: string | null;
   nationality: string | null;
@@ -121,6 +126,17 @@ function cellAt(
 ): ExcelJS.CellValue {
   const i = index.get(header);
   return i ? row.getCell(i).value : null;
+}
+
+function parseRoleKind(
+  value: string | null,
+  roleName: string
+): "OWNER" | "STAFF" | "TENANT" {
+  if (value === "OWNER" || value === "STAFF" || value === "TENANT") return value;
+  const name = roleName.trim().toLowerCase();
+  if (name === OWNER_ROLE_NAME.toLowerCase()) return "OWNER";
+  if (name === TENANT_ROLE_NAME.toLowerCase()) return "TENANT";
+  return "STAFF";
 }
 
 function strAt(row: ExcelJS.Row, index: Map<string, number>, header: string): string | null {
@@ -310,6 +326,11 @@ export async function parseOrganizationBackup(
         email,
         phone,
         role,
+        roleKind: parseRoleKind(strAt(row, index, "roleKind"), role),
+        rolePermissions: (strAt(row, index, "rolePermissions") ?? "")
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean),
         occupation: strAt(row, index, "occupation"),
         nidaNumber: strAt(row, index, "nidaNumber"),
         nationality: strAt(row, index, "nationality"),
@@ -541,19 +562,36 @@ export async function importOrganizationBackup(
         if (existingMembership) {
           membershipId = existingMembership.id;
         } else {
-          const roleKey = membership.role.toLowerCase();
+          // Built-ins are matched by kind (the restoring org already has an
+          // Owner role, possibly renamed); custom roles by name.
+          const roleKey =
+            membership.roleKind === "STAFF"
+              ? `staff:${membership.role.toLowerCase()}`
+              : membership.roleKind;
           let roleId = roleCache.get(roleKey);
           if (!roleId) {
             const role =
               (await tx.role.findFirst({
-                where: {
-                  organizationId,
-                  name: { equals: membership.role, mode: "insensitive" },
-                },
+                where:
+                  membership.roleKind === "STAFF"
+                    ? {
+                        organizationId,
+                        kind: "STAFF",
+                        name: { equals: membership.role, mode: "insensitive" },
+                      }
+                    : { organizationId, kind: membership.roleKind },
                 select: { id: true },
               })) ??
               (await tx.role.create({
-                data: { organizationId, name: membership.role },
+                data: {
+                  organizationId,
+                  name: membership.role,
+                  kind: membership.roleKind,
+                  permissions:
+                    membership.roleKind === "STAFF"
+                      ? parsePermissions(membership.rolePermissions)
+                      : [],
+                },
                 select: { id: true },
               }));
             roleId = role.id;

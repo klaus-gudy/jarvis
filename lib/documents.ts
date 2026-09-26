@@ -498,7 +498,21 @@ export async function listDocuments(
 export async function getDocument(organizationId: string, id: string) {
   return prisma.fileAsset.findFirst({
     where: { id, organizationId },
-    select: { id: true, objectKey: true, fileName: true, fileType: true },
+    select: {
+      id: true,
+      objectKey: true,
+      fileName: true,
+      fileType: true,
+      // The subject decides which permission reading or deleting it needs
+      // (`lib/document-access.ts`).
+      propertyId: true,
+      unitId: true,
+      membershipId: true,
+      leaseId: true,
+      invoiceId: true,
+      paymentId: true,
+      assetType: { select: { key: true } },
+    },
   });
 }
 

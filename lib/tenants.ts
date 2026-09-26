@@ -7,7 +7,7 @@ import {
 } from "@/lib/leases";
 import type { UpdateMemberProfileInput } from "@/lib/member-profile-schemas";
 import { prisma } from "@/lib/prisma";
-import { ensureRole, TENANT_ROLE_NAME } from "@/lib/roles";
+import { ensureTenantRole } from "@/lib/roles";
 import type { CreateTenantInput } from "@/lib/tenants-schemas";
 
 /**
@@ -60,7 +60,7 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
   const memberships = await prisma.membership.findMany({
     where: {
       organizationId,
-      role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+      role: { kind: "TENANT" as const },
     },
     orderBy: { updatedAt: "desc" },
     include: {
@@ -144,6 +144,7 @@ export type TenantDetail = {
   phone: string | null;
   email: string | null;
   roleName: string;
+  roleKind: "OWNER" | "STAFF" | "TENANT";
   joinedAt: Date;
   canSignIn: boolean;
   status: TenantStatus;
@@ -177,7 +178,7 @@ export async function getTenantDetail(
       user: {
         select: { id: true, name: true, email: true, phone: true, passwordHash: true },
       },
-      role: { select: { name: true } },
+      role: { select: { name: true, kind: true } },
       profile: true,
       leases: {
         orderBy: { startDate: "desc" },
@@ -199,6 +200,7 @@ export async function getTenantDetail(
     phone: membership.user.phone,
     email: membership.user.email,
     roleName: membership.role.name,
+    roleKind: membership.role.kind,
     joinedAt: membership.createdAt,
     canSignIn: membership.user.passwordHash !== null,
     status: deriveTenantStatus(now, membership.leases),
@@ -288,7 +290,7 @@ export async function createTenant(
     if (alreadyMember) return { error: "already-member" as const };
   }
 
-  const role = await ensureRole(organizationId, TENANT_ROLE_NAME);
+  const role = await ensureTenantRole(organizationId);
 
   const membership = await prisma.$transaction(async (tx) => {
     const user = existingUser
@@ -315,7 +317,9 @@ export async function createTenant(
 
 export async function removeTenant(organizationId: string, membershipId: string) {
   const membership = await prisma.membership.findFirst({
-    where: { id: membershipId, organizationId },
+    // Tenants only: this route needs `tenant:write`, which must not reach a
+    // staff member or an Owner through a guessed id.
+    where: { id: membershipId, organizationId, role: { kind: "TENANT" } },
     select: { id: true, _count: { select: { leases: true } } },
   });
   if (!membership) return { error: "not-found" as const };

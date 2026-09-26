@@ -1,6 +1,5 @@
 import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
-import { TENANT_ROLE_NAME } from "@/lib/roles";
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
 import { displayName, primaryContact } from "@/lib/user-display";
 
@@ -122,7 +121,7 @@ export async function getDashboardStats(
   };
   const tenantRole = {
     organizationId,
-    role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" as const } },
+    role: { kind: "TENANT" as const },
   };
 
   const [
@@ -477,7 +476,7 @@ export async function getDashboardPanels(
       prisma.membership.findMany({
         where: {
           organizationId,
-          role: { name: { equals: TENANT_ROLE_NAME, mode: "insensitive" } },
+          role: { kind: "TENANT" as const },
         },
         orderBy: { createdAt: "desc" },
         take: PANEL_ROWS,

@@ -1,7 +1,8 @@
+import { can, type AuthContext } from "@/lib/authz";
 import { getProfilePhotoIds } from "@/lib/documents";
+import { effectivePermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { UpdateMemberInput } from "@/lib/members-schemas";
-import { OWNER_ROLE_NAME } from "@/lib/roles";
 
 export type MemberRow = {
   membershipId: string;
@@ -31,7 +32,7 @@ export async function getMembers(organizationId: string): Promise<MemberRow[]> {
           passwordHash: true,
         },
       },
-      role: { select: { id: true, name: true } },
+      role: { select: { id: true, name: true, kind: true } },
     },
   });
 
@@ -54,7 +55,7 @@ export async function getMembers(organizationId: string): Promise<MemberRow[]> {
     roleName: membership.role.name,
     joinedAt: membership.createdAt.toISOString(),
     canSignIn: membership.user.passwordHash !== null,
-    isOwner: membership.role.name.toLowerCase() === OWNER_ROLE_NAME.toLowerCase(),
+    isOwner: membership.role.kind === "OWNER",
     photoId: photoIds.get(membership.id) ?? null,
   }));
 }
@@ -70,18 +71,15 @@ export async function removeMember(
 ) {
   const membership = await prisma.membership.findFirst({
     where: { id: membershipId, organizationId },
-    include: { role: { select: { name: true } }, _count: { select: { leases: true } } },
+    include: { role: { select: { kind: true } }, _count: { select: { leases: true } } },
   });
   if (!membership) return { error: "not-found" as const };
 
   if (membership.userId === currentUserId) return { error: "self" as const };
 
-  if (membership.role.name.toLowerCase() === OWNER_ROLE_NAME.toLowerCase()) {
+  if (membership.role.kind === "OWNER") {
     const ownerCount = await prisma.membership.count({
-      where: {
-        organizationId,
-        role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
-      },
+      where: { organizationId, role: { kind: "OWNER" } },
     });
     if (ownerCount <= 1) return { error: "last-owner" as const };
   }
@@ -134,4 +132,52 @@ export async function updateMember(
   });
 
   return { ok: true as const };
+}
+
+/**
+ * Moves a member to another role. Guards, in order:
+ *
+ * - nobody changes their own role (no self-promotion, no accidental lockout);
+ * - only an Owner can make or unmake an Owner;
+ * - a non-Owner cannot hand out a staff role holding permissions they lack;
+ * - the last Owner cannot be demoted.
+ *
+ * The last-Owner count runs inside the transaction so two concurrent demotions
+ * cannot both pass it.
+ */
+export async function changeMemberRole(
+  ctx: AuthContext,
+  target: { id: string; kind: "OWNER" | "STAFF" | "TENANT" },
+  roleId: string
+) {
+  if (target.id === ctx.membershipId) return { error: "self" as const };
+  if (!can(ctx, "member:write")) return { error: "forbidden" as const };
+
+  return prisma.$transaction(async (tx) => {
+    const role = await tx.role.findFirst({
+      where: { id: roleId, organizationId: ctx.organizationId },
+      select: { id: true, kind: true, permissions: true },
+    });
+    if (!role) return { error: "role-not-found" as const };
+
+    if ((role.kind === "OWNER" || target.kind === "OWNER") && ctx.kind !== "OWNER") {
+      return { error: "forbidden" as const };
+    }
+    if (ctx.kind !== "OWNER") {
+      const granted = effectivePermissions(role.kind, role.permissions);
+      if (granted.some((p) => !ctx.permissions.has(p))) {
+        return { error: "escalation" as const };
+      }
+    }
+
+    if (target.kind === "OWNER" && role.kind !== "OWNER") {
+      const owners = await tx.membership.count({
+        where: { organizationId: ctx.organizationId, role: { kind: "OWNER" } },
+      });
+      if (owners <= 1) return { error: "last-owner" as const };
+    }
+
+    await tx.membership.update({ where: { id: target.id }, data: { roleId: role.id } });
+    return { ok: true as const };
+  });
 }

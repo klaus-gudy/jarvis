@@ -14,6 +14,8 @@ export const updateMemberSchema = z.object({
     .transform(() => undefined)
     .or(z.string().trim().toLowerCase().pipe(z.email("Enter a valid email")))
     .optional(),
+  /** Omitted by the profile editor; a change goes through `changeMemberRole`. */
+  roleId: z.string().min(1).optional(),
 });
 
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;

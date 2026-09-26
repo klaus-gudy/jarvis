@@ -2,7 +2,8 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { hashPassword } from "@/lib/auth/hash";
 import { prisma } from "@/lib/prisma";
-import { isOwnerRole, OWNER_ROLE_NAME } from "@/lib/role-constants";
+import type { AuthContext } from "@/lib/authz";
+import { effectivePermissions } from "@/lib/permissions";
 
 const INVITE_TTL_DAYS = 14;
 
@@ -49,18 +50,36 @@ export async function getInvitations(
 }
 
 export async function createInvitation(
-  organizationId: string,
+  ctx: AuthContext,
   input: { name?: string; email?: string; phone?: string; roleId: string }
 ) {
+  const { organizationId } = ctx;
   // The names come back with the role because the invitation email needs both
   // ("X invited you to join Y as Z") and this query already reaches the
   // organization. Fetching them again in the route would be a second round
   // trip for rows that were in hand here.
   const role = await prisma.role.findFirst({
     where: { id: input.roleId, organizationId },
-    select: { id: true, name: true, organization: { select: { name: true } } },
+    select: {
+      id: true,
+      name: true,
+      kind: true,
+      permissions: true,
+      organization: { select: { name: true } },
+    },
   });
   if (!role) return { error: "role-not-found" as const };
+
+  // An invitation hands its role over on acceptance, so it is held to the same
+  // rule as a role change: only an Owner invites an Owner, and nobody invites
+  // into a role holding permissions they lack themselves.
+  if (ctx.kind !== "OWNER") {
+    if (role.kind === "OWNER") return { error: "forbidden" as const };
+    const granted = effectivePermissions(role.kind, role.permissions);
+    if (granted.some((p) => !ctx.permissions.has(p))) {
+      return { error: "escalation" as const };
+    }
+  }
 
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -85,6 +104,7 @@ export async function createInvitation(
     token,
     expiresInDays: INVITE_TTL_DAYS,
     roleName: role.name,
+    roleKind: role.kind,
     organizationName: role.organization.name,
   };
 }
@@ -144,7 +164,7 @@ export async function acceptInvitation(
       email: true,
       phone: true,
       roleId: true,
-      role: { select: { name: true } },
+      role: { select: { name: true, kind: true } },
       organizationId: true,
     },
   });
@@ -196,7 +216,7 @@ export async function acceptInvitation(
             organizationId: invitation.organizationId,
           },
         },
-        select: { id: true, roleId: true, role: { select: { name: true } } },
+        select: { id: true, roleId: true, role: { select: { name: true, kind: true } } },
       })
     : null;
 
@@ -226,12 +246,12 @@ export async function acceptInvitation(
      * invitation would hand out the role before anyone clicked anything.
      */
     const wouldDemoteLastOwner =
-      isOwnerRole(alreadyMember.role.name) &&
-      !isOwnerRole(invitation.role.name) &&
+      alreadyMember.role.kind === "OWNER" &&
+      invitation.role.kind !== "OWNER" &&
       (await prisma.membership.count({
         where: {
           organizationId: invitation.organizationId,
-          role: { name: { equals: OWNER_ROLE_NAME, mode: "insensitive" } },
+          role: { kind: "OWNER" as const },
         },
       })) <= 1;
 

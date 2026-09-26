@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 
+import { effectivePermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE } from "./constants";
 import {
@@ -58,7 +59,13 @@ export const getCurrentUser = cache(async () => {
       emailVerificationRequired: true,
       memberships: {
         orderBy: { createdAt: "asc" },
-        select: { organizationId: true },
+        // The role is read live with the membership, never from the token:
+        // a demoted or removed member loses access on their next request.
+        select: {
+          id: true,
+          organizationId: true,
+          role: { select: { id: true, name: true, kind: true, permissions: true } },
+        },
       },
     },
   });
@@ -72,13 +79,27 @@ export const getCurrentUser = cache(async () => {
   // Cookies can't be rewritten during render, so the correction is
   // per-request; the cookie itself catches up on the next switch or login.
   const { memberships, ...rest } = user;
-  const orgIds = memberships.map((m) => m.organizationId);
-  const activeOrgId =
-    session.orgId && orgIds.includes(session.orgId)
-      ? session.orgId
-      : orgIds[0] ?? null;
+  const activeMembership =
+    memberships.find((m) => m.organizationId === session.orgId) ??
+    memberships[0] ??
+    null;
 
-  return { ...rest, activeOrgId };
+  return {
+    ...rest,
+    activeOrgId: activeMembership?.organizationId ?? null,
+    activeMembership: activeMembership
+      ? {
+          id: activeMembership.id,
+          roleId: activeMembership.role.id,
+          roleName: activeMembership.role.name,
+          kind: activeMembership.role.kind,
+          permissions: effectivePermissions(
+            activeMembership.role.kind,
+            activeMembership.role.permissions
+          ),
+        }
+      : null,
+  };
 });
 
 export async function requireUser() {
