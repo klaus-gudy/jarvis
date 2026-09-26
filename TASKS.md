@@ -11,8 +11,6 @@ Working list. Architecture and standing rules are in `plan.md`.
 ## Open items
 
 ### Product gaps
-- [ ] ✔ **No permission model** — `Role` exists, no `Permission` table, nothing enforced. Every member reaches every page (a tenant can read another tenant's documents if they hold the membership id).
-- [ ] ✔ **Roles can't be renamed or deleted** (only `GET`/`POST /api/roles`), and **an active member's role can't be changed** (`PATCH /api/members/[id]` takes no `roleId`; the only path is re-inviting). Owner/Tenant must stay undeletable.
 - [ ] **Payment → subscription link** — `/payment-complete` reports and grants nothing; needs the provider's webhook and a subscription row.
 - [ ] ✔ **"Rentops" still shows** in `app/page.tsx`, `not-found.tsx`, `(auth)/layout`, `(auth)/login`, `payment-complete`, `app-loader`, `logo`, `org-switcher`, landing nav/sections (and `SITE_NAME` says Rentoo). Decide and sweep; the mail `service_name` is `"Jarvis"` on purpose.
 - [ ] **Auto-renew flag: `Unit` or `Lease`?** Still open (case is in the archived transcript).
@@ -25,8 +23,10 @@ Working list. Architecture and standing rules are in `plan.md`.
 - [ ] ✔ **Backup** doesn't include `PaymentAccount` or `FileAsset`.
 - [ ] Smaller: unit rent / lease rent inputs don't accept arithmetic; unit amenities aren't shown in the units table; there is no org-wide Invoices list page; `User.phone` is still nullable (11 legacy rows); leases created before billing may have no invoice and no "Issue invoice" action; per-entity tables (a property's units, a lease's payments) don't get sticky filters.
 
+- [ ] **Permissions follow-ups:** tenant portal is read-only (no profile edit, no pay-online); the `roles` tour wasn't re-added to `lib/tours.ts`; lease detail / member page / documents panels still show some write controls that only fail on click (API refuses); no audit log of role changes; `createOrganizationForUser` still seeds no Tenant role (created lazily by kind). Next step in the plan: route wrapper + passing `AuthContext` into domain functions.
+
 ### Reliability & operations
-- [ ] **SMS alerts tab isn't org-scoped** — notifier rows have no `organizationId`, so a phone that is a member of two orgs shows both orgs' texts. Fix needs an `organization_id` (or `reference`) on notifier's SMS payload + a filter. Also: notifier's HTTP API has no auth (keep it private-network only), and it has no message-text search. **Send SMS** is open to every member (no permission model) — only the rate limit stands between a member and the SMS bill.
+- [ ] **SMS alerts tab isn't org-scoped** — notifier rows have no `organizationId`, so a phone that is a member of two orgs shows both orgs' texts. Fix needs an `organization_id` (or `reference`) on notifier's SMS payload + a filter. Also: notifier's HTTP API has no auth (keep it private-network only), and it has no message-text search. **Send SMS** needs `sms:send`; the rate limit is still per process.
 - [ ] ✔ **A failed render is invisible** — the Generate button publishes and answers 202; "never made", "being made", "worker down" and "dead-lettered" look identical. The fix is a `DocumentJob` status row both this repo and `document-worker` can write (**does not exist**). Needs a decision first.
 - [ ] **No DLQ drain or alert** on any `_DEAD` queue (`NOTIFIER_EMAIL_QUEUE_DEAD`, `DOCUMENT_WORKER_QUEUE_DEAD`, `LEASE_LIFECYCLE_QUEUE_DEAD`). A drain script shaped like `backfill:contracts` is a small first step.
 - [ ] **Signatures:** deleting a membership/org leaves its signature object in the bucket (add to the reaper below); no signing audit trail beyond `MemberProfile.updatedAt`; tenants without portal access can never sign (by design — revisit if in-person signing on the owner's device is wanted).
