@@ -50,6 +50,9 @@ export default async function RoleDetailPage({ params }: { params: Promise<{ id:
               <h2 className="truncate text-base font-semibold tracking-tight sm:text-xl">
                 {role.name}
               </h2>
+              {role.description && (
+                <p className="text-sm text-muted-foreground">{role.description}</p>
+              )}
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:text-sm">
                 <Badge
                   variant={role.isSystem ? "secondary" : "outline"}
