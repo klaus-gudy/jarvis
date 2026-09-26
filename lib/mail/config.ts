@@ -1,4 +1,3 @@
-import { OWNER_ROLE_NAME } from "@/lib/role-constants";
 
 /**
  * The mail service's wire format, and the settings that decide where a message
@@ -113,14 +112,12 @@ export const INVITE_EMAIL_OWNERS_ONLY =
   process.env.INVITE_EMAIL_OWNERS_ONLY !== "false";
 
 /**
- * May someone holding this role be emailed their invitation link?
- *
- * Role names are free text and editable per organization, so this is matched
- * loosely — the same way every other Owner/Tenant lookup in the codebase is.
+ * May someone holding a role of this kind be emailed their invitation link?
+ * Keyed on `Role.kind`, not the name — names are free text and renamable.
  */
-export function mayEmailInvitation(roleName: string) {
+export function mayEmailInvitation(roleKind: "OWNER" | "STAFF" | "TENANT") {
   if (!INVITE_EMAIL_OWNERS_ONLY) return true;
-  return roleName.trim().toLowerCase() === OWNER_ROLE_NAME.toLowerCase();
+  return roleKind === "OWNER";
 }
 
 /** The `service_name` stamped on every message. */
