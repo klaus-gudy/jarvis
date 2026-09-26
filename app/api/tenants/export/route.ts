@@ -46,7 +46,7 @@ async function exportResponse(ids: string[] | null) {
         value: (t) => (t.canSignIn ? "Yes" : "No"),
       },
     ],
-    rows: tenants,
+    rows: pickExportRows(tenants, ids, (t) => t.membershipId),
   });
 
   return xlsxResponse(buffer, exportFilename("tenants"));
