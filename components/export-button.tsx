@@ -22,12 +22,14 @@ export function ExportButton({
   filenameFallback = "export.xlsx",
   size,
   className,
+  getIds,
 }: {
   url: string;
   label?: string;
   filenameFallback?: string;
   size?: React.ComponentProps<typeof Button>["size"];
   className?: string;
+  getIds?: () => string[] | null;
 }) {
   const [downloading, setDownloading] = React.useState(false);
 
