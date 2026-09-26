@@ -114,6 +114,9 @@ export function PaymentsTable({
           url="/api/payments/export"
           label="Export payments"
           filenameFallback="payments.xlsx"
+          getIds={() =>
+            viewRef.current?.visibleRows()?.map((p) => p.id) ?? null
+          }
         />
         <Button data-tour="add-payment" onClick={() => setFormOpen(true)}>
           <PlusIcon />
@@ -122,6 +125,7 @@ export function PaymentsTable({
       </div>
 
       <DataTable
+        viewRef={viewRef}
         stateKey="payments"
         columns={columns}
         data={payments}
