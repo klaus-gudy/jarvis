@@ -1,11 +1,11 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { createTenant, getTenants } from "@/lib/tenants";
 import { createTenantSchema } from "@/lib/tenants-schemas";
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("tenant:read");
   if (!auth.ok) return auth.response;
 
   const tenants = await getTenants(auth.context.organizationId);
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("tenant:write");
   if (!auth.ok) return auth.response;
 
   let body: unknown;

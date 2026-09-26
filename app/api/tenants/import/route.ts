@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { parseTenantWorkbook } from "@/lib/tenant-import";
 import { MAX_IMPORT_BYTES } from "@/lib/xlsx-import";
 
@@ -12,7 +12,7 @@ const XLSX_TYPE =
  * duplicate checks as a hand-typed tenant.
  */
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("tenant:write");
   if (!auth.ok) return auth.response;
 
   // Cheap rejection before the body is buffered into memory.

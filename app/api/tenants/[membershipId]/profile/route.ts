@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
+import { authorizeMemberTarget } from "@/lib/member-access";
 import { updateMemberProfileSchema } from "@/lib/member-profile-schemas";
 import { updateMemberProfile } from "@/lib/tenants";
 
@@ -8,7 +9,9 @@ export async function PATCH(
   request: Request,
   ctx: RouteContext<"/api/tenants/[membershipId]/profile">
 ) {
-  const auth = await requireActiveOrg();
+  // Any member's profile (the member page serves staff too), so the
+  // permission depends on whose it is — see `canManageMember`.
+  const auth = await authorize();
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -27,6 +30,9 @@ export async function PATCH(
   }
 
   const { membershipId } = await ctx.params;
+  const access = await authorizeMemberTarget(auth.context, membershipId);
+  if (!access.ok) return access.response;
+
   const result = await updateMemberProfile(
     auth.context.organizationId,
     membershipId,

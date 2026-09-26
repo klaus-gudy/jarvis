@@ -1,13 +1,13 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { removeTenant } from "@/lib/tenants";
 
 export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/tenants/[membershipId]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("tenant:write");
   if (!auth.ok) return auth.response;
 
   const { membershipId } = await ctx.params;

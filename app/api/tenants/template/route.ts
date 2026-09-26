@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { buildTenantTemplate } from "@/lib/tenant-import";
 
@@ -14,7 +14,7 @@ function slugify(name: string) {
 }
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("tenant:write");
   if (!auth.ok) return auth.response;
 
   const organization = await prisma.organization.findUnique({
