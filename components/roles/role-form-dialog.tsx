@@ -16,13 +16,14 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ROLE_TEMPLATES, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const BLANK = { id: "blank", name: "Blank", permissions: [] as Permission[] };
 
 /**
- * Creating a role, or renaming one. Choosing permissions happens on the role's
+ * Creating a role, or editing its name and description. Choosing permissions happens on the role's
  * own page (`RolePermissionsEditor`) — creating only picks a name and a
  * starting point, then opens that page so it can be fine-tuned.
  */
@@ -33,14 +34,15 @@ export function RoleFormDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Renaming when set, creating otherwise. */
-  role?: { id: string; name: string };
+  /** Editing when set, creating otherwise. */
+  role?: { id: string; name: string; description: string | null };
 }) {
   const router = useRouter();
   const viewer = usePermissions();
   const renaming = Boolean(role);
 
   const [name, setName] = React.useState(role?.name ?? "");
+  const [description, setDescription] = React.useState(role?.description ?? "");
   const [templateId, setTemplateId] = React.useState(BLANK.id);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -61,7 +63,9 @@ export function RoleFormDialog({
     const response = await fetch(renaming ? `/api/roles/${role!.id}` : "/api/roles", {
       method: renaming ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(renaming ? { name } : { name, permissions }),
+      body: JSON.stringify(
+        renaming ? { name, description } : { name, description, permissions }
+      ),
     });
     const data = await response.json().catch(() => null);
 
@@ -69,7 +73,7 @@ export function RoleFormDialog({
       onOpenChange(false);
       setPending(false);
       if (renaming) {
-        toast.success(`Renamed to "${name}"`);
+        toast.success(`"${name}" saved`);
         router.refresh();
       } else {
         toast.success(`Role "${name}" created`, {
@@ -94,10 +98,10 @@ export function RoleFormDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>{renaming ? "Rename role" : "New role"}</DialogTitle>
+            <DialogTitle>{renaming ? "Edit role details" : "New role"}</DialogTitle>
             <DialogDescription>
               {renaming
-                ? "Only the name changes — permissions and members stay as they are."
+                ? "Permissions and members stay as they are."
                 : "Name the role and pick a starting point. You'll choose its exact permissions next."}
             </DialogDescription>
           </DialogHeader>
@@ -115,6 +119,19 @@ export function RoleFormDialog({
                 required
               />
               {error && <FieldError>{error}</FieldError>}
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="role-description">Description</FieldLabel>
+              <Textarea
+                id="role-description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Handles maintenance requests, with limited visibility elsewhere."
+                maxLength={200}
+                rows={2}
+              />
+              <FieldDescription>Shown on the role&apos;s card. Optional.</FieldDescription>
             </Field>
 
             {!renaming && (
@@ -164,7 +181,7 @@ export function RoleFormDialog({
                   ? "Saving…"
                   : "Creating…"
                 : renaming
-                  ? "Rename"
+                  ? "Save"
                   : "Create and choose permissions"}
             </Button>
           </DialogFooter>
