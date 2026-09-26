@@ -45,9 +45,23 @@ model NotificationLog {
   @@index([organizationId])
 }
 
+/// Which app a member gets, independent of the role's display name.
+/// OWNER and TENANT are the two built-in roles (one of each per org);
+/// every org-created role is STAFF.
+enum RoleKind {
+  OWNER
+  STAFF
+  TENANT
+}
+
 model Role {
   id   String @id @default(cuid())
   name String
+
+  kind RoleKind @default(STAFF)
+  /// Permission keys from `lib/permissions.ts`. Only meaningful for STAFF:
+  /// OWNER holds everything implicitly, TENANT holds nothing staff-side.
+  permissions String[] @default([])
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
