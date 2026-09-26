@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -24,6 +26,7 @@ import {
   ChevronsRightIcon,
   MoreVerticalIcon,
   SlidersHorizontalIcon,
+  XIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
