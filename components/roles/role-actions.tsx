@@ -23,6 +23,7 @@ export function RoleActions({
   role: {
     id: string;
     name: string;
+    description: string | null;
     isSystem: boolean;
     memberCount: number;
     pendingInviteCount: number;
@@ -63,7 +64,7 @@ export function RoleActions({
         onClick={() => setRenaming(true)}
       >
         <PencilIcon />
-        Rename
+        Edit details
       </Button>
       <Button
         variant="outline"
@@ -81,7 +82,7 @@ export function RoleActions({
         key={String(renaming)}
         open={renaming}
         onOpenChange={setRenaming}
-        role={{ id: role.id, name: role.name }}
+        role={{ id: role.id, name: role.name, description: role.description }}
       />
 
       <Dialog open={deleting} onOpenChange={setDeleting}>
