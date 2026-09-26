@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { getProperties, type PropertySummary } from "@/lib/properties";
 import {
   buildExportWorkbook,
@@ -7,7 +7,7 @@ import {
 } from "@/lib/xlsx-export";
 
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("export:run");
   if (!auth.ok) return auth.response;
 
   const properties = await getProperties(auth.context.organizationId);

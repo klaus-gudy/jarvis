@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { deleteUnit, updateUnit } from "@/lib/units";
 import { updateUnitSchema } from "@/lib/units-schemas";
 
@@ -8,7 +8,7 @@ export async function PATCH(
   request: Request,
   ctx: RouteContext<"/api/properties/[id]/units/[unitId]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -54,7 +54,7 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/properties/[id]/units/[unitId]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   const { id, unitId } = await ctx.params;

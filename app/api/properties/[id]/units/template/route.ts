@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { buildUnitTemplate } from "@/lib/unit-import";
 
@@ -17,7 +17,7 @@ export async function GET(
   _request: Request,
   ctx: RouteContext<"/api/properties/[id]/units/template">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

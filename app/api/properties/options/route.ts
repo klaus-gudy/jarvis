@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import {
   AMENITY_OPTIONS,
   CATEGORY_OPTIONS,
@@ -8,7 +8,7 @@ import {
 
 /** Picker options for the property form. Static, but auth-gated for consistency. */
 export async function GET() {
-  const auth = await requireActiveOrg();
+  const auth = await authorize(["property:read", "lease:write"]);
   if (!auth.ok) return auth.response;
 
   return Response.json({

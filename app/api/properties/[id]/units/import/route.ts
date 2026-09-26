@@ -1,4 +1,4 @@
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { parseUnitWorkbook } from "@/lib/unit-import";
 import { MAX_IMPORT_BYTES } from "@/lib/xlsx-import";
@@ -16,7 +16,7 @@ export async function POST(
   request: Request,
   ctx: RouteContext<"/api/properties/[id]/units/import">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

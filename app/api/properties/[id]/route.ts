@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { deleteProperty, getProperty, updateProperty } from "@/lib/properties";
 import { updatePropertySchema } from "@/lib/properties-schemas";
 
@@ -8,7 +8,7 @@ export async function GET(
   _request: Request,
   ctx: RouteContext<"/api/properties/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:read");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -25,7 +25,7 @@ export async function PATCH(
   request: Request,
   ctx: RouteContext<"/api/properties/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -63,7 +63,7 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/properties/[id]">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

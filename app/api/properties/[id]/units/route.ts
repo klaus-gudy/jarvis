@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import { createUnit } from "@/lib/units";
 import { createUnitSchema } from "@/lib/units-schemas";
 
@@ -8,7 +8,7 @@ export async function POST(
   request: Request,
   ctx: RouteContext<"/api/properties/[id]/units">
 ) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   let body: unknown;

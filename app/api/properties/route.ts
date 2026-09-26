@@ -1,13 +1,13 @@
 import { revalidatePath } from "next/cache";
 import type { NextRequest } from "next/server";
 
-import { requireActiveOrg } from "@/lib/api-auth";
+import { authorize } from "@/lib/authz";
 import type { PropertyStatus, PropertyType } from "@/lib/generated/prisma/enums";
 import { createProperty, getProperties } from "@/lib/properties";
 import { createPropertySchema } from "@/lib/properties-schemas";
 
 export async function GET(request: NextRequest) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:read");
   if (!auth.ok) return auth.response;
 
   const params = request.nextUrl.searchParams;
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireActiveOrg();
+  const auth = await authorize("property:write");
   if (!auth.ok) return auth.response;
 
   let body: unknown;
