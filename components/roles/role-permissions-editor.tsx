@@ -145,31 +145,35 @@ export function RolePermissionsEditor({
           const keys = group.permissions.map((p) => p.key);
           const onCount = keys.filter((p) => draft.has(p)).length;
           const changeable = keys.filter(mayChange);
+          const allOn = changeable.length > 0 && changeable.every((p) => draft.has(p));
+          const someOn = changeable.some((p) => draft.has(p));
 
           return (
             <Card key={group.label} className="gap-0 py-0">
               {/* Fixed height, so a group without the Grant/Remove all button
                   lines up with its neighbour. CardHeader pads its bottom when
                   it has a border, which would push the title up — zeroed. */}
-              <CardHeader className="flex h-11 flex-row items-center justify-between gap-2 border-b px-4 py-0 [.border-b]:pb-0">
-                <CardTitle className="text-sm">
-                  {group.label}{" "}
-                  <span className="font-normal text-muted-foreground tabular-nums">
+              <CardHeader className="flex h-10 flex-row items-center justify-between gap-2 border-b px-4 py-0 [.border-b]:pb-0">
+                {/* Same size as the rows below: CardTitle defaults to the
+                    heading font at text-base, which dwarfed the checkboxes. */}
+                <CardTitle className="font-sans text-sm font-medium">
+                  {group.label}
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
                     {onCount}/{keys.length}
                   </span>
                 </CardTitle>
                 {changeable.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() =>
-                      setGroup(changeable, !changeable.every((p) => draft.has(p)))
-                    }
-                  >
-                    {changeable.every((p) => draft.has(p)) ? "Remove all" : "Grant all"}
-                  </Button>
+                  // Select-all for the group: ticked when every changeable
+                  // permission is on, half-ticked when some are.
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    {allOn ? "Remove all" : "Grant all"}
+                    <Checkbox
+                      checked={allOn}
+                      indeterminate={someOn && !allOn}
+                      onCheckedChange={() => setGroup(changeable, !allOn)}
+                      aria-label={`${allOn ? "Remove" : "Grant"} all ${group.label} permissions`}
+                    />
+                  </label>
                 )}
               </CardHeader>
               <CardContent className="divide-y p-0">
