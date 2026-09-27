@@ -44,6 +44,7 @@ export default async function PortalDocumentsPage() {
       label: doc.label,
       createdAt: doc.createdAt.toISOString(),
       lease: lease.title,
+      unit: lease.unit,
       leaseStatus: lease.status,
       startDate: lease.startDate.toISOString(),
       endDate: lease.endDate.toISOString(),
