@@ -26,7 +26,8 @@ export default async function PortalDocumentsPage() {
   }
 
   return (
-    <>
+    // The Home dashboard uses the full width; reading pages stay narrow.
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       {leases.map((lease) => (
         <Card key={lease.id}>
           <CardHeader>
@@ -50,7 +51,7 @@ export default async function PortalDocumentsPage() {
           </CardContent>
         </Card>
       )}
-    </>
+    </div>
   )
 }
 
