@@ -34,10 +34,27 @@ function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** The wording that differs between a landlord recording and a tenant reporting. */
+export type RecordPaymentCopy = {
+  title: string;
+  description: string;
+  submit: string;
+  success: string;
+};
+
+const LANDLORD_COPY: RecordPaymentCopy = {
+  title: "Record payment",
+  description: "Recorded against this lease's invoice.",
+  submit: "Record payment",
+  success: "Payment recorded",
+};
+
 export function RecordPaymentDialog({
   open,
   onOpenChange,
   invoice,
+  endpoint,
+  copy = LANDLORD_COPY,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,6 +67,12 @@ export function RecordPaymentDialog({
    * choose between and no picker. The card below is a read-out, not a control.
    */
   invoice: { id: string; amount: number; paid: number; balance: number };
+  /**
+   * Where the form posts. Defaults to the landlord's payments route; the
+   * tenant portal posts the same body to its claims route instead.
+   */
+  endpoint?: string;
+  copy?: RecordPaymentCopy;
 }) {
   const { id: invoiceId, balance } = invoice;
   const router = useRouter();
@@ -85,7 +108,7 @@ export function RecordPaymentDialog({
 
     setPending(true);
 
-    const response = await fetch(`/api/invoices/${invoiceId}/payments`, {
+    const response = await fetch(endpoint ?? `/api/invoices/${invoiceId}/payments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -98,7 +121,7 @@ export function RecordPaymentDialog({
 
     if (response.ok) {
       onOpenChange(false);
-      toast.success("Payment recorded");
+      toast.success(copy.success);
       router.refresh();
       setPending(false);
       return;
@@ -117,13 +140,11 @@ export function RecordPaymentDialog({
       <DialogContent className="sm:max-w-md">
         <form key={String(open)} onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Record payment</DialogTitle>
+            <DialogTitle>{copy.title}</DialogTitle>
             {/* The balance used to be stated here; the card below now carries
                 it along with the total and what has been paid, so repeating it
                 would be two places to read the same number from. */}
-            <DialogDescription>
-              Recorded against this lease&apos;s invoice.
-            </DialogDescription>
+            <DialogDescription>{copy.description}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -220,7 +241,7 @@ export function RecordPaymentDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Record payment"}
+              {pending ? "Saving…" : copy.submit}
             </Button>
           </DialogFooter>
         </form>
