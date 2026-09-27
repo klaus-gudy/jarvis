@@ -1,9 +1,12 @@
 import type { AuthContext } from "@/lib/authz";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contract-constants";
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
-import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoice-types";
+import { deriveInvoiceStatus, invoiceReference, type InvoiceStatus } from "@/lib/invoice-types";
 import { leaseExpiry, leaseReference, type LeaseExpiry, type LeaseStatus } from "@/lib/leases";
+import { getOrganizationOwner, getOrganizationOwnerMembershipId } from "@/lib/organizations";
+import type { PaymentAccountTypeValue } from "@/lib/payment-account-options";
 import { prisma } from "@/lib/prisma";
+import { rentCoverage, type RentCoverage } from "@/lib/rent-coverage";
 
 /**
  * Everything the tenant portal reads. Every query is pinned to the caller's
@@ -35,15 +38,45 @@ export type PortalLease = {
   daysLeft: number | null;
   /** Set inside 60 days of the end — the same tiers the staff tables use. */
   expiry: LeaseExpiry | null;
+  /** Whether the unit renews this lease on its own, and for how long. */
+  autoRenew: boolean;
+  renewalMonths: number | null;
+  /** The place itself, for the Home page's "Your home" card. */
+  home: {
+    address: string;
+    unitType: string | null;
+    floor: string | null;
+    block: string | null;
+    sizeSqm: number | null;
+    /** Unit amenities first, then the property's, without repeats. */
+    amenities: string[];
+  };
   invoice: {
+    reference: string;
     amount: number;
     dueDate: Date;
     paid: number;
     balance: number;
     status: InvoiceStatus;
     payments: PortalPayment[];
+    coverage: RentCoverage;
   } | null;
   contract: { id: string; fileName: string } | null;
+};
+
+export type PortalLandlord = {
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  organizationName: string;
+  paymentAccounts: {
+    id: string;
+    type: PaymentAccountTypeValue;
+    provider: string;
+    accountNumber: string;
+    accountName: string | null;
+    isDefault: boolean;
+  }[];
 };
 
 export type PortalMember = {
@@ -139,9 +172,22 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       monthlyRent: true,
       leaseAmount: true,
       status: true,
-      unit: { select: { label: true, property: { select: { name: true } } } },
+      unit: {
+        select: {
+          label: true,
+          unitType: true,
+          floor: true,
+          block: true,
+          sizeSqm: true,
+          amenities: true,
+          autoRenew: true,
+          minTenureMonths: true,
+          property: { select: { name: true, address: true, amenities: true } },
+        },
+      },
       invoice: {
         select: {
+          id: true,
           amount: true,
           dueDate: true,
           payments: {
@@ -176,14 +222,26 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       daysLeft:
         lease.status === "Active" ? Math.max(0, calendarDaysBetween(today, lease.endDate)) : null,
       expiry: lease.status === "Active" ? leaseExpiry(now, lease.startDate, lease.endDate) : null,
+      autoRenew: lease.unit.autoRenew,
+      renewalMonths: lease.unit.minTenureMonths,
+      home: {
+        address: lease.unit.property.address,
+        unitType: lease.unit.unitType,
+        floor: lease.unit.floor,
+        block: lease.unit.block,
+        sizeSqm: lease.unit.sizeSqm,
+        amenities: [...new Set([...lease.unit.amenities, ...lease.unit.property.amenities])],
+      },
       invoice: lease.invoice
         ? {
+            reference: invoiceReference(lease.invoice.id),
             amount: lease.invoice.amount,
             dueDate: lease.invoice.dueDate,
             paid,
             balance: lease.invoice.amount - paid,
             status: deriveInvoiceStatus(lease.invoice.amount, paid),
             payments: lease.invoice.payments,
+            coverage: rentCoverage(lease, { amount: lease.invoice.amount, paid }, now),
           }
         : null,
       contract: lease.fileAssets[0] ?? null,
@@ -290,4 +348,47 @@ export async function updateOwnTenantProfile(
       update: profile,
     }),
   ]);
+}
+
+/**
+ * Who the tenant rents from and how to pay them: the organization's Owner
+ * (oldest Owner-kind membership, as the contract's `{{landlord_*}}` tokens use)
+ * and that membership's payment accounts, preferred one first.
+ *
+ * Organization-wide rather than tenant-specific, so it is scoped by the org
+ * alone — and selects only what a tenant is meant to see.
+ */
+export async function getPortalLandlord(ctx: AuthContext): Promise<PortalLandlord> {
+  const [owner, ownerMembershipId, organization] = await Promise.all([
+    getOrganizationOwner(ctx.organizationId),
+    getOrganizationOwnerMembershipId(ctx.organizationId),
+    prisma.organization.findUniqueOrThrow({
+      where: { id: ctx.organizationId },
+      select: { name: true },
+    }),
+  ]);
+
+  const paymentAccounts = ownerMembershipId
+    ? await prisma.paymentAccount.findMany({
+        where: { membershipId: ownerMembershipId },
+        // Same order as the owner's own list: the default is the one to use.
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          type: true,
+          provider: true,
+          accountNumber: true,
+          accountName: true,
+          isDefault: true,
+        },
+      })
+    : [];
+
+  return {
+    name: owner?.name ?? null,
+    phone: owner?.phone ?? null,
+    email: owner?.email ?? null,
+    organizationName: organization.name,
+    paymentAccounts,
+  };
 }
