@@ -1,4 +1,5 @@
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates"
+import type { InvoiceStatus } from "@/lib/invoice-types"
 import type { LeaseStatus } from "@/lib/leases"
 import type { PortalLease } from "@/lib/portal"
 import { cn } from "@/lib/utils"
@@ -34,6 +35,34 @@ export function LeaseStatusPill({
       )}
     >
       <span aria-hidden className={cn("size-1.5 rounded-full", STATUS_DOT[status])} />
+      {status}
+    </span>
+  )
+}
+
+const INVOICE_TONE: Record<InvoiceStatus, { pill: string; dot: string }> = {
+  Paid: { pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
+  Partial: { pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
+  Unpaid: { pill: "bg-rose-500/10 text-rose-700 dark:text-rose-400", dot: "bg-rose-500" },
+}
+
+/** The invoice counterpart of `LeaseStatusPill`, same shape. */
+export function InvoiceStatusPill({
+  status,
+  className,
+}: {
+  status: InvoiceStatus
+  className?: string
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        INVOICE_TONE[status].pill,
+        className
+      )}
+    >
+      <span aria-hidden className={cn("size-1.5 rounded-full", INVOICE_TONE[status].dot)} />
       {status}
     </span>
   )
