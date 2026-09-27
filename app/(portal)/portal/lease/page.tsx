@@ -33,7 +33,8 @@ export default async function PortalLeasePage() {
   const others = leases.filter((l) => !live.includes(l))
 
   return (
-    <>
+    // The Home dashboard uses the full width; reading pages stay narrow.
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       {live.map((lease) => (
         <LeaseCard key={lease.id} lease={lease} />
       ))}
@@ -72,7 +73,7 @@ export default async function PortalLeasePage() {
           </CardContent>
         </Card>
       )}
-    </>
+    </div>
   )
 }
 
