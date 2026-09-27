@@ -23,6 +23,7 @@ Working list. Architecture and standing rules are in `plan.md`.
 - [ ] ✔ **Backup** doesn't include `PaymentAccount` or `FileAsset`.
 - [ ] Smaller: unit rent / lease rent inputs don't accept arithmetic; unit amenities aren't shown in the units table; there is no org-wide Invoices list page; `User.phone` is still nullable (11 legacy rows); leases created before billing may have no invoice and no "Issue invoice" action; per-entity tables (a property's units, a lease's payments) don't get sticky filters.
 
+- [ ] **Payment claims:** owners aren't notified when a tenant reports a payment (it only shows on the lease's Billing tab); rejecting sends the tenant no reason; `PaymentClaim` isn't in the org backup; a tenant can't attach a receipt.
 - [ ] **Permissions follow-ups:** tenant portal has no pay-online (profile self-edit landed 2026-09-27); the `roles` tour wasn't re-added to `lib/tours.ts`; lease detail / member page / documents panels still show some write controls that only fail on click (API refuses); no audit log of role changes; `createOrganizationForUser` still seeds no Tenant role (created lazily by kind). Next step in the plan: route wrapper + passing `AuthContext` into domain functions.
 
 ### Reliability & operations
