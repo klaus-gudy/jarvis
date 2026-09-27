@@ -19,6 +19,16 @@ const STATUS_DOT: Record<LeaseStatus, string> = {
   Renewed: "bg-sky-500",
 }
 
+/** Just the coloured dot, for a compact cell whose status is spelled out on hover. */
+export function LeaseStatusDot({ status, className }: { status: LeaseStatus; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status], className)}
+    />
+  )
+}
+
 export function LeaseStatusPill({
   status,
   className,
