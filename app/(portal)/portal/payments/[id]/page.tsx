@@ -6,8 +6,6 @@ import { InvoiceCard } from "@/components/leases/invoice-card"
 import {
   InvoiceBalanceCard,
   InvoiceHeaderCard,
-  PaymentHistoryCard,
-  RentScheduleCard,
 } from "@/components/portal/invoice-detail"
 import { PayAccountsCard } from "@/components/portal/pay-accounts-card"
 import { PortalNoOrganization } from "@/components/portal/portal-states"
@@ -19,8 +17,8 @@ export const metadata = { title: "Invoice" }
 
 /**
  * One invoice, laid out like the lease page: back button, header card, then
- * the invoice, its monthly breakdown and its payments, with the balance and
- * how to pay beside them (the balance leads on a phone).
+ * the invoice, with the balance and how to pay beside it (the balance leads on
+ * a phone).
  */
 export default async function PortalInvoicePage({
   params,
@@ -62,8 +60,6 @@ export default async function PortalInvoicePage({
             <InvoiceBalanceCard lease={lease} />
           </div>
           <InvoiceCard invoice={lease.invoice} />
-          <RentScheduleCard lease={lease} />
-          <PaymentHistoryCard lease={lease} />
         </div>
         {/* Sticky beside the scrolling main column on wide screens. */}
         <div className="flex flex-col gap-4 lg:sticky lg:top-18">
