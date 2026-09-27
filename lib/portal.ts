@@ -38,6 +38,9 @@ export type PortalLease = {
   daysLeft: number | null;
   /** Set inside 60 days of the end — the same tiers the staff tables use. */
   expiry: LeaseExpiry | null;
+  /** The lease this one renewed, and the one that renewed it — by reference. */
+  renewedFrom: string | null;
+  renewedTo: string | null;
   /** Whether the unit renews this lease on its own, and for how long. */
   autoRenew: boolean;
   renewalMonths: number | null;
@@ -172,6 +175,8 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       monthlyRent: true,
       leaseAmount: true,
       status: true,
+      renewedFromId: true,
+      renewedTo: { select: { id: true } },
       unit: {
         select: {
           label: true,
@@ -222,6 +227,8 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       daysLeft:
         lease.status === "Active" ? Math.max(0, calendarDaysBetween(today, lease.endDate)) : null,
       expiry: lease.status === "Active" ? leaseExpiry(now, lease.startDate, lease.endDate) : null,
+      renewedFrom: lease.renewedFromId ? leaseReference(lease.renewedFromId) : null,
+      renewedTo: lease.renewedTo ? leaseReference(lease.renewedTo.id) : null,
       autoRenew: lease.unit.autoRenew,
       renewalMonths: lease.unit.minTenureMonths,
       home: {
