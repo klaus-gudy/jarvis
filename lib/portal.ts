@@ -55,6 +55,7 @@ export type PortalLease = {
     amenities: string[];
   };
   invoice: {
+    id: string;
     reference: string;
     amount: number;
     dueDate: Date;
@@ -243,6 +244,7 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       },
       invoice: lease.invoice
         ? {
+            id: lease.invoice.id,
             reference: invoiceReference(lease.invoice.id),
             amount: lease.invoice.amount,
             dueDate: lease.invoice.dueDate,
