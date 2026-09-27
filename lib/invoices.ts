@@ -33,6 +33,8 @@ export type InvoiceDetail = {
   balance: number;
   status: InvoiceStatus;
   payments: PaymentRow[];
+  /** Tenant-reported payments awaiting review — not part of `paid`. */
+  pendingClaims: PaymentRow[];
 };
 
 /**
@@ -60,6 +62,11 @@ export async function getInvoiceForLease(
     },
     include: {
       payments: { orderBy: { paidAt: "desc" } },
+      paymentClaims: {
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, amount: true, paidAt: true, method: true, notes: true },
+      },
     },
   });
   if (!invoice) return null;
@@ -75,6 +82,7 @@ export async function getInvoiceForLease(
     balance: invoice.amount - paid,
     status: deriveInvoiceStatus(invoice.amount, paid),
     payments: invoice.payments,
+    pendingClaims: invoice.paymentClaims,
   };
 }
 
