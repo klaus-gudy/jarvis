@@ -2,10 +2,10 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeftIcon } from "lucide-react"
 
+import { InvoiceCard } from "@/components/leases/invoice-card"
 import {
   LeaseDetailsCard,
   LeaseHeaderCard,
-  LeaseRentCard,
   LeaseTermCard,
 } from "@/components/portal/lease-detail"
 import { PortalNoOrganization } from "@/components/portal/portal-states"
@@ -57,7 +57,7 @@ export default async function PortalLeaseDetailPage({
             <LeaseTermCard lease={lease} />
           </div>
           <LeaseDetailsCard lease={lease} />
-          <LeaseRentCard lease={lease} />
+          <InvoiceCard invoice={lease.invoice} />
         </div>
         {/* Sticky beside the scrolling main column on wide screens. */}
         <div className="flex flex-col gap-4 lg:sticky lg:top-18">
