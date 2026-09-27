@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCan } from "@/components/permissions-provider";
 import type { AssetTypeView } from "@/lib/asset-types";
 import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 
@@ -56,6 +57,9 @@ export function AssetTypeSelect({
   disabledNote?: string;
   disabled?: boolean;
 }) {
+  // `POST /api/asset-types` needs `document:write`; without it (a tenant
+  // filing their own ID, say) the list is only picked from, never added to.
+  const canAddType = useCan("document:write");
   const [adding, setAdding] = React.useState(false);
   const [label, setLabel] = React.useState("");
   // Unreachable for a photo type — `isPhoto` forces multiple server-side, and
@@ -205,18 +209,20 @@ export function AssetTypeSelect({
         {/* Not a SelectItem: choosing it would set the field to a sentinel
             value, and a "type" called __add__ is one forgotten guard away from
             reaching the API. A button in the popup does the one thing it says. */}
-        <div className="mt-1 border-t pt-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-1.5 font-normal"
-            onClick={() => setAdding(true)}
-          >
-            <PlusIcon />
-            Add a type…
-          </Button>
-        </div>
+        {canAddType && (
+          <div className="mt-1 border-t pt-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-1.5 font-normal"
+              onClick={() => setAdding(true)}
+            >
+              <PlusIcon />
+              Add a type…
+            </Button>
+          </div>
+        )}
       </SelectContent>
     </Select>
   );
