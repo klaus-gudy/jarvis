@@ -42,7 +42,8 @@ export default async function PortalPaymentsPage() {
   )
 
   return (
-    <>
+    // The Home dashboard uses the full width; reading pages stay narrow.
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       <Card>
         <CardHeader>
           <CardTitle>Summary</CardTitle>
@@ -79,6 +80,6 @@ export default async function PortalPaymentsPage() {
           </Card>
         )
       })}
-    </>
+    </div>
   )
 }
