@@ -176,7 +176,8 @@ export function RolePermissionsEditor({
                   </label>
                 )}
               </CardHeader>
-              <CardContent className="divide-y p-0">
+              {/* No lines between rows — spacing alone separates them. */}
+              <CardContent className="space-y-0.5 p-2">
                 {group.permissions.map((permission) => {
                   const id = `perm-${permission.key}`;
                   const locked = !mayChange(permission.key);
@@ -192,7 +193,7 @@ export function RolePermissionsEditor({
                       // The description moved to hover to keep rows to one line.
                       title={editable && locked ? NOT_HELD : permission.description}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-2.5",
+                        "flex items-center gap-3 rounded-md px-2 py-1.5",
                         !locked && "cursor-pointer hover:bg-muted/40",
                         change === "added" && "bg-primary/5",
                         change === "removed" && "bg-destructive/5"
