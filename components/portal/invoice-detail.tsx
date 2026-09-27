@@ -1,18 +1,18 @@
 import Link from "next/link"
 import { FileTextIcon, ReceiptIcon } from "lucide-react"
 
+import { AddPaymentButton } from "@/components/portal/add-payment-button"
 import { InvoiceStatusPill, plural } from "@/components/portal/lease-status"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLease } from "@/lib/portal"
-import { rentSchedule, type ScheduledMonth } from "@/lib/rent-coverage"
 import { cn } from "@/lib/utils"
 
 /**
  * The tenant's invoice page. Same layout as the lease page: header card, then
- * the invoice, its month-by-month schedule and its payments in the main
- * column, with the balance and how to pay beside them. Server components.
+ * the shared invoice card in the main column, with the balance and how to pay
+ * beside it. Server components.
  */
 
 type Invoiced = PortalLease & { invoice: NonNullable<PortalLease["invoice"]> }
@@ -119,133 +119,45 @@ export function InvoiceBalanceCard({ lease }: { lease: Invoiced }) {
           )}
         </div>
 
-        <Button
-          size="lg"
-          variant="outline"
-          className="w-full"
-          nativeButton={false}
-          render={<Link href={`/portal/lease/${lease.id}`} />}
-        >
-          <FileTextIcon />
-          View lease {lease.reference}
-        </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-/* ---------------------------------------------------------------- main -- */
-
-const MONTH_TONE: Record<ScheduledMonth["status"], string> = {
-  Paid: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  Partial: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  Due: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
-  Upcoming: "bg-muted text-muted-foreground",
-}
-
-/**
- * The term month by month, payments applied to the oldest month first — so a
- * tenant can see exactly which months are settled, part-paid or owed.
- */
-export function RentScheduleCard({ lease }: { lease: Invoiced }) {
-  const months = rentSchedule(lease, lease.invoice.paid)
-  const settled = months.filter((m) => m.status === "Paid").length
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
-        <CardTitle className="text-base">Monthly breakdown</CardTitle>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {settled} of {months.length} paid
-        </span>
-      </CardHeader>
-      <CardContent className="p-0">
-        <ul>
-          {months.map((month) => (
-            <li
-              key={month.index}
-              className="relative flex items-center gap-3 px-6 py-3 text-sm after:pointer-events-none after:absolute after:inset-x-6 after:bottom-0 after:h-px after:bg-border last:after:hidden"
-            >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold tabular-nums text-muted-foreground">
-                {month.index}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium tabular-nums">{formatDate(month.start)}</p>
-                <p className="truncate text-xs text-muted-foreground tabular-nums">
-                  to {formatDate(month.end)}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="font-medium tabular-nums">
-                  {month.status === "Partial"
-                    ? `${formatCurrencyFull(month.paid)} / ${formatCurrencyFull(lease.monthlyRent)}`
-                    : formatCurrencyFull(lease.monthlyRent)}
-                </p>
-                <span
-                  className={cn(
-                    "mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    MONTH_TONE[month.status]
-                  )}
-                >
-                  {month.status}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-  )
-}
-
-/** Every payment recorded against the invoice, newest first, with the total. */
-export function PaymentHistoryCard({ lease }: { lease: Invoiced }) {
-  const { payments, paid } = lease.invoice
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
-        <CardTitle className="text-base">Payment history</CardTitle>
-        {payments.length > 0 && (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {plural(payments.length, "payment")}
-          </span>
-        )}
-      </CardHeader>
-      <CardContent className="p-0">
-        {payments.length === 0 ? (
-          <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-            No payments recorded yet. Payments your landlord records will appear here.
-          </p>
-        ) : (
-          <>
-            <ul>
-              {payments.map((payment) => (
-                <li
-                  key={payment.id}
-                  className="relative flex items-center gap-3 px-6 py-3 text-sm after:pointer-events-none after:absolute after:inset-x-6 after:bottom-0 after:h-px after:bg-border last:after:hidden"
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                    <ReceiptIcon className="size-4" aria-hidden />
+        {invoice.pendingClaims.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Awaiting confirmation</p>
+            <ul className="divide-y rounded-lg border text-sm">
+              {invoice.pendingClaims.map((claim) => (
+                <li key={claim.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    {formatDate(claim.paidAt)}
+                    {claim.method ? ` · ${claim.method}` : ""}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium tabular-nums">{formatDate(payment.paidAt)}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {payment.method ?? "Payment"}
-                    </p>
-                  </div>
-                  <span className="shrink-0 font-semibold tabular-nums">
-                    {formatCurrencyFull(payment.amount)}
+                  <span className="shrink-0 font-medium tabular-nums">
+                    {formatCurrencyFull(claim.amount)}
                   </span>
                 </li>
               ))}
             </ul>
-            <div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-6 py-3 text-sm">
-              <span className="text-muted-foreground">Total paid</span>
-              <span className="font-semibold tabular-nums">{formatCurrencyFull(paid)}</span>
-            </div>
-          </>
+            <p className="text-xs text-muted-foreground">
+              Your landlord confirms these before they count toward the balance.
+            </p>
+          </div>
         )}
+
+        <div className="flex flex-col gap-2">
+          {invoice.balance > 0 && (
+            <AddPaymentButton
+              invoice={{ id: invoice.id, amount: invoice.amount, paid: invoice.paid, balance: invoice.balance }}
+            />
+          )}
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full"
+            nativeButton={false}
+            render={<Link href={`/portal/lease/${lease.id}`} />}
+          >
+            <FileTextIcon />
+            View lease {lease.reference}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
