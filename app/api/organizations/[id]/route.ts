@@ -27,9 +27,9 @@ export async function DELETE(
   const result = await deleteOrganization(auth.context.userId, id);
 
   if ("error" in result) {
-    if (result.error === "not-owner") {
+    if (result.error === "forbidden") {
       return Response.json(
-        { error: "Only the organization's owner can delete it" },
+        { error: "Your role doesn't allow deleting the organization" },
         { status: 403 }
       );
     }

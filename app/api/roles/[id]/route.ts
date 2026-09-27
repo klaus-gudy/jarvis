@@ -7,7 +7,7 @@ import { updateRoleSchema } from "@/lib/roles-schemas";
 const REFUSALS = {
   "not-found": [404, "Role not found"],
   forbidden: [403, "Only an Owner can change the Owner role"],
-  "built-in": [400, "Owner and Tenant are built in — their permissions are fixed and they can't be deleted"],
+  "built-in": [400, "Owner and Tenant are built in and can't be deleted"],
   escalation: [403, "You can't grant or remove permissions you don't hold yourself"],
   duplicate: [409, "A role with this name already exists"],
   "in-use": [409, "Move this role's members and pending invitations to another role first"],

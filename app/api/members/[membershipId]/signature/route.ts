@@ -37,8 +37,7 @@ export async function GET(_request: Request, ctx: Context) {
   const { membershipId } = await ctx.params;
   if (
     membershipId !== auth.context.membershipId &&
-    (auth.context.kind === "TENANT" ||
-      !can(auth.context, ["member:read", "tenant:read", "lease:read"]))
+    !can(auth.context, ["member:read", "tenant:read", "lease:read"])
   ) {
     return Response.json({ error: "You don't have permission to do that" }, { status: 403 });
   }

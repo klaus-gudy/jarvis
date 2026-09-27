@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { authorize, can } from "@/lib/authz";
+import { authorizeMember, can } from "@/lib/authz";
 import { documentRequirement } from "@/lib/document-access";
 import { resolveAssetType } from "@/lib/asset-types";
 import {
@@ -39,7 +39,7 @@ function storageUnavailable(cause: unknown) {
 }
 
 export async function GET(request: Request) {
-  const auth = await authorize();
+  const auth = await authorizeMember();
   if (!auth.ok) return auth.response;
 
   const params = new URL(request.url).searchParams;
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   const required = documentRequirement(
     { subjectType, subjectId: params.get("subjectId") || null },
     "read",
-    auth.context.membershipId
+    auth.context
   );
   if (required && !can(auth.context, required)) {
     return Response.json({ error: "You don't have permission to do that" }, { status: 403 });
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   // 1. Authenticate — session, verified email, and an active organization.
   // Which permission the upload needs depends on its subject, checked below.
-  const auth = await authorize();
+  const auth = await authorizeMember();
   if (!auth.ok) return auth.response;
 
   // Cheap rejection before the body is buffered into memory. The header is a
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
   const required = documentRequirement(
     { subjectType: parsed.data.subjectType, subjectId: parsed.data.subjectId ?? null },
     "write",
-    auth.context.membershipId
+    auth.context
   );
   if (required && !can(auth.context, required)) {
     return Response.json({ error: "You don't have permission to do that" }, { status: 403 });

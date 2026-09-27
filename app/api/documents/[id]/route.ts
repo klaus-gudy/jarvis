@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { authorize, can } from "@/lib/authz";
+import { authorizeMember, can } from "@/lib/authz";
 import { documentRequirement, subjectOfRow } from "@/lib/document-access";
 import { deleteDocument, getDocument } from "@/lib/documents";
 import { getObjectStream, StorageNotConfiguredError } from "@/lib/storage";
@@ -19,7 +19,7 @@ export async function GET(
   request: Request,
   ctx: RouteContext<"/api/documents/[id]">
 ) {
-  const auth = await authorize();
+  const auth = await authorizeMember();
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -32,7 +32,7 @@ export async function GET(
   const required = documentRequirement(
     subjectOfRow(document),
     "read",
-    auth.context.membershipId
+    auth.context
   );
   if (required && !can(auth.context, required)) {
     return Response.json({ error: "You don't have permission to do that" }, { status: 403 });
@@ -84,7 +84,7 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/documents/[id]">
 ) {
-  const auth = await authorize();
+  const auth = await authorizeMember();
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -96,7 +96,7 @@ export async function DELETE(
   const required = documentRequirement(
     subjectOfRow(document),
     "write",
-    auth.context.membershipId
+    auth.context
   );
   if (required && !can(auth.context, required)) {
     return Response.json({ error: "You don't have permission to do that" }, { status: 403 });

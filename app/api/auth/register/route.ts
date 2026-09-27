@@ -1,6 +1,7 @@
 import { after } from "next/server";
 
 import { Prisma } from "@/lib/generated/prisma/client";
+import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/hash";
 import { registerSchema } from "@/lib/auth/schemas";
@@ -71,7 +72,13 @@ export async function POST(request: Request) {
         data: { name: organizationName },
       });
       const ownerRole = await tx.role.create({
-        data: { name: OWNER_ROLE_NAME, kind: "OWNER", organizationId: organization.id },
+        // Owners start with every permission, stored like any other role's.
+        data: {
+          name: OWNER_ROLE_NAME,
+          kind: "OWNER",
+          permissions: [...PERMISSIONS],
+          organizationId: organization.id,
+        },
       });
       // Created alongside Owner so a fresh org can add its first tenant
       // without `ensureRole` having to lazily create it on the fly.
