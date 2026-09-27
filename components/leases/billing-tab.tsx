@@ -10,6 +10,10 @@ import {
   buildBillingPaymentColumns,
   type BillingPaymentRow,
 } from "@/components/leases/billing-payment-columns";
+import {
+  PaymentClaimsCard,
+  type BillingClaim,
+} from "@/components/leases/payment-claims-card";
 import { RecordPaymentDialog } from "@/components/leases/record-payment-dialog";
 import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
@@ -44,6 +48,7 @@ export type BillingInvoice = {
   balance: number;
   status: InvoiceStatus;
   payments: BillingPayment[];
+  pendingClaims: BillingClaim[];
 };
 
 /**
@@ -131,6 +136,14 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
           Record payment
         </Button>
       </div>
+
+      {invoice.pendingClaims.length > 0 && (
+        <PaymentClaimsCard
+          invoiceId={invoice.id}
+          claims={invoice.pendingClaims}
+          canRecord={canRecord}
+        />
+      )}
 
       <DataTable
         columns={columns}
