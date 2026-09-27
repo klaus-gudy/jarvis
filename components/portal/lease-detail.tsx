@@ -7,18 +7,18 @@ import {
   WalletIcon,
 } from "lucide-react"
 
-import { leaseProgress, LeaseStatusPill, plural } from "@/components/portal/lease-status"
+import { leaseProgress, LeaseStatusPill } from "@/components/portal/lease-status"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { formatCurrencyFull, formatDate } from "@/lib/format"
+import { formatDate } from "@/lib/format"
 import { toInternationalTzPhone } from "@/lib/phone"
 import type { PortalLandlord, PortalLease } from "@/lib/portal"
 import { cn } from "@/lib/utils"
 
 /**
- * The lease detail page's cards. Main column: the lease's figures (its invoice
- * is the shared `InvoiceCard`). Side column: the term with its actions, and
- * who to call. Server components — nothing here changes state.
+ * The tenant's lease page cards. The main column uses the landlord's shared
+ * `LeaseTermsCard` and `InvoiceCard`; these are the header and the side column
+ * (the term with its actions, and who to call). Server components — nothing here changes state.
  */
 
 function contractHref(lease: PortalLease) {
@@ -46,68 +46,6 @@ export function LeaseHeaderCard({ lease }: { lease: PortalLease }) {
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-/* ---------------------------------------------------------------- main -- */
-
-/** Figures in two ruled rows of four (two across on a phone). */
-export function LeaseDetailsCard({ lease }: { lease: PortalLease }) {
-  const { home, invoice } = lease
-  const unit = [home.unitType, home.sizeSqm ? `${home.sizeSqm} m²` : null]
-    .filter(Boolean)
-    .join(" · ")
-
-  return (
-    <Card className="gap-0 p-0 shadow-sm">
-      {/* The header card above already names the lease and the place. */}
-      <div className="p-5 sm:p-6">
-        <h3 className="text-lg font-semibold tracking-tight">Lease details</h3>
-      </div>
-
-      <FactRow>
-        <Fact label="Monthly rent" value={formatCurrencyFull(lease.monthlyRent)} />
-        <Fact label="Lease total" value={formatCurrencyFull(lease.leaseAmount)} />
-        <Fact label="Start date" value={formatDate(lease.startDate)} />
-        <Fact label="End date" value={formatDate(lease.endDate)} />
-      </FactRow>
-      <FactRow>
-        <Fact
-          label="Rent due"
-          value={invoice ? formatDate(invoice.dueDate) : "Not invoiced yet"}
-        />
-        <Fact label="Unit" value={unit || "—"} />
-        <Fact label="Term" value={plural(lease.durationMonths, "month")} />
-        <Fact
-          label="Renewal"
-          value={
-            lease.autoRenew && lease.renewalMonths
-              ? `Automatic · ${plural(lease.renewalMonths, "month")}`
-              : "Not automatic"
-          }
-        />
-      </FactRow>
-
-    </Card>
-  )
-}
-
-function FactRow({ children }: { children: React.ReactNode }) {
-  return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-5 border-t p-5 sm:p-6 lg:grid-cols-4">
-      {children}
-    </dl>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-        {label}
-      </dt>
-      <dd className="mt-1.5 text-sm font-medium tabular-nums sm:text-base">{value}</dd>
-    </div>
   )
 }
 
