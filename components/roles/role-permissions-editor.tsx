@@ -9,6 +9,7 @@ import { usePermissions } from "@/components/permissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
+
 import {
   PERMISSION_GROUPS,
   PERMISSIONS,
@@ -30,12 +31,12 @@ const NOT_HELD = "You can only grant or remove permissions you hold yourself";
 
 /**
  * What one role may do, and the place to change it — the same for every role,
- * Owner and Tenant included. The switches show exactly what is stored on the
+ * Owner and Tenant included. The boxes show exactly what is stored on the
  * role; nothing is implied by its kind.
  *
- * Switches edit a local draft; nothing is sent until Save, so a role is never
+ * Checkboxes edit a local draft; nothing is sent until Save, so a role is never
  * left half-edited and a slip can be discarded. Changed rows are marked so the
- * reviewer sees exactly what Save will do. A switch for a permission the
+ * reviewer sees exactly what Save will do. A box for a permission the
  * viewer doesn't hold is disabled (Owners may grant anything) — the server
  * refuses those changes anyway (`updateRole`).
  *
@@ -147,7 +148,10 @@ export function RolePermissionsEditor({
 
           return (
             <Card key={group.label} className="gap-0 py-0">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 border-b px-4 py-3">
+              {/* Fixed height, so a group without the Grant/Remove all button
+                  lines up with its neighbour. CardHeader pads its bottom when
+                  it has a border, which would push the title up — zeroed. */}
+              <CardHeader className="flex h-11 flex-row items-center justify-between gap-2 border-b px-4 py-0 [.border-b]:pb-0">
                 <CardTitle className="text-sm">
                   {group.label}{" "}
                   <span className="font-normal text-muted-foreground tabular-nums">
@@ -168,7 +172,7 @@ export function RolePermissionsEditor({
                   </Button>
                 )}
               </CardHeader>
-              <CardContent className="divide-y px-0">
+              <CardContent className="divide-y p-0">
                 {group.permissions.map((permission) => {
                   const id = `perm-${permission.key}`;
                   const locked = !mayChange(permission.key);
@@ -181,14 +185,24 @@ export function RolePermissionsEditor({
                     <label
                       key={permission.key}
                       htmlFor={id}
-                      title={editable && locked ? NOT_HELD : undefined}
+                      // The description moved to hover to keep rows to one line.
+                      title={editable && locked ? NOT_HELD : permission.description}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-3",
+                        "flex items-center gap-3 px-4 py-2.5",
                         !locked && "cursor-pointer hover:bg-muted/40",
                         change === "added" && "bg-primary/5",
                         change === "removed" && "bg-destructive/5"
                       )}
                     >
+                      <Checkbox
+                        id={id}
+                        // Base UI puts `id` on its hidden input, so the <label>
+                        // alone leaves the visible box unnamed.
+                        aria-labelledby={`${id}-label`}
+                        checked={draft.has(permission.key)}
+                        disabled={locked}
+                        onCheckedChange={(checked) => set(permission.key, checked)}
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-2 text-sm">
                           <span id={`${id}-label`}>{permission.label}</span>
@@ -204,23 +218,7 @@ export function RolePermissionsEditor({
                             <LockIcon className="size-3 text-muted-foreground" aria-label={NOT_HELD} />
                           )}
                         </span>
-                        <span id={`${id}-desc`} className="block text-xs text-muted-foreground">
-                          {permission.description}
-                        </span>
                       </span>
-                      <Switch
-                        id={id}
-                        // Base UI puts `id` on its hidden input, so the <label>
-                        // alone leaves the visible switch unnamed.
-                        aria-labelledby={`${id}-label`}
-                        aria-describedby={`${id}-desc`}
-                        // `--input` is near-white in light mode, so an off switch
-                        // all but vanished on the card (same fix as checkbox.tsx).
-                        className="data-unchecked:bg-muted-foreground/30"
-                        checked={draft.has(permission.key)}
-                        disabled={locked}
-                        onCheckedChange={(checked) => set(permission.key, checked)}
-                      />
                     </label>
                   );
                 })}
