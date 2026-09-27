@@ -14,7 +14,7 @@ import { getPortalLeaseDocuments, type PortalDocument } from "@/lib/portal"
 export const metadata = { title: "Documents" }
 
 /**
- * Two tabs. **Your documents** is the tenant's own checklist — every
+ * Two tabs. **My documents** is the tenant's own checklist — every
  * document type an organization keeps for a member (NIDA, passport, employment
  * letter…), uploaded or not, each missing one with its own Upload button. It is
  * the same `DocumentsPanel` the landlord sees on the member page, filing into
@@ -47,7 +47,7 @@ export default async function PortalDocumentsPage() {
       <Tabs defaultValue="mine">
         <TabsList variant="line" className="w-full justify-start border-b">
           <TabsTrigger value="mine" className="flex-none gap-2 px-3">
-            Your documents
+            My documents
             {/* Hidden at zero — a "0" beside a tab reads as a problem. */}
             {documents.length > 0 && <Count value={documents.length} />}
           </TabsTrigger>
@@ -58,9 +58,6 @@ export default async function PortalDocumentsPage() {
         </TabsList>
 
         <TabsContent value="mine" className="space-y-3 pt-5">
-          <p className="text-sm text-muted-foreground">
-            Copies your landlord keeps on file for you. Upload anything still missing.
-          </p>
           <DocumentsPanel
             subjectType="MEMBERSHIP"
             subjectId={access.membershipId}
