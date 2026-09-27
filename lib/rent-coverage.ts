@@ -71,3 +71,45 @@ export function rentCoverage(
 
   return { monthsPaid, coveredUntil, monthsDue, amountBehind, monthsBehind };
 }
+
+export type ScheduledMonth = {
+  /** 1-based position in the term. */
+  index: number;
+  start: Date;
+  /** The next month's first day, or the lease's end date for the last one. */
+  end: Date;
+  /** How much of this month's rent the payments so far reach. */
+  paid: number;
+  status: "Paid" | "Partial" | "Due" | "Upcoming";
+};
+
+/**
+ * The term month by month, with payments applied oldest month first — the
+ * same reading `rentCoverage` uses, laid out so a tenant can see which months
+ * are settled. A month is "Due" from its first day until paid.
+ */
+export function rentSchedule(
+  lease: { startDate: Date; endDate: Date; durationMonths: number; monthlyRent: number },
+  paid: number,
+  now: Date = new Date()
+): ScheduledMonth[] {
+  const today = startOfTodayUtc(now);
+  let remaining = paid;
+
+  return Array.from({ length: lease.durationMonths }, (_, i) => {
+    const start = addMonths(lease.startDate, i);
+    const end = i === lease.durationMonths - 1 ? lease.endDate : addMonths(lease.startDate, i + 1);
+    const covered = Math.min(lease.monthlyRent, Math.max(0, remaining));
+    remaining -= covered;
+
+    const status: ScheduledMonth["status"] =
+      covered >= lease.monthlyRent
+        ? "Paid"
+        : covered > 0
+          ? "Partial"
+          : start <= today
+            ? "Due"
+            : "Upcoming";
+    return { index: i + 1, start, end, paid: covered, status };
+  });
+}
