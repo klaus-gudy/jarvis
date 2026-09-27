@@ -13,6 +13,10 @@ import {
 } from "lucide-react"
 
 import { DashboardPanel, PanelRow } from "@/components/dashboard/panel"
+import {
+  PortalDocumentViewer,
+  type PortalViewableDocument,
+} from "@/components/portal/portal-document-viewer"
 import { Card } from "@/components/ui/card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLease, PortalMember } from "@/lib/portal"
@@ -112,9 +116,9 @@ type QuickAction = {
   label: string
   caption: string
   icon: LucideIcon
-  href: string
-  /** Opens outside the app (phone dialler, WhatsApp, a file). */
-  external?: boolean
+  /** An in-app page — or, with `document`, nothing: the row opens the viewer. */
+  href?: string
+  document?: PortalViewableDocument
   /** Something the tenant should do now — sorted first and marked. */
   needed?: boolean
 }
@@ -170,8 +174,7 @@ export function QuickActions({
       label: "View contract",
       caption: lease.reference,
       icon: FileTextIcon,
-      href: `/api/portal/documents/${lease.contract.id}`,
-      external: true,
+      document: { ...lease.contract, label: "Lease contract" },
     })
   }
   actions.push(
@@ -223,21 +226,18 @@ export function QuickActions({
               )}
             </>
           )
-          // Routes inside the app get client navigation; phone, WhatsApp and
-          // file links are plain anchors.
-          return action.href.startsWith("/portal") ? (
-            <Link key={action.label} href={action.href} className={className}>
-              {body}
-            </Link>
-          ) : (
-            <a
+          return action.document ? (
+            <PortalDocumentViewer
               key={action.label}
-              href={action.href}
-              className={className}
-              {...(action.external ? { target: "_blank", rel: "noreferrer" } : {})}
+              document={action.document}
+              className={cn(className, "text-left")}
             >
               {body}
-            </a>
+            </PortalDocumentViewer>
+          ) : (
+            <Link key={action.label} href={action.href ?? "/portal"} className={className}>
+              {body}
+            </Link>
           )
         })}
       </div>
