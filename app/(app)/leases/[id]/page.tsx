@@ -6,15 +6,13 @@ import { BillingTab } from "@/components/leases/billing-tab";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ContractTab } from "@/components/leases/contract-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
-import { InvoiceProgress } from "@/components/leases/invoice-progress";
-import { Badge } from "@/components/ui/badge";
+import { InvoiceCard } from "@/components/leases/invoice-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
-import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types";
 import { listAssetTypes } from "@/lib/asset-types";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contracts";
 import { listDocuments } from "@/lib/documents";
@@ -282,58 +280,7 @@ export default async function LeaseDetailPage({
 
             {/* The invoice is part of what this lease *is*, so it reads here;
                 the Billing tab is only the ledger. */}
-            <Card className="grow">
-              <CardHeader className="border-b">
-                <CardTitle className="text-base">Invoice</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {invoice ? (
-                  <>
-                    {/* The bar replaces the Total / Paid so far / Balance rows
-                        that used to sit below — same three numbers, but a
-                        reader no longer has to subtract to see where the
-                        invoice stands. What remains are the facts a bar can't
-                        carry. */}
-                    <div className="px-6 py-4">
-                      <InvoiceProgress
-                        amount={invoice.amount}
-                        paid={invoice.paid}
-                        balance={invoice.balance}
-                      />
-                    </div>
-                    <dl className="border-t">
-                      <DetailRow
-                        label="Reference"
-                        value={
-                          <span className="font-mono text-xs">
-                            {invoice.reference}
-                          </span>
-                        }
-                      />
-                      <DetailRow
-                        label="Status"
-                        value={
-                          <Badge
-                            variant={INVOICE_STATUS_VARIANT[invoice.status]}
-                            className="rounded-full font-normal"
-                          >
-                            {invoice.status}
-                          </Badge>
-                        }
-                      />
-                      <DetailRow
-                        label="Due date"
-                        value={formatDate(invoice.dueDate)}
-                      />
-                    </dl>
-                  </>
-                ) : (
-                  <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-                    No invoice exists for this lease yet.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            <InvoiceCard invoice={invoice} className="grow" />
             </div>
           </div>
         </TabsContent>
