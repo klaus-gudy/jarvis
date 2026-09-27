@@ -2,6 +2,7 @@ import { DocumentsPanel } from "@/components/documents/documents-panel"
 import { DocumentLink } from "@/components/portal/lease-parts"
 import { PortalNoOrganization } from "@/components/portal/portal-states"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { listAssetTypes } from "@/lib/asset-types"
 import { requireTenantPage } from "@/lib/authz"
 import { listDocuments } from "@/lib/documents"
@@ -11,7 +12,7 @@ import { getPortalLeaseDocuments, type PortalDocument } from "@/lib/portal"
 export const metadata = { title: "Documents" }
 
 /**
- * Two halves. **Your documents** is the tenant's own checklist — every
+ * Two tabs. **Your documents** is the tenant's own checklist — every
  * document type an organization keeps for a member (NIDA, passport, employment
  * letter…), uploaded or not, each missing one with its own Upload button. It is
  * the same `DocumentsPanel` the landlord sees on the member page, filing into
@@ -35,55 +36,65 @@ export default async function PortalDocumentsPage() {
     // Dates must be serialisable to cross the server/client boundary.
     .map((asset) => ({ ...asset, createdAt: asset.createdAt.toISOString() }))
   const documentTypes = assetTypes.filter((type) => !type.isPhoto)
+  const leaseFileCount = leases.reduce((sum, lease) => sum + lease.documents.length, 0)
 
   return (
     // The Home dashboard uses the full width; reading pages stay narrow.
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-      <section className="space-y-3">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">Your documents</h2>
+      {/* Same tab strip as the landlord's member page. */}
+      <Tabs defaultValue="mine">
+        <TabsList variant="line" className="w-full justify-start border-b">
+          <TabsTrigger value="mine" className="flex-none gap-2 px-3">
+            Your documents
+            {/* Hidden at zero — a "0" beside a tab reads as a problem. */}
+            {documents.length > 0 && <Count value={documents.length} />}
+          </TabsTrigger>
+          <TabsTrigger value="leases" className="flex-none gap-2 px-3">
+            Lease documents
+            {leaseFileCount > 0 && <Count value={leaseFileCount} />}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="mine" className="space-y-3 pt-5">
           <p className="text-sm text-muted-foreground">
             Copies your landlord keeps on file for you. Upload anything still missing.
           </p>
-        </div>
-        <DocumentsPanel
-          subjectType="MEMBERSHIP"
-          subjectId={access.membershipId}
-          documents={documents}
-          assetTypes={documentTypes}
-          emptyMessage="No document types are set up yet."
-        />
-      </section>
+          <DocumentsPanel
+            subjectType="MEMBERSHIP"
+            subjectId={access.membershipId}
+            documents={documents}
+            assetTypes={documentTypes}
+            emptyMessage="No document types are set up yet."
+          />
+        </TabsContent>
 
-      <section className="space-y-3">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">Lease documents</h2>
+        <TabsContent value="leases" className="space-y-3 pt-5">
           <p className="text-sm text-muted-foreground">
             Contracts and files your landlord has added to your leases.
           </p>
-        </div>
-        {leases.length === 0 ? (
-          <Card>
-            <CardContent>
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Nothing yet. Your contract will appear here once it is generated.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          leases.map((lease) => (
-            <Card key={lease.id}>
-              <CardHeader>
-                <CardTitle>{lease.title}</CardTitle>
-                <CardDescription>{lease.reference}</CardDescription>
-              </CardHeader>
+          {leases.length === 0 ? (
+            <Card>
               <CardContent>
-                <DocumentList documents={lease.documents} />
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Nothing yet. Your contract will appear here once it is generated.
+                </p>
               </CardContent>
             </Card>
-          ))
-        )}
-      </section>
+          ) : (
+            leases.map((lease) => (
+              <Card key={lease.id}>
+                <CardHeader>
+                  <CardTitle>{lease.title}</CardTitle>
+                  <CardDescription>{lease.reference}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DocumentList documents={lease.documents} />
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -101,5 +112,11 @@ function DocumentList({ documents }: { documents: PortalDocument[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+function Count({ value }: { value: number }) {
+  return (
+    <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">{value}</span>
   )
 }
