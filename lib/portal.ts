@@ -278,6 +278,17 @@ export function liveLeases(leases: PortalLease[]): PortalLease[] {
   return live.length > 0 ? live : leases.slice(0, 1);
 }
 
+export type PortalLeaseDocuments = {
+  id: string;
+  reference: string;
+  title: string;
+  status: LeaseStatus;
+  startDate: Date;
+  endDate: Date;
+  durationMonths: number;
+  documents: PortalDocument[];
+};
+
 /**
  * Files on the tenant's leases — the contract above all — newest lease first.
  * Leases with nothing filed are left out. The tenant's own membership files
@@ -285,12 +296,16 @@ export function liveLeases(leases: PortalLease[]): PortalLease[] {
  */
 export async function getPortalLeaseDocuments(
   ctx: AuthContext
-): Promise<{ id: string; reference: string; title: string; documents: PortalDocument[] }[]> {
+): Promise<PortalLeaseDocuments[]> {
   const leases = await prisma.lease.findMany({
     where: ownLeases(ctx),
     orderBy: { startDate: "desc" },
     select: {
       id: true,
+      status: true,
+      startDate: true,
+      endDate: true,
+      durationMonths: true,
       unit: { select: { label: true, property: { select: { name: true } } } },
       fileAssets: {
         orderBy: { createdAt: "desc" },
@@ -311,7 +326,11 @@ export async function getPortalLeaseDocuments(
     .map((lease) => ({
       id: lease.id,
       reference: leaseReference(lease.id),
-      title: `${lease.unit.property.name} · ${lease.unit.label}`,
+      title: `${lease.unit.property.name} · Unit ${lease.unit.label}`,
+      status: lease.status,
+      startDate: lease.startDate,
+      endDate: lease.endDate,
+      durationMonths: lease.durationMonths,
       documents: lease.fileAssets.map((doc) => ({
         id: doc.id,
         fileName: doc.fileName,
