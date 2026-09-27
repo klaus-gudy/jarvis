@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 
-import { effectivePermissions } from "@/lib/permissions";
+import { parsePermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE } from "./constants";
 import {
@@ -93,10 +93,7 @@ export const getCurrentUser = cache(async () => {
           roleId: activeMembership.role.id,
           roleName: activeMembership.role.name,
           kind: activeMembership.role.kind,
-          permissions: effectivePermissions(
-            activeMembership.role.kind,
-            activeMembership.role.permissions
-          ),
+          permissions: parsePermissions(activeMembership.role.permissions),
         }
       : null,
   };

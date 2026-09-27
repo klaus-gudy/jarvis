@@ -28,8 +28,6 @@ export type Profile = {
    * change — the account settings group says so instead of offering the form.
    */
   canSignIn: boolean;
-  /** Payment accounts are the owner's, so only an Owner manages them. */
-  isOwner: boolean;
   membershipId: string | null;
   /** Object key of the user's own drawn signature in this organization. */
   signatureKey: string | null;
@@ -40,7 +38,6 @@ const EMPTY: Profile = {
   personal: { name: null, phone: null, email: null },
   organization: null,
   canSignIn: false,
-  isOwner: false,
   membershipId: null,
   signatureKey: null,
   paymentAccounts: [],
@@ -102,8 +99,6 @@ export async function getProfile(
     return { ...EMPTY, personal, canSignIn };
   }
 
-  const isOwner = membership.role.kind === "OWNER";
-
   return {
     personal,
     organization: {
@@ -117,7 +112,6 @@ export async function getProfile(
       propertyCount: membership.organization._count.properties,
     },
     canSignIn,
-    isOwner,
     membershipId: membership.id,
     signatureKey: membership.profile?.signatureKey ?? null,
     paymentAccounts,

@@ -8,7 +8,8 @@ import type { PermissionRequirement } from "@/lib/authz";
  *
  * A member's own files (their profile photo) need nothing beyond membership,
  * and every member's profile photo is readable by any staff member — avatars
- * are drawn across the whole app.
+ * are drawn across the whole app. Tenants follow the same permissions as
+ * everyone else; only the profile-photo courtesy is withheld from them.
  */
 export type DocumentSubject = {
   subjectType: string;
@@ -19,12 +20,14 @@ export type DocumentSubject = {
 export function documentRequirement(
   subject: DocumentSubject,
   mode: "read" | "write",
-  membershipId: string
+  viewer: { membershipId: string; kind: string }
 ): PermissionRequirement | null {
-  if (subject.subjectType === "MEMBERSHIP" && subject.subjectId === membershipId) {
+  if (subject.subjectType === "MEMBERSHIP" && subject.subjectId === viewer.membershipId) {
     return null;
   }
-  if (mode === "read" && subject.isProfilePhoto) return null;
+  // Avatars are drawn across the staff app; a tenant isn't browsing other
+  // people's photos, so for them it falls through to the normal rule.
+  if (mode === "read" && subject.isProfilePhoto && viewer.kind !== "TENANT") return null;
 
   const general = mode === "read" ? "document:read" : "document:write";
   switch (subject.subjectType) {

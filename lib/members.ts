@@ -1,6 +1,6 @@
 import { can, type AuthContext } from "@/lib/authz";
 import { getProfilePhotoIds } from "@/lib/documents";
-import { effectivePermissions } from "@/lib/permissions";
+import { parsePermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { UpdateMemberInput } from "@/lib/members-schemas";
 
@@ -164,7 +164,7 @@ export async function changeMemberRole(
       return { error: "forbidden" as const };
     }
     if (ctx.kind !== "OWNER") {
-      const granted = effectivePermissions(role.kind, role.permissions);
+      const granted = parsePermissions(role.permissions);
       if (granted.some((p) => !ctx.permissions.has(p))) {
         return { error: "escalation" as const };
       }

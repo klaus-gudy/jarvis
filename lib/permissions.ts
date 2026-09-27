@@ -10,10 +10,12 @@
  * string that is no longer here is ignored on read (`parsePermissions`), so
  * retiring a permission can never crash a request.
  *
- * Owners hold every permission implicitly (nothing is stored for them), so a
- * permission added here reaches every Owner without a migration. Tenants hold
- * none: they are a persona (`Role.kind = TENANT`) with their own portal, not a
- * set of staff permissions.
+ * **Every role is governed the same way** — Owner and Tenant included. What a
+ * role may do is exactly what is stored on it; nothing is implied by its kind.
+ * (`Role.kind` still says who counts as an owner or a tenant, and tenants
+ * always get the portal for their own records.) A permission added here
+ * reaches nobody until it is ticked, so a migration should grant it to the
+ * Owner roles if owners are meant to keep "everything".
  */
 
 export const PERMISSIONS = [
@@ -52,24 +54,10 @@ export function isPermission(value: string): value is Permission {
   return PERMISSION_SET.has(value);
 }
 
-/**
- * Only an Owner may ever do these: they can destroy or replace the whole
- * organization. They are in the catalogue so routes can name them, but no
- * custom role can be given them.
- */
-export const OWNER_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
-  "org:restore",
-  "org:delete",
-]);
-
-export function isGrantable(permission: Permission) {
-  return !OWNER_ONLY_PERMISSIONS.has(permission);
-}
-
-/** Drops unknown and owner-only strings, de-duplicates, keeps catalogue order. */
+/** Drops unknown strings, de-duplicates, keeps catalogue order. */
 export function parsePermissions(values: readonly string[]): Permission[] {
   const held = new Set(values);
-  return PERMISSIONS.filter((p) => held.has(p) && isGrantable(p));
+  return PERMISSIONS.filter((p) => held.has(p));
 }
 
 /** Mirrors the Prisma `RoleKind` enum without importing Prisma. */
@@ -80,7 +68,7 @@ export type PermissionGroup = {
   permissions: { key: Permission; label: string; description: string }[];
 };
 
-/** How the Roles page lays the catalogue out. Owner-only entries are omitted. */
+/** How the Roles page lays the catalogue out — every permission appears once. */
 export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     label: "Overview",
@@ -143,6 +131,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: "export:run", label: "Export spreadsheets", description: "Download full-organization Excel exports" },
       { key: "org:backup", label: "Download backup", description: "A complete copy of the organization's data" },
       { key: "org:manage", label: "Organization settings", description: "Rename the organization, payment accounts" },
+      { key: "org:restore", label: "Restore backup", description: "Load a backup into an empty organization" },
+      { key: "org:delete", label: "Delete organization", description: "Permanently removes the organization and all its data" },
     ],
   },
 ];
@@ -156,7 +146,8 @@ export const ROLE_TEMPLATES: { id: string; name: string; permissions: Permission
     id: "manager",
     name: "Manager",
     permissions: PERMISSIONS.filter(
-      (p) => isGrantable(p) && !["role:manage", "org:manage", "org:backup"].includes(p)
+      (p) =>
+        !["role:manage", "org:manage", "org:backup", "org:restore", "org:delete"].includes(p)
     ),
   },
   {
@@ -176,16 +167,3 @@ export const ROLE_TEMPLATES: { id: string; name: string; permissions: Permission
     ],
   },
 ];
-
-/** What a custom role predating permissions was given, so nobody lost access. */
-export const LEGACY_STAFF_PERMISSIONS = ROLE_TEMPLATES[0].permissions;
-
-/** Owners implicitly hold everything; tenants hold nothing staff-side. */
-export function effectivePermissions(
-  kind: RoleKind,
-  stored: readonly string[]
-): Permission[] {
-  if (kind === "OWNER") return [...PERMISSIONS];
-  if (kind === "TENANT") return [];
-  return parsePermissions(stored);
-}

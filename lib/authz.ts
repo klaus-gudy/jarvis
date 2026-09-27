@@ -27,7 +27,7 @@ export function can(
   ctx: Pick<AuthContext, "kind" | "permissions">,
   requirement?: PermissionRequirement
 ) {
-  if (ctx.kind === "OWNER") return true;
+  // No bypass for any kind: a role can do exactly what is stored on it.
   if (!requirement) return true;
   const any = typeof requirement === "string" ? [requirement] : requirement;
   return any.some((p) => ctx.permissions.has(p));
@@ -78,19 +78,19 @@ async function resolve(): Promise<
 }
 
 /**
- * The boundary for every staff API route. Tenants are refused outright — they
- * have their own portal and hold no staff permissions — and a staff member
- * without `requirement` gets a 403 naming what is missing.
+ * The boundary for every staff API route: the caller's role must hold
+ * `requirement` (any one, for a list), whatever its kind — a Tenant role that
+ * has been given `lease:read` passes a `lease:read` route like anyone else.
  *
- * Called with no requirement it admits any staff member of the active org
- * (what every route got before permissions existed, minus tenants).
+ * Called with no requirement it admits Owner and staff roles only; tenants
+ * reach nothing that hasn't named a permission they hold.
  */
 export async function authorize(requirement?: PermissionRequirement): Promise<Result> {
   const resolved = await resolve();
   if (!resolved.ok) return deny(resolved.status, resolved.error, resolved.extra);
 
   const { context } = resolved;
-  if (context.kind === "TENANT") {
+  if (!requirement && context.kind === "TENANT") {
     return deny(403, "This area is for organization staff", { reason: "tenant" });
   }
   if (!can(context, requirement)) {
@@ -143,9 +143,11 @@ export async function requireStaffPage(
     return null;
   }
   const { context } = resolved;
-  if (context.kind === "TENANT") redirect("/portal");
-  if (!can(context, requirement)) {
-    redirect(firstAllowedPath(context) ?? "/no-access");
+  const tenant = context.kind === "TENANT";
+  if ((tenant && !requirement) || !can(context, requirement)) {
+    // Somewhere they *can* go: another permitted page, else the portal for a
+    // tenant, else the no-access page.
+    redirect(firstAllowedPath(context) ?? (tenant ? "/portal" : "/no-access"));
   }
   return context;
 }

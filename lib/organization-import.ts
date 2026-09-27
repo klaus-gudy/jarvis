@@ -1,7 +1,7 @@
 import { leaseStatus } from "@/lib/leases";
 import ExcelJS from "exceljs";
 
-import { parsePermissions } from "@/lib/permissions";
+import { parsePermissions, PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/role-constants";
 import { cellText } from "@/lib/xlsx-import";
@@ -587,10 +587,12 @@ export async function importOrganizationBackup(
                   organizationId,
                   name: membership.role,
                   kind: membership.roleKind,
+                  // Backups made while Owner permissions were implicit carry an
+                  // empty list for Owner; that meant "everything".
                   permissions:
-                    membership.roleKind === "STAFF"
-                      ? parsePermissions(membership.rolePermissions)
-                      : [],
+                    membership.roleKind === "OWNER" && membership.rolePermissions.length === 0
+                      ? [...PERMISSIONS]
+                      : parsePermissions(membership.rolePermissions),
                 },
                 select: { id: true },
               }));

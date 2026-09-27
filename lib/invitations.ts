@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { hashPassword } from "@/lib/auth/hash";
 import { prisma } from "@/lib/prisma";
 import type { AuthContext } from "@/lib/authz";
-import { effectivePermissions } from "@/lib/permissions";
+import { parsePermissions } from "@/lib/permissions";
 
 const INVITE_TTL_DAYS = 14;
 
@@ -75,7 +75,7 @@ export async function createInvitation(
   // into a role holding permissions they lack themselves.
   if (ctx.kind !== "OWNER") {
     if (role.kind === "OWNER") return { error: "forbidden" as const };
-    const granted = effectivePermissions(role.kind, role.permissions);
+    const granted = parsePermissions(role.permissions);
     if (granted.some((p) => !ctx.permissions.has(p))) {
       return { error: "escalation" as const };
     }

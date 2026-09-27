@@ -1,6 +1,5 @@
 import type { AuthContext } from "@/lib/authz";
 import {
-  effectivePermissions,
   parsePermissions,
   type Permission,
   type RoleKind,
@@ -68,7 +67,7 @@ export async function getRoles(organizationId: string): Promise<RoleRow[]> {
     name: role.name,
     description: describe(role.kind, role.description),
     kind: role.kind,
-    permissions: effectivePermissions(role.kind, role.permissions),
+    permissions: parsePermissions(role.permissions),
     memberCount: role._count.memberships,
     pendingInviteCount: role._count.invitations,
     isSystem: role.kind !== "STAFF",
@@ -134,9 +133,9 @@ export async function createRole(
 }
 
 /**
- * Renames any role; changes permissions of custom roles only. Owner and Tenant
- * keep their fixed permission sets (a `permissions` value sent for them is
- * refused rather than silently ignored). Only an Owner may touch the Owner role.
+ * Renames any role and changes any role's permissions — built-ins included.
+ * Only an Owner may touch the Owner role. Owner and Tenant still can't be
+ * deleted (`deleteRole`).
  */
 export async function updateRole(
   ctx: AuthContext,
@@ -152,7 +151,6 @@ export async function updateRole(
 
   let permissions: Permission[] | undefined;
   if (input.permissions) {
-    if (role.kind !== "STAFF") return { error: "built-in" as const };
     permissions = parsePermissions(input.permissions);
     // Both directions: a non-Owner can neither add a permission they lack nor
     // strip one they lack from a role that holds it (they could not add it back).
@@ -257,7 +255,7 @@ export async function getRole(
     name: role.name,
     description: describe(role.kind, role.description),
     kind: role.kind,
-    permissions: effectivePermissions(role.kind, role.permissions),
+    permissions: parsePermissions(role.permissions),
     memberCount: role.memberships.length,
     pendingInviteCount: role._count.invitations,
     isSystem: role.kind !== "STAFF",

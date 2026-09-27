@@ -122,7 +122,7 @@ export const visibleNavItems = navItems.filter((item) => !item.hidden);
 type Viewer = { kind: RoleKind; permissions: ReadonlySet<Permission> | readonly Permission[] };
 
 function allows(viewer: Viewer, requirement?: Permission | readonly Permission[]) {
-  if (viewer.kind === "OWNER" || !requirement) return true;
+  if (!requirement) return true;
   const held = viewer.permissions;
   const has = (p: Permission) =>
     held instanceof Set ? held.has(p) : (held as readonly Permission[]).includes(p);

@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { seedDefaultLeaseTemplate } from "@/lib/lease-template-starters";
+import { parsePermissions, PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 /** The role name created for the registrant in app/api/auth/register/route.ts. */
@@ -111,7 +112,12 @@ export async function createOrganizationForUser(userId: string, name: string) {
 
     const organization = await tx.organization.create({ data: { name } });
     const ownerRole = await tx.role.create({
-      data: { name: OWNER_ROLE_NAME, kind: "OWNER", organizationId: organization.id },
+      data: {
+        name: OWNER_ROLE_NAME,
+        kind: "OWNER",
+        permissions: [...PERMISSIONS],
+        organizationId: organization.id,
+      },
     });
     await tx.membership.create({
       data: { userId, organizationId: organization.id, roleId: ownerRole.id },
@@ -156,11 +162,15 @@ export async function deleteOrganization(
   return prisma.$transaction(async (tx) => {
     const membership = await tx.membership.findUnique({
       where: { userId_organizationId: { userId, organizationId } },
-      select: { role: { select: { kind: true } } },
+      select: { role: { select: { permissions: true } } },
     });
     if (!membership) return { error: "not-found" as const };
 
-    if (membership.role.kind !== "OWNER") return { error: "not-owner" as const };
+    // Re-read inside the transaction rather than trusting the route's check,
+    // so a permission removed a moment ago can't race the delete.
+    if (!parsePermissions(membership.role.permissions).includes("org:delete")) {
+      return { error: "forbidden" as const };
+    }
 
     await tx.membership.deleteMany({ where: { organizationId } });
     await tx.invitation.deleteMany({ where: { organizationId } });
