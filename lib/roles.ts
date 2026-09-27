@@ -5,6 +5,7 @@ import {
   type Permission,
   type RoleKind,
 } from "@/lib/permissions";
+import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 // Imported as well as re-exported: a re-export does not bring a name into this
 // module's own scope, and the queries below use it.
@@ -213,9 +214,17 @@ export async function deleteRole(ctx: AuthContext, roleId: string) {
   return { ok: true as const };
 }
 
-export type RoleDetail = RoleRow & {
-  members: { membershipId: string; name: string; contact: string | null }[];
+export type RoleMember = {
+  membershipId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  /** ISO string — crosses to the client table. */
+  joinedAt: string;
+  photoId: string | null;
 };
+
+export type RoleDetail = RoleRow & { members: RoleMember[] };
 
 /** One role with the people holding it, for `/roles/[id]`. */
 export async function getRole(
@@ -229,6 +238,7 @@ export async function getRole(
         orderBy: { createdAt: "asc" },
         select: {
           id: true,
+          createdAt: true,
           user: { select: { name: true, email: true, phone: true } },
         },
       },
@@ -236,6 +246,11 @@ export async function getRole(
     },
   });
   if (!role) return null;
+
+  const photoIds = await getProfilePhotoIds(
+    organizationId,
+    role.memberships.map((m) => m.id)
+  );
 
   return {
     id: role.id,
@@ -249,7 +264,10 @@ export async function getRole(
     members: role.memberships.map((m) => ({
       membershipId: m.id,
       name: m.user.name ?? m.user.email ?? m.user.phone ?? "Unnamed",
-      contact: m.user.email ?? m.user.phone,
+      email: m.user.email,
+      phone: m.user.phone,
+      joinedAt: m.createdAt.toISOString(),
+      photoId: photoIds.get(m.id) ?? null,
     })),
   };
 }
