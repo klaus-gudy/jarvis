@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { LogOutIcon } from "lucide-react"
 
@@ -23,9 +24,12 @@ import {
 export function PortalHeader({
   organizations,
   activeOrgId,
+  staffHref,
 }: {
   organizations: { id: string; name: string }[]
   activeOrgId: string
+  /** First staff page the tenant's role opens, if any. */
+  staffHref: string | null
 }) {
   const router = useRouter()
   const [pending, setPending] = React.useState(false)
@@ -77,6 +81,11 @@ export function PortalHeader({
                 ))}
               </SelectContent>
             </Select>
+          )}
+          {staffHref && (
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={staffHref} />}>
+              Staff app
+            </Button>
           )}
           <ThemeToggle />
           <Button variant="outline" size="sm" onClick={signOut} disabled={pending}>

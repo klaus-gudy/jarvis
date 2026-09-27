@@ -2,16 +2,23 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { InfoIcon, LockIcon } from "lucide-react";
+import { LockIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePermissions } from "@/components/permissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
-  OWNER_ONLY_PERMISSIONS,
   PERMISSION_GROUPS,
   PERMISSIONS,
   type Permission,
@@ -19,23 +26,21 @@ import {
 } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-type Filter = "all" | "granted" | "not-granted";
-
-const GRANTABLE_COUNT = PERMISSIONS.length - OWNER_ONLY_PERMISSIONS.size;
 const NOT_HELD = "You can only grant or remove permissions you hold yourself";
 
 /**
- * What one role may do, and the place to change it.
+ * What one role may do, and the place to change it — the same for every role,
+ * Owner and Tenant included. The switches show exactly what is stored on the
+ * role; nothing is implied by its kind.
  *
- * Every permission is listed, grouped as on the catalogue, with a switch. The
- * switches edit a local draft; nothing is sent until Save, so a role is never
- * left half-edited on the server and a slip can be discarded. Changed rows are
- * marked so the reviewer sees exactly what Save will do.
+ * Switches edit a local draft; nothing is sent until Save, so a role is never
+ * left half-edited and a slip can be discarded. Changed rows are marked so the
+ * reviewer sees exactly what Save will do. A switch for a permission the
+ * viewer doesn't hold is disabled (Owners may grant anything) — the server
+ * refuses those changes anyway (`updateRole`).
  *
- * Owner and Tenant are shown read-only (everything / nothing). A switch for a
- * permission the viewer doesn't hold is disabled — the server refuses those
- * changes anyway (`updateRole`), and a switch that can only fail says nothing
- * useful.
+ * Removing "Manage roles" is allowed but confirmed first: taken off the Owner
+ * role, or off your own, it can leave nobody able to put it back.
  */
 export function RolePermissionsEditor({
   roleId,
@@ -43,20 +48,22 @@ export function RolePermissionsEditor({
   kind,
   granted,
   memberCount,
+  editable,
 }: {
   roleId: string;
   roleName: string;
   kind: RoleKind;
   granted: Permission[];
   memberCount: number;
+  /** False when the viewer may not edit this role at all (a non-Owner on Owner). */
+  editable: boolean;
 }) {
   const router = useRouter();
   const viewer = usePermissions();
-  const fixed = kind !== "STAFF";
 
   const [draft, setDraft] = React.useState<Set<Permission>>(() => new Set(granted));
-  const [filter, setFilter] = React.useState<Filter>("all");
   const [saving, setSaving] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
 
   const saved = React.useMemo(() => new Set(granted), [granted]);
   const added = [...draft].filter((p) => !saved.has(p));
@@ -72,7 +79,7 @@ export function RolePermissionsEditor({
   }, [dirty]);
 
   const mayChange = (p: Permission) =>
-    !fixed && (viewer.kind === "OWNER" || viewer.permissions.has(p));
+    editable && (viewer.kind === "OWNER" || viewer.permissions.has(p));
 
   function set(p: Permission, on: boolean) {
     setDraft((current) => {
@@ -87,7 +94,6 @@ export function RolePermissionsEditor({
     setDraft((current) => {
       const next = new Set(current);
       for (const p of keys) {
-        if (!mayChange(p)) continue;
         if (on) next.add(p);
         else next.delete(p);
       }
@@ -96,6 +102,7 @@ export function RolePermissionsEditor({
   }
 
   async function save() {
+    setConfirming(false);
     setSaving(true);
     const response = await fetch(`/api/roles/${roleId}`, {
       method: "PATCH",
@@ -117,63 +124,25 @@ export function RolePermissionsEditor({
     toast.error(data?.error ?? "Could not save these permissions");
   }
 
-  const isGranted = (p: Permission) =>
-    kind === "OWNER" ? true : kind === "TENANT" ? false : draft.has(p);
-  const total = kind === "OWNER" ? GRANTABLE_COUNT : kind === "TENANT" ? 0 : draft.size;
+  // Removing the permission that governs this page is the one change that can
+  // lock an organization out of fixing it again.
+  const removesRoleManage = removed.includes("role:manage");
 
   return (
     <div className="space-y-4">
-      {fixed && (
-        <div className="flex gap-3 rounded-lg border bg-muted/40 p-3 text-sm">
-          <InfoIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <p className="text-muted-foreground">
-            {kind === "OWNER"
-              ? "Owners can do everything, including restoring and deleting the organization. This can't be changed."
-              : "Tenants use the tenant portal to see their own leases, payments and documents. They have no access to the staff app, so none of these apply."}
-          </p>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Grants{" "}
-          <span className="font-medium text-foreground tabular-nums">
-            {total} of {GRANTABLE_COUNT}
-          </span>{" "}
-          permissions
-        </p>
-        <div role="radiogroup" aria-label="Show" className="flex gap-1 rounded-lg border p-0.5">
-          {(
-            [
-              ["all", "All"],
-              ["granted", "Granted"],
-              ["not-granted", "Not granted"],
-            ] as const
-          ).map(([value, label]) => (
-            <Button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={filter === value}
-              size="sm"
-              variant={filter === value ? "secondary" : "ghost"}
-              className="h-7"
-              onClick={() => setFilter(value)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Grants{" "}
+        <span className="font-medium text-foreground tabular-nums">
+          {draft.size} of {PERMISSIONS.length}
+        </span>{" "}
+        permissions
+        {kind === "TENANT" && " — tenants also always see their own leases, payments and documents in the portal"}
+      </p>
 
       <div className="grid gap-4 md:grid-cols-2">
         {PERMISSION_GROUPS.map((group) => {
           const keys = group.permissions.map((p) => p.key);
-          const rows = group.permissions.filter((p) =>
-            filter === "all" ? true : filter === "granted" ? isGranted(p.key) : !isGranted(p.key)
-          );
-          if (rows.length === 0) return null;
-          const onCount = keys.filter(isGranted).length;
+          const onCount = keys.filter((p) => draft.has(p)).length;
           const changeable = keys.filter(mayChange);
 
           return (
@@ -200,9 +169,8 @@ export function RolePermissionsEditor({
                 )}
               </CardHeader>
               <CardContent className="divide-y px-0">
-                {rows.map((permission) => {
+                {group.permissions.map((permission) => {
                   const id = `perm-${permission.key}`;
-                  const on = isGranted(permission.key);
                   const locked = !mayChange(permission.key);
                   const change = added.includes(permission.key)
                     ? "added"
@@ -213,7 +181,7 @@ export function RolePermissionsEditor({
                     <label
                       key={permission.key}
                       htmlFor={id}
-                      title={!fixed && locked ? NOT_HELD : undefined}
+                      title={editable && locked ? NOT_HELD : undefined}
                       className={cn(
                         "flex items-center gap-3 px-4 py-3",
                         !locked && "cursor-pointer hover:bg-muted/40",
@@ -232,7 +200,7 @@ export function RolePermissionsEditor({
                               {change === "added" ? "Adding" : "Removing"}
                             </Badge>
                           )}
-                          {!fixed && locked && (
+                          {editable && locked && (
                             <LockIcon className="size-3 text-muted-foreground" aria-label={NOT_HELD} />
                           )}
                         </span>
@@ -249,7 +217,7 @@ export function RolePermissionsEditor({
                         // `--input` is near-white in light mode, so an off switch
                         // all but vanished on the card (same fix as checkbox.tsx).
                         className="data-unchecked:bg-muted-foreground/30"
-                        checked={on}
+                        checked={draft.has(permission.key)}
                         disabled={locked}
                         onCheckedChange={(checked) => set(permission.key, checked)}
                       />
@@ -262,7 +230,7 @@ export function RolePermissionsEditor({
         })}
       </div>
 
-      {!fixed && (
+      {editable && (
         <div
           className={cn(
             "sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 shadow-lg transition-opacity",
@@ -271,9 +239,7 @@ export function RolePermissionsEditor({
           aria-hidden={!dirty}
         >
           <p className="text-sm">
-            {added.length > 0 && (
-              <span className="text-primary">+{added.length} adding</span>
-            )}
+            {added.length > 0 && <span className="text-primary">+{added.length} adding</span>}
             {added.length > 0 && removed.length > 0 && " · "}
             {removed.length > 0 && (
               <span className="text-destructive">−{removed.length} removing</span>
@@ -289,12 +255,42 @@ export function RolePermissionsEditor({
             >
               Discard
             </Button>
-            <Button type="button" size="sm" disabled={saving || !dirty} onClick={save}>
+            <Button
+              type="button"
+              size="sm"
+              disabled={saving || !dirty}
+              onClick={() => (removesRoleManage ? setConfirming(true) : save())}
+            >
               {saving ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </div>
       )}
+
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TriangleAlertIcon className="size-5 text-destructive" aria-hidden />
+              Remove “Manage roles” from {roleName}?
+            </DialogTitle>
+            <DialogDescription>
+              Everyone in this role will lose access to Roles &amp; permissions.
+              {kind === "OWNER"
+                ? " If no other role can manage roles, nobody in the organization will be able to turn it back on."
+                : " If this is your own role, you won't be able to undo this yourself."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={save}>
+              Remove and save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -3,8 +3,9 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronsUpDownIcon, LogOutIcon, UserRoundIcon } from "lucide-react"
+import { ChevronsUpDownIcon, HomeIcon, LogOutIcon, UserRoundIcon } from "lucide-react"
 
+import { usePermissions } from "@/components/permissions-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ export function NavUser({
   const router = useRouter()
   const { isMobile } = useSidebar()
   const [pending, setPending] = React.useState(false)
+  const viewer = usePermissions()
 
   async function handleSignOut() {
     setPending(true)
@@ -107,6 +109,14 @@ export function NavUser({
                 <UserRoundIcon />
                 Profile
               </DropdownMenuLinkItem>
+              {/* A tenant whose role opens parts of the staff app still has
+                  their own tenancy in the portal. */}
+              {viewer.kind === "TENANT" && (
+                <DropdownMenuLinkItem render={<Link href="/portal" />}>
+                  <HomeIcon />
+                  My tenancy
+                </DropdownMenuLinkItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} disabled={pending}>

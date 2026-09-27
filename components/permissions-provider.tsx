@@ -44,8 +44,7 @@ export function usePermissions() {
 
 /** True when the member holds `requirement` (any one, for a list). */
 export function useCan(requirement: Permission | readonly Permission[]) {
-  const { kind, permissions } = usePermissions()
-  if (kind === "OWNER") return true
+  const { permissions } = usePermissions()
   return typeof requirement === "string"
     ? permissions.has(requirement)
     : requirement.some((p) => permissions.has(p))

@@ -96,7 +96,7 @@ export function RoleCard({ role }: { role: RoleRow }) {
       <div className="mt-auto space-y-3">
         <PermissionDots role={role} />
         <Link
-          href={`/roles/${role.id}?tab=permissions`}
+          href={`/roles/${role.id}`}
           className="group inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
         >
           Configure permissions
