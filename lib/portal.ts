@@ -260,55 +260,39 @@ export function liveLeases(leases: PortalLease[]): PortalLease[] {
 }
 
 /**
- * Files the tenant may open: everything filed under one of their leases
- * (contracts first among them) and everything filed under themself.
+ * Files on the tenant's leases — the contract above all — newest lease first.
+ * Leases with nothing filed are left out. The tenant's own membership files
+ * are read through `listDocuments`, like the landlord's member page.
  */
-export async function getPortalDocuments(ctx: AuthContext): Promise<{
-  leases: { id: string; reference: string; title: string; documents: PortalDocument[] }[];
-  own: PortalDocument[];
-}> {
-  const select = {
-    id: true,
-    fileName: true,
-    createdAt: true,
-    assetType: { select: { label: true } },
-  } as const;
-
-  const [leases, own] = await Promise.all([
-    prisma.lease.findMany({
-      where: ownLeases(ctx),
-      orderBy: { startDate: "desc" },
-      select: {
-        id: true,
-        unit: { select: { label: true, property: { select: { name: true } } } },
-        fileAssets: { orderBy: { createdAt: "desc" }, select },
+export async function getPortalLeaseDocuments(
+  ctx: AuthContext
+): Promise<{ id: string; reference: string; title: string; documents: PortalDocument[] }[]> {
+  const leases = await prisma.lease.findMany({
+    where: ownLeases(ctx),
+    orderBy: { startDate: "desc" },
+    select: {
+      id: true,
+      unit: { select: { label: true, property: { select: { name: true } } } },
+      fileAssets: {
+        orderBy: { createdAt: "desc" },
+        select: { id: true, fileName: true, createdAt: true, assetType: { select: { label: true } } },
       },
-    }),
-    prisma.fileAsset.findMany({
-      where: { organizationId: ctx.organizationId, membershipId: ctx.membershipId },
-      orderBy: { createdAt: "desc" },
-      select,
-    }),
-  ]);
-
-  const toDocument = (doc: (typeof own)[number]): PortalDocument => ({
-    id: doc.id,
-    fileName: doc.fileName,
-    label: doc.assetType.label,
-    createdAt: doc.createdAt,
+    },
   });
 
-  return {
-    leases: leases
-      .filter((lease) => lease.fileAssets.length > 0)
-      .map((lease) => ({
-        id: lease.id,
-        reference: leaseReference(lease.id),
-        title: `${lease.unit.property.name} · ${lease.unit.label}`,
-        documents: lease.fileAssets.map(toDocument),
+  return leases
+    .filter((lease) => lease.fileAssets.length > 0)
+    .map((lease) => ({
+      id: lease.id,
+      reference: leaseReference(lease.id),
+      title: `${lease.unit.property.name} · ${lease.unit.label}`,
+      documents: lease.fileAssets.map((doc) => ({
+        id: doc.id,
+        fileName: doc.fileName,
+        label: doc.assetType.label,
+        createdAt: doc.createdAt,
       })),
-    own: own.map(toDocument),
-  };
+    }));
 }
 
 /**
