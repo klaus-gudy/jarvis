@@ -64,7 +64,7 @@ export type PortalLease = {
     payments: PortalPayment[];
     coverage: RentCoverage;
   } | null;
-  contract: { id: string; fileName: string } | null;
+  contract: { id: string; fileName: string; fileType: string; sizeBytes: number } | null;
 };
 
 export type PortalLandlord = {
@@ -205,7 +205,7 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
         where: { assetTypeId: LEASE_CONTRACT_TYPE_ID },
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { id: true, fileName: true },
+        select: { id: true, fileName: true, fileType: true, sizeBytes: true },
       },
     },
   });
