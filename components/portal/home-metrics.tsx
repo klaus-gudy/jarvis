@@ -2,7 +2,7 @@ import { Building2Icon, CalendarClockIcon, WalletIcon } from "lucide-react"
 
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates"
-import { formatCurrencyFull, formatDate } from "@/lib/format"
+import { formatCurrency, formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLandlord, PortalLease } from "@/lib/portal"
 
 function months(n: number) {
@@ -13,7 +13,10 @@ function months(n: number) {
  * The first three cards of the tenant Home's top row, all about the current
  * lease — the fourth, how to pay, is interactive and lives in
  * `PayAccountsCard`. Built from the landlord dashboard's `MetricCard` so both
- * apps share one look; the money card is the filled lead.
+ * apps share one look; the money card is the filled lead. Like the landlord's
+ * row, each card carries a bar *or* two short sub-stats, never both — the row
+ * is as tall as its tallest card. Full dates, address and the lease's progress
+ * bar are on My lease.
  */
 
 /** What's still owed on the current lease, with its Paid / Partial / Unpaid state. */
@@ -49,10 +52,6 @@ export function OutstandingCard({ lease }: { lease: PortalLease | null }) {
       badge={invoice.status}
       progress={invoice.amount > 0 ? Math.round((invoice.paid / invoice.amount) * 100) : 100}
       footer={footer}
-      stats={[
-        { label: "Lease started", value: formatDate(lease.startDate) },
-        { label: "Lease ends", value: formatDate(lease.endDate) },
-      ]}
     />
   )
 }
@@ -77,7 +76,7 @@ export function PropertyCard({
       href="/portal/lease"
       stats={[
         { label: "Owner", value: landlord.name ?? landlord.organizationName },
-        { label: "Location", value: lease.home.address },
+        { label: "Monthly rent", value: formatCurrency(lease.monthlyRent) },
       ]}
     />
   )
@@ -92,10 +91,7 @@ export function DaysLeftCard({ lease }: { lease: PortalLease | null }) {
   const today = startOfTodayUtc()
   const renewal = {
     label: "Renewal",
-    value:
-      lease.autoRenew && lease.renewalMonths
-        ? `Automatic · ${months(lease.renewalMonths)}`
-        : "Not automatic",
+    value: lease.autoRenew && lease.renewalMonths ? "Automatic" : "Manual",
   }
 
   if (lease.status === "Upcoming") {
@@ -123,8 +119,6 @@ export function DaysLeftCard({ lease }: { lease: PortalLease | null }) {
     )
   }
 
-  const total = Math.max(1, calendarDaysBetween(lease.startDate, lease.endDate))
-  const elapsed = Math.round(((total - lease.daysLeft) / total) * 100)
   // Ending soon with nobody renewing it is the one case worth the gold.
   const warn = lease.expiry?.tier === "urgent" && !lease.autoRenew
 
@@ -135,8 +129,6 @@ export function DaysLeftCard({ lease }: { lease: PortalLease | null }) {
       label={`day${lease.daysLeft === 1 ? "" : "s"} until your lease ends`}
       href="/portal/lease"
       badge={lease.expiry ? "Ending soon" : undefined}
-      progress={elapsed}
-      footer={`${elapsed}% of the lease has passed`}
       stats={[
         {
           label: "Ends on",

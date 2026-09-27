@@ -160,7 +160,7 @@ export function MetricCard({
               <div key={stat.label} className="min-w-0">
                 <p
                   className={cn(
-                    "text-sm font-semibold tabular-nums",
+                    "truncate text-sm font-semibold tabular-nums",
                     stat.tone === "accent" ? "text-stat-accent" : "text-foreground"
                   )}
                 >
