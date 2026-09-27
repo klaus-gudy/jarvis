@@ -29,6 +29,15 @@ export const getOrganizationOwnerSignatureKey = cache(
     (await findOwnerMembership(organizationId))?.profile?.signatureKey ?? null
 );
 
+/**
+ * The Owner membership's id — whose payment accounts a tenant pays into.
+ * Shares `getOrganizationOwner`'s cached query.
+ */
+export const getOrganizationOwnerMembershipId = cache(
+  async (organizationId: string) =>
+    (await findOwnerMembership(organizationId))?.id ?? null
+);
+
 const findOwnerMembership = cache((organizationId: string) =>
   prisma.membership.findFirst({
     where: {
