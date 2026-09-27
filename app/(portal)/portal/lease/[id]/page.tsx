@@ -3,7 +3,6 @@ import { notFound } from "next/navigation"
 import { ArrowLeftIcon } from "lucide-react"
 
 import {
-  LandlordContactCard,
   LeaseDetailsCard,
   LeaseHeaderCard,
   LeaseRentCard,
@@ -12,14 +11,14 @@ import {
 import { PortalNoOrganization } from "@/components/portal/portal-states"
 import { Button } from "@/components/ui/button"
 import { requireTenantPage } from "@/lib/authz"
-import { getPortalLandlord, getPortalLeases } from "@/lib/portal"
+import { getPortalLeases } from "@/lib/portal"
 
 export const metadata = { title: "Lease" }
 
 /**
  * One lease, laid out like the landlord's detail pages: back button, header
  * card, then the content — the lease and its rent in the main column, the term
- * and the landlord beside them (below them on a phone).
+ * beside them (above them on a phone).
  */
 export default async function PortalLeaseDetailPage({
   params,
@@ -32,10 +31,7 @@ export default async function PortalLeaseDetailPage({
   const { id } = await params
   // Looked up among the tenant's own leases only — another tenant's id, or a
   // made-up one, is simply not in the list.
-  const [leases, landlord] = await Promise.all([
-    getPortalLeases(access),
-    getPortalLandlord(access),
-  ])
+  const leases = await getPortalLeases(access)
   const lease = leases.find((l) => l.id === id)
   if (!lease) notFound()
 
@@ -68,7 +64,6 @@ export default async function PortalLeaseDetailPage({
           <div className="hidden lg:block">
             <LeaseTermCard lease={lease} />
           </div>
-          <LandlordContactCard landlord={landlord} />
         </div>
       </div>
     </div>
