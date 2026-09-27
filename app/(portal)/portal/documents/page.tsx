@@ -1,15 +1,11 @@
-import { FileTextIcon } from "lucide-react"
-
 import { DocumentsPanel } from "@/components/documents/documents-panel"
-import { PortalDocumentViewer } from "@/components/portal/portal-document-viewer"
+import { LeaseDocumentsTable } from "@/components/portal/lease-documents-table"
 import { PortalNoOrganization } from "@/components/portal/portal-states"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { listAssetTypes } from "@/lib/asset-types"
 import { requireTenantPage } from "@/lib/authz"
 import { listDocuments } from "@/lib/documents"
-import { formatDate } from "@/lib/format"
-import { getPortalLeaseDocuments, type PortalDocument } from "@/lib/portal"
+import { getPortalLeaseDocuments } from "@/lib/portal"
 
 export const metadata = { title: "Documents" }
 
@@ -38,7 +34,23 @@ export default async function PortalDocumentsPage() {
     // Dates must be serialisable to cross the server/client boundary.
     .map((asset) => ({ ...asset, createdAt: asset.createdAt.toISOString() }))
   const documentTypes = assetTypes.filter((type) => !type.isPhoto)
-  const leaseFileCount = leases.reduce((sum, lease) => sum + lease.documents.length, 0)
+  // One row per file, each carrying its lease — serialised for the client table.
+  const leaseRows = leases.flatMap((lease) =>
+    lease.documents.map((doc) => ({
+      id: doc.id,
+      fileName: doc.fileName,
+      fileType: doc.fileType,
+      sizeBytes: doc.sizeBytes,
+      label: doc.label,
+      createdAt: doc.createdAt.toISOString(),
+      lease: lease.title,
+      leaseStatus: lease.status,
+      startDate: lease.startDate.toISOString(),
+      endDate: lease.endDate.toISOString(),
+      durationMonths: lease.durationMonths,
+    }))
+  )
+  const leaseFileCount = leaseRows.length
 
   return (
     // The Home dashboard uses the full width; reading pages stay narrow.
@@ -68,55 +80,10 @@ export default async function PortalDocumentsPage() {
         </TabsContent>
 
         <TabsContent value="leases" className="space-y-3 pt-5">
-          <p className="text-sm text-muted-foreground">
-            Contracts and files your landlord has added to your leases.
-          </p>
-          {leases.length === 0 ? (
-            <Card>
-              <CardContent>
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Nothing yet. Your contract will appear here once it is generated.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            leases.map((lease) => (
-              <Card key={lease.id}>
-                <CardHeader>
-                  <CardTitle>{lease.title}</CardTitle>
-                  <CardDescription>{lease.reference}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <DocumentList documents={lease.documents} />
-                </CardContent>
-              </Card>
-            ))
-          )}
+          <LeaseDocumentsTable rows={leaseRows} />
         </TabsContent>
       </Tabs>
     </div>
-  )
-}
-
-function DocumentList({ documents }: { documents: PortalDocument[] }) {
-  return (
-    <ul className="divide-y rounded-md border text-sm">
-      {documents.map((doc) => (
-        <li key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2">
-          <PortalDocumentViewer
-            document={doc}
-            className="inline-flex min-w-0 items-center gap-2 text-left text-sm font-medium text-primary underline-offset-4 hover:underline"
-          >
-            <FileTextIcon className="size-4 shrink-0" aria-hidden />
-            <span className="truncate">{doc.fileName}</span>
-          </PortalDocumentViewer>
-          <span className="shrink-0 text-right text-muted-foreground">
-            {doc.label}
-            <span className="hidden sm:inline"> · {formatDate(doc.createdAt)}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
   )
 }
 
