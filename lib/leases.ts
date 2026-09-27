@@ -202,6 +202,9 @@ export type LeaseDetail = {
   startDate: Date;
   endDate: Date;
   durationMonths: number;
+  /** From the unit (auto-renew is a unit setting); `renewalMonths` is its minimum tenure. */
+  autoRenew: boolean;
+  renewalMonths: number | null;
   /** The rate agreed for this lease, which may differ from the unit's asking rent. */
   monthlyRent: number;
   leaseAmount: number;
@@ -261,6 +264,8 @@ export async function getLease(
     startDate: lease.startDate,
     endDate: lease.endDate,
     durationMonths: lease.durationMonths,
+    autoRenew: lease.unit.autoRenew,
+    renewalMonths: lease.unit.minTenureMonths,
     monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
