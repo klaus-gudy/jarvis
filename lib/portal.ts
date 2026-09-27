@@ -63,6 +63,8 @@ export type PortalLease = {
     balance: number;
     status: InvoiceStatus;
     payments: PortalPayment[];
+    /** Payments this tenant reported that the landlord hasn't confirmed yet. */
+    pendingClaims: { id: string; amount: number; paidAt: Date; method: string | null }[];
     coverage: RentCoverage;
   } | null;
   contract: { id: string; fileName: string; fileType: string; sizeBytes: number } | null;
@@ -202,6 +204,11 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
             orderBy: { paidAt: "desc" },
             select: { id: true, amount: true, paidAt: true, method: true },
           },
+          paymentClaims: {
+            where: { status: "PENDING" },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, amount: true, paidAt: true, method: true },
+          },
         },
       },
       fileAssets: {
@@ -252,6 +259,7 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
             balance: lease.invoice.amount - paid,
             status: deriveInvoiceStatus(lease.invoice.amount, paid),
             payments: lease.invoice.payments,
+            pendingClaims: lease.invoice.paymentClaims,
             coverage: rentCoverage(lease, { amount: lease.invoice.amount, paid }, now),
           }
         : null,
