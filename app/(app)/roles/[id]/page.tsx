@@ -14,8 +14,9 @@ import { getRole } from "@/lib/roles";
 
 /**
  * One role. Laid out like the lease and property detail pages: outline back
- * button, a compact identity card (name with its type badge beside it), then
- * line tabs with count badges.
+ * button, a compact identity card (name with its type badge beside it, the
+ * description as one truncated line under), then line tabs with count
+ * badges.
  */
 export default async function RoleDetailPage({
   params,
@@ -71,6 +72,13 @@ export default async function RoleDetailPage({
                   {role.isSystem ? "Built-in" : "Custom"}
                 </Badge>
               </div>
+              {/* One muted line under the name, truncated like the lease and
+                  property headers; the full text is on hover. */}
+              {role.description && (
+                <p className="truncate text-sm text-muted-foreground" title={role.description}>
+                  {role.description}
+                </p>
+              )}
             </div>
           </div>
           {mayEditRole && <RoleActions role={role} />}
