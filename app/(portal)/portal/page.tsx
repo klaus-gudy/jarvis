@@ -1,84 +1,33 @@
-import Link from "next/link"
-import {
-  ArrowRightIcon,
-  CircleAlertIcon,
-  PenLineIcon,
-  WalletIcon,
-} from "lucide-react"
-
-import {
-  ContractLink,
-  InvoiceFigures,
-  LeasePeriod,
-  LeaseTitle,
-  PaymentList,
-} from "@/components/portal/lease-parts"
-import {
-  PortalNoLeases,
-  PortalNoOrganization,
-  PortalNotFound,
-} from "@/components/portal/portal-states"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { DaysLeftCard, OutstandingCard, PropertyCard } from "@/components/portal/home-metrics"
+import { BillsPanel, QuickActions, RecentPaymentsPanel } from "@/components/portal/home-panels"
+import { PayAccountsCard } from "@/components/portal/pay-accounts-card"
+import { PortalNoOrganization, PortalNotFound } from "@/components/portal/portal-states"
 import { requireTenantPage } from "@/lib/authz"
-import { formatCurrencyFull } from "@/lib/format"
-import { getPortalLeases, getPortalMember, liveLeases } from "@/lib/portal"
+import { getPortalLandlord, getPortalLeases, getPortalMember, liveLeases } from "@/lib/portal"
 
 export const metadata = { title: "My tenancy" }
 
+/**
+ * The tenant's dashboard. Same shape as the landlord's: a row of four cards
+ * about the current lease (what's owed, where, how long, how to pay), then the
+ * lists — bills and payments — beside quick actions ordered by what needs
+ * doing.
+ */
 export default async function PortalHomePage() {
   const access = await requireTenantPage()
   if (!access) return <PortalNoOrganization />
 
-  const [member, leases] = await Promise.all([
+  const [member, leases, landlord] = await Promise.all([
     getPortalMember(access),
     getPortalLeases(access),
+    getPortalLandlord(access),
   ])
   if (!member) return <PortalNotFound />
 
   const firstName = member.name?.trim().split(/\s+/)[0] ?? null
+  // The running lease leads; failing that the next to start, then the latest.
   const live = liveLeases(leases)
-  const balance = leases.reduce((sum, l) => sum + (l.invoice?.balance ?? 0), 0)
-  const recentPayments = leases
-    .flatMap((l) => l.invoice?.payments ?? [])
-    .sort((a, b) => b.paidAt.getTime() - a.paidAt.getTime())
-    .slice(0, 3)
-
-  const steps: {
-    icon: typeof WalletIcon
-    text: string
-    href?: string
-    action?: string
-  }[] = []
-  if (balance > 0) {
-    steps.push({
-      icon: WalletIcon,
-      text: `You have ${formatCurrencyFull(balance)} outstanding.`,
-      href: "/portal/payments",
-      action: "See payments",
-    })
-  }
-  if (!member.signatureKey) {
-    steps.push({
-      icon: PenLineIcon,
-      text: "Add your signature so it can be placed on your contract.",
-      href: "/portal/profile",
-      action: "Add signature",
-    })
-  }
-  if (live.some((lease) => !lease.contract)) {
-    steps.push({
-      icon: CircleAlertIcon,
-      text: "Your contract hasn't been generated yet. Your landlord will prepare it.",
-    })
-  }
+  const lease = live.find((l) => l.status === "Active") ?? live[0] ?? null
 
   return (
     <>
@@ -87,100 +36,31 @@ export default async function PortalHomePage() {
           {firstName ? `Hello, ${firstName}` : "Welcome"}
         </h2>
         <p className="text-sm text-muted-foreground">
-          Your tenancy with {member.organizationName}.
+          {lease
+            ? `Your home at ${lease.propertyName} · ${lease.unitLabel}, with ${member.organizationName}.`
+            : `Your tenancy with ${member.organizationName}. Your lease will appear here once your landlord adds it.`}
         </p>
       </div>
 
-      {steps.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Next steps</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3 text-sm">
-              {steps.map((step) => (
-                <li key={step.text} className="flex items-center gap-3">
-                  <step.icon
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <span className="min-w-0 flex-1">{step.text}</span>
-                  {step.href && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      nativeButton={false}
-                      render={<Link href={step.href} />}
-                    >
-                      {step.action}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OutstandingCard lease={lease} />
+        <PropertyCard lease={lease} landlord={landlord} />
+        <DaysLeftCard lease={lease} />
+        <PayAccountsCard
+          accounts={landlord.paymentAccounts}
+          reference={lease?.reference ?? null}
+        />
+      </div>
 
-      {live.length > 0 ? (
-        live.map((lease) => (
-          <Card key={lease.id}>
-            <CardHeader>
-              <CardTitle>
-                <LeaseTitle lease={lease} />
-              </CardTitle>
-              <CardDescription>
-                <LeasePeriod lease={lease} />
-              </CardDescription>
-              <CardAction>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link href="/portal/lease" />}
-                >
-                  Details
-                  <ArrowRightIcon />
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {lease.invoice ? (
-                <InvoiceFigures invoice={lease.invoice} />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No invoice issued yet.
-                </p>
-              )}
-              <ContractLink lease={lease} />
-            </CardContent>
-          </Card>
-        ))
-      ) : (
-        <PortalNoLeases />
-      )}
-
-      {recentPayments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent payments</CardTitle>
-            <CardAction>
-              <Button
-                variant="ghost"
-                size="sm"
-                nativeButton={false}
-                render={<Link href="/portal/payments" />}
-              >
-                All payments
-                <ArrowRightIcon />
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <PaymentList payments={recentPayments} />
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          <BillsPanel leases={leases} />
+          <RecentPaymentsPanel leases={leases} />
+        </div>
+        <div>
+          <QuickActions member={member} lease={lease} leases={leases} landlord={landlord} />
+        </div>
+      </div>
     </>
   )
 }
