@@ -36,9 +36,12 @@ export type OrganizationOption = {
 export function OrgSwitcher({
   organizations,
   activeOrgId,
+  homeHref = "/dashboard",
 }: {
   organizations: OrganizationOption[]
   activeOrgId: string | null
+  /** Where the single-organization block links to. */
+  homeHref?: string
 }) {
   const router = useRouter()
   const { isMobile, setOpenMobile } = useSidebar()
@@ -115,7 +118,7 @@ export function OrgSwitcher({
             onClick={() => {
               if (isMobile) setOpenMobile(false)
             }}
-            render={<Link href="/dashboard" />}
+            render={<Link href={homeHref} />}
           >
             {identity}
           </SidebarMenuButton>
