@@ -49,7 +49,7 @@ import type { DocumentView } from "@/lib/document-options";
 import { formatDate } from "@/lib/format";
 import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 
-function DocumentIcon({ fileType }: { fileType: string }) {
+export function DocumentIcon({ fileType }: { fileType: string }) {
   if (fileType.startsWith("image/")) {
     return <ImageIcon className="size-4 shrink-0 text-muted-foreground" />;
   }
