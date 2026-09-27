@@ -1,7 +1,11 @@
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar"
 import { SignatureCard } from "@/components/members/signature-card"
 import { PortalNoOrganization, PortalNotFound } from "@/components/portal/portal-states"
-import { TenantProfileCard } from "@/components/portal/tenant-profile-card"
+import {
+  EmergencyContactCard,
+  TenantProfileCard,
+  type TenantEditable,
+} from "@/components/portal/tenant-profile-card"
 import { AccountSettingsCard } from "@/components/profile/account-settings-card"
 import { Card, CardContent } from "@/components/ui/card"
 import { listAssetTypes } from "@/lib/asset-types"
@@ -24,6 +28,15 @@ export default async function PortalProfilePage() {
   if (!member) return <PortalNotFound />
 
   const name = displayName(member)
+  const details: TenantEditable = {
+    name: member.name,
+    occupation: member.profile.occupation,
+    employer: member.profile.employer,
+    nationality: member.profile.nationality,
+    emergencyContactName: member.profile.emergencyContactName,
+    emergencyContactPhone: member.profile.emergencyContactPhone,
+    emergencyContactRelation: member.profile.emergencyContactRelation,
+  }
 
   return (
     // The Home dashboard uses the full width; reading pages stay narrow.
@@ -48,11 +61,13 @@ export default async function PortalProfilePage() {
       </Card>
 
       <TenantProfileCard
-        details={{ name: member.name, ...member.profile }}
+        details={details}
         phone={member.phone}
         email={member.email}
         nidaNumber={member.profile.nidaNumber}
       />
+
+      <EmergencyContactCard details={details} />
 
       <SignatureCard
         membershipId={access.membershipId}
