@@ -16,6 +16,8 @@ export type MemberRow = {
   joinedAt: string;
   canSignIn: boolean;
   isOwner: boolean;
+  /** Opening a tenant's page needs `tenant:read`, not just `member:read`. */
+  isTenant: boolean;
   photoId: string | null;
 };
 
@@ -56,6 +58,7 @@ export async function getMembers(organizationId: string): Promise<MemberRow[]> {
     joinedAt: membership.createdAt.toISOString(),
     canSignIn: membership.user.passwordHash !== null,
     isOwner: membership.role.kind === "OWNER",
+    isTenant: membership.role.kind === "TENANT",
     photoId: photoIds.get(membership.id) ?? null,
   }));
 }
