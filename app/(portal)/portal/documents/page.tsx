@@ -1,5 +1,7 @@
+import { FileTextIcon } from "lucide-react"
+
 import { DocumentsPanel } from "@/components/documents/documents-panel"
-import { DocumentLink } from "@/components/portal/lease-parts"
+import { PortalDocumentViewer } from "@/components/portal/portal-document-viewer"
 import { PortalNoOrganization } from "@/components/portal/portal-states"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -104,7 +106,13 @@ function DocumentList({ documents }: { documents: PortalDocument[] }) {
     <ul className="divide-y rounded-md border text-sm">
       {documents.map((doc) => (
         <li key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2">
-          <DocumentLink id={doc.id}>{doc.fileName}</DocumentLink>
+          <PortalDocumentViewer
+            document={doc}
+            className="inline-flex min-w-0 items-center gap-2 text-left text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            <FileTextIcon className="size-4 shrink-0" aria-hidden />
+            <span className="truncate">{doc.fileName}</span>
+          </PortalDocumentViewer>
           <span className="shrink-0 text-right text-muted-foreground">
             {doc.label}
             <span className="hidden sm:inline"> · {formatDate(doc.createdAt)}</span>
