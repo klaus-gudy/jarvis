@@ -8,8 +8,8 @@ import {
 } from "lucide-react"
 
 import { leaseProgress, LeaseStatusPill } from "@/components/portal/lease-status"
-import { ViewContractButton } from "@/components/portal/view-contract-button"
-import { Button } from "@/components/ui/button"
+import { PortalDocumentViewer } from "@/components/portal/portal-document-viewer"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatDate } from "@/lib/format"
 import { toInternationalTzPhone } from "@/lib/phone"
@@ -98,7 +98,13 @@ export function LeaseTermCard({ lease }: { lease: PortalLease }) {
 
         <div className="flex flex-col gap-2">
           {lease.contract ? (
-            <ViewContractButton contract={lease.contract} />
+            <PortalDocumentViewer
+              document={{ ...lease.contract, label: "Lease contract" }}
+              className={cn(buttonVariants({ size: "lg" }), "w-full")}
+            >
+              <FileTextIcon />
+              View contract
+            </PortalDocumentViewer>
           ) : (
             <Button size="lg" className="w-full" disabled>
               <FileTextIcon />
