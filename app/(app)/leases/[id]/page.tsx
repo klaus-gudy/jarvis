@@ -268,6 +268,10 @@ export default async function LeaseDetailPage({
                       method: payment.method,
                       notes: payment.notes,
                     })),
+                    pendingClaims: invoice.pendingClaims.map((claim) => ({
+                      ...claim,
+                      paidAt: claim.paidAt.toISOString(),
+                    })),
                   }
                 : null
             }
