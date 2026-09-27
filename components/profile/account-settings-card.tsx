@@ -1,34 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { KeyRoundIcon, Trash2Icon } from "lucide-react";
+import { KeyRoundIcon } from "lucide-react";
 
 import { ChangePasswordDialog } from "@/components/profile/change-password-dialog";
-import { DeleteOrganizationDialog } from "@/components/profile/delete-organization-dialog";
 import { ProfileCardHeader } from "@/components/profile/profile-card-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 
 /**
- * Password plus the destructive action. Changing a phone number used to sit
- * here too and was removed: it was a second entry point to the field the Edit
- * profile dialog already owns.
+ * The account's password. Changing a phone number used to sit here too and was
+ * removed: it was a second entry point to the field the Edit profile dialog
+ * already owns. Deleting the organization moved to Settings → Organization.
  */
-export function AccountSettingsCard({
-  canSignIn,
-  organization,
-}: {
-  canSignIn: boolean;
-  /**
-   * Null unless the signed-in user owns the active organization. Deleting is
-   * the owner's call alone, so a non-owner is not shown the control at all
-   * rather than shown one that 403s.
-   */
-  organization: { id: string; name: string } | null;
-}) {
+export function AccountSettingsCard({ canSignIn }: { canSignIn: boolean }) {
   const [changingPassword, setChangingPassword] = React.useState(false);
-  const [deletingOrganization, setDeletingOrganization] = React.useState(false);
 
   return (
     <>
@@ -54,29 +40,6 @@ export function AccountSettingsCard({
               </p>
             )}
           </div>
-
-          {organization && (
-            <>
-              <Separator />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium">Delete organization</p>
-                  <p className="text-sm text-muted-foreground">
-                    Permanently removes {organization.name} and all of its
-                    properties, leases and payment records.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="shrink-0 bg-card"
-                  onClick={() => setDeletingOrganization(true)}
-                >
-                  <Trash2Icon />
-                  Delete organization
-                </Button>
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
 
@@ -85,17 +48,6 @@ export function AccountSettingsCard({
           key="password"
           open
           onOpenChange={setChangingPassword}
-        />
-      )}
-      {/* Keyed so each opening re-fetches the counts rather than showing last
-          time's, which may predate a property or lease being added. */}
-      {deletingOrganization && organization && (
-        <DeleteOrganizationDialog
-          key={`delete-${organization.id}`}
-          open
-          onOpenChange={setDeletingOrganization}
-          organizationId={organization.id}
-          organizationName={organization.name}
         />
       )}
     </>
