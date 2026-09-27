@@ -26,9 +26,20 @@ import { formatFileSize, type DocumentView } from "@/lib/document-options";
 export function DocumentViewerDialog({
   document,
   onClose,
+  basePath = "/api/documents",
 }: {
-  document: DocumentView | null;
+  /** Only what the dialog draws — the portal passes a contract, not a full row. */
+  document:
+    | (Pick<DocumentView, "id" | "fileName" | "fileType" | "sizeBytes"> & {
+        assetType: { label: string };
+      })
+    | null;
   onClose: () => void;
+  /**
+   * The route that streams the file inline. Staff use `/api/documents`; the
+   * tenant portal has its own, pinned to the tenant's membership.
+   */
+  basePath?: string;
 }) {
   /**
    * Which document has finished rendering, rather than a boolean — reopening
@@ -40,7 +51,7 @@ export function DocumentViewerDialog({
 
   const isImage = document?.fileType.startsWith("image/") ?? false;
   const isPdf = document?.fileType === "application/pdf";
-  const source = document ? `/api/documents/${document.id}` : null;
+  const source = document ? `${basePath}/${document.id}` : null;
 
   return (
     <Dialog
