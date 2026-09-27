@@ -23,7 +23,7 @@ Working list. Architecture and standing rules are in `plan.md`.
 - [ ] ✔ **Backup** doesn't include `PaymentAccount` or `FileAsset`.
 - [ ] Smaller: unit rent / lease rent inputs don't accept arithmetic; unit amenities aren't shown in the units table; there is no org-wide Invoices list page; `User.phone` is still nullable (11 legacy rows); leases created before billing may have no invoice and no "Issue invoice" action; per-entity tables (a property's units, a lease's payments) don't get sticky filters.
 
-- [ ] **Permissions follow-ups:** tenant portal is read-only (no profile edit, no pay-online); the `roles` tour wasn't re-added to `lib/tours.ts`; lease detail / member page / documents panels still show some write controls that only fail on click (API refuses); no audit log of role changes; `createOrganizationForUser` still seeds no Tenant role (created lazily by kind). Next step in the plan: route wrapper + passing `AuthContext` into domain functions.
+- [ ] **Permissions follow-ups:** tenant portal has no pay-online (profile self-edit landed 2026-09-27); the `roles` tour wasn't re-added to `lib/tours.ts`; lease detail / member page / documents panels still show some write controls that only fail on click (API refuses); no audit log of role changes; `createOrganizationForUser` still seeds no Tenant role (created lazily by kind). Next step in the plan: route wrapper + passing `AuthContext` into domain functions.
 
 ### Reliability & operations
 - [ ] **SMS alerts tab isn't org-scoped** — notifier rows have no `organizationId`, so a phone that is a member of two orgs shows both orgs' texts. Fix needs an `organization_id` (or `reference`) on notifier's SMS payload + a filter. Also: notifier's HTTP API has no auth (keep it private-network only), and it has no message-text search. **Send SMS** needs `sms:send`; the rate limit is still per process.
@@ -45,7 +45,7 @@ Working list. Architecture and standing rules are in `plan.md`.
 - [ ] `notifier/.env.template` leaves `RABBITMQ_EMAIL_QUEUE=` blank; confirm the running notifier picked up `NOTIFIER_EMAIL_QUEUE` (0 consumers means mail accumulates).
 
 ### Never verified in a signed-in browser
-Verified by code, CSS or direct function calls only; worth a click-through next time you're signed in: the Phase 38 rent field and "Monthly rent" row; the Phase 43 loader/sidebar/payments-in-search and hover states; Phase 42 reduced-motion; the successful path of the profile password change; the invitation accept form; the Phase 96 day-count badge.
+Verified by code, CSS or direct function calls only; worth a click-through next time you're signed in: the tenant portal sections and profile edit (2026-09-27, needs a tenant login); the Phase 38 rent field and "Monthly rent" row; the Phase 43 loader/sidebar/payments-in-search and hover states; Phase 42 reduced-motion; the successful path of the profile password change; the invitation accept form; the Phase 96 day-count badge.
 
 ## Shipped (index of the archive)
 
