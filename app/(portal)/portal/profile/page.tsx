@@ -26,7 +26,8 @@ export default async function PortalProfilePage() {
   const name = displayName(member)
 
   return (
-    <>
+    // The Home dashboard uses the full width; reading pages stay narrow.
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       <Card>
         <CardContent className="flex items-center gap-4">
           {/* Uploads through `/api/documents`, which lets any member file their
@@ -60,7 +61,7 @@ export default async function PortalProfilePage() {
         isSelf
       />
 
-      <AccountSettingsCard canSignIn={member.canSignIn} organization={null} />
-    </>
+      <AccountSettingsCard canSignIn={member.canSignIn} />
+    </div>
   )
 }
