@@ -282,6 +282,7 @@ export type PortalLeaseDocuments = {
   id: string;
   reference: string;
   title: string;
+  unit: string;
   status: LeaseStatus;
   startDate: Date;
   endDate: Date;
@@ -327,6 +328,7 @@ export async function getPortalLeaseDocuments(
       id: lease.id,
       reference: leaseReference(lease.id),
       title: `${lease.unit.property.name} · Unit ${lease.unit.label}`,
+      unit: `Unit ${lease.unit.label}`,
       status: lease.status,
       startDate: lease.startDate,
       endDate: lease.endDate,
