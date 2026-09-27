@@ -1,5 +1,3 @@
-import { FileTextIcon } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types"
@@ -91,26 +89,5 @@ export function PaymentList({ payments }: { payments: PortalPayment[] }) {
         </li>
       ))}
     </ul>
-  )
-}
-
-export function ContractLink({ lease }: { lease: PortalLease }) {
-  if (!lease.contract) {
-    return <p className="text-sm text-muted-foreground">No contract generated yet.</p>
-  }
-  return <DocumentLink id={lease.contract.id}>View contract</DocumentLink>
-}
-
-export function DocumentLink({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <a
-      href={`/api/portal/documents/${id}`}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
-    >
-      <FileTextIcon className="size-4 shrink-0" aria-hidden />
-      <span className="truncate">{children}</span>
-    </a>
   )
 }
