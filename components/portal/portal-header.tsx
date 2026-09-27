@@ -1,98 +1,31 @@
 "use client"
 
-import * as React from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { LogOutIcon } from "lucide-react"
+import { usePathname } from "next/navigation"
 
-import { RentopsWordmark } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { SidebarTrigger } from "@/components/ui/sidebar"
+import { findActivePortalItem } from "@/lib/portal-nav"
 
 /**
- * The portal's whole chrome: brand, organization picker (someone can rent in
- * one organization and work in another), theme, sign out. No sidebar — a
- * tenant has one page.
+ * The portal's top bar: menu toggle, page title, theme. Organization switching
+ * and sign-out live in the sidebar, as in the staff app; no search or tours —
+ * a tenant has five pages of their own records.
  */
-export function PortalHeader({
-  organizations,
-  activeOrgId,
-  staffHref,
-}: {
-  organizations: { id: string; name: string }[]
-  activeOrgId: string
-  /** First staff page the tenant's role opens, if any. */
-  staffHref: string | null
-}) {
-  const router = useRouter()
-  const [pending, setPending] = React.useState(false)
-
-  async function switchTo(organizationId: string) {
-    if (organizationId === activeOrgId) return
-    setPending(true)
-    const response = await fetch("/api/organizations/switch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId }),
-    })
-    // `/dashboard` sends staff memberships to the app and tenant ones back here.
-    if (response.ok) router.push("/dashboard")
-    router.refresh()
-    setPending(false)
-  }
-
-  async function signOut() {
-    setPending(true)
-    await fetch("/api/auth/logout", { method: "POST" })
-    router.push("/login")
-    router.refresh()
-  }
+export function PortalHeader() {
+  const pathname = usePathname()
+  const title = findActivePortalItem(pathname)?.title ?? "My tenancy"
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4">
-        <RentopsWordmark />
-        <div className="ml-auto flex items-center gap-2">
-          {organizations.length > 1 && (
-            <Select
-              value={activeOrgId}
-              onValueChange={(next) => next && switchTo(next)}
-              disabled={pending}
-            >
-              <SelectTrigger aria-label="Organization" className="max-w-48">
-                <SelectValue>
-                  {(selected: string) =>
-                    organizations.find((o) => o.id === selected)?.name ?? "Organization"
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {staffHref && (
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={staffHref} />}>
-              Staff app
-            </Button>
-          )}
-          <ThemeToggle />
-          <Button variant="outline" size="sm" onClick={signOut} disabled={pending}>
-            <LogOutIcon />
-            Sign out
-          </Button>
-        </div>
+    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+      <SidebarTrigger className="-ml-1" />
+      <Separator
+        orientation="vertical"
+        className="mr-1 data-vertical:h-4 data-vertical:self-auto"
+      />
+      <h1 className="truncate text-sm font-medium">{title}</h1>
+      <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
       </div>
     </header>
   )
