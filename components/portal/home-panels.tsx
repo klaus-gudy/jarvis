@@ -4,9 +4,7 @@ import {
   FileTextIcon,
   FolderOpenIcon,
   KeyRoundIcon,
-  MessageCircleIcon,
   PenLineIcon,
-  PhoneIcon,
   ReceiptIcon,
   UserRoundPenIcon,
   WalletIcon,
@@ -17,8 +15,7 @@ import {
 import { DashboardPanel, PanelRow } from "@/components/dashboard/panel"
 import { Card } from "@/components/ui/card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
-import { toInternationalTzPhone } from "@/lib/phone"
-import type { PortalLandlord, PortalLease, PortalMember } from "@/lib/portal"
+import type { PortalLease, PortalMember } from "@/lib/portal"
 import { cn } from "@/lib/utils"
 
 /**
@@ -123,26 +120,24 @@ type QuickAction = {
 }
 
 /**
- * Shortcuts, ordered by demand: whatever needs doing now comes first and is
- * marked, then the everyday ones. Only actions that can work are offered — no
- * "Call landlord" without a phone number, no "View contract" without one.
+ * What needs doing now — and only that. The everyday shortcuts (payment
+ * history, contract, documents, password) appear only when nothing is urgent,
+ * so the list stays short. Only actions that can work are offered: no "View
+ * contract" without one. Call / WhatsApp the landlord were dropped on purpose.
  */
 export function QuickActions({
   member,
   lease,
   leases,
-  landlord,
 }: {
   member: PortalMember
   /** The current lease, for its contract. */
   lease: PortalLease | null
   leases: PortalLease[]
-  landlord: PortalLandlord
 }) {
   const owing = leases.some((l) => (l.invoice?.balance ?? 0) > 0)
   const profileIncomplete =
     !member.profile.emergencyContactName || !member.profile.emergencyContactPhone
-  const whatsapp = landlord.phone ? toInternationalTzPhone(landlord.phone) : null
 
   const actions: QuickAction[] = []
   if (!member.signatureKey) {
@@ -179,23 +174,6 @@ export function QuickActions({
       external: true,
     })
   }
-  if (landlord.phone) {
-    actions.push({
-      label: "Call landlord",
-      caption: landlord.phone,
-      icon: PhoneIcon,
-      href: `tel:${landlord.phone}`,
-    })
-  }
-  if (whatsapp) {
-    actions.push({
-      label: "WhatsApp",
-      caption: "Message your landlord",
-      icon: MessageCircleIcon,
-      href: `https://wa.me/${whatsapp}`,
-      external: true,
-    })
-  }
   actions.push(
     {
       label: "Documents",
@@ -211,8 +189,8 @@ export function QuickActions({
     }
   )
 
-  // Stable sort: needed ones first, each group keeping the order above.
-  const sorted = [...actions].sort((a, b) => Number(Boolean(b.needed)) - Number(Boolean(a.needed)))
+  const urgent = actions.filter((action) => action.needed)
+  const sorted = urgent.length > 0 ? urgent : actions
 
   return (
     <Card className="gap-0 p-0 shadow-sm">
@@ -221,7 +199,7 @@ export function QuickActions({
         <h3 className="text-sm font-semibold">Quick actions</h3>
       </div>
       <div className="flex flex-col gap-2 p-3">
-        {sorted.slice(0, 8).map((action) => {
+        {sorted.map((action) => {
           const className = cn(
             "group flex min-w-0 items-center gap-3 rounded-lg border px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring",
             action.needed && "border-stat-accent/50 bg-stat-accent/5"
