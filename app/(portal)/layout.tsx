@@ -1,5 +1,6 @@
 import { PortalHeader } from "@/components/portal/portal-header"
 import { requireTenantPage } from "@/lib/authz"
+import { firstAllowedPath } from "@/lib/nav"
 import { prisma } from "@/lib/prisma"
 
 /**
@@ -22,6 +23,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <PortalHeader
         organizations={memberships.map((m) => m.organization)}
         activeOrgId={access.organizationId}
+        staffHref={firstAllowedPath(access)}
       />
       <main className="mx-auto max-w-4xl space-y-6 p-4">{children}</main>
     </div>
