@@ -1,6 +1,5 @@
 import Link from "next/link"
 import {
-  CircleCheckIcon,
   FileTextIcon,
   MailIcon,
   MessageCircleIcon,
@@ -54,11 +53,7 @@ export function LeaseHeaderCard({ lease }: { lease: PortalLease }) {
 
 /* ---------------------------------------------------------------- main -- */
 
-/**
- * Figures in two ruled rows of four (two across on a phone), then the terms
- * written out — assembled from what the lease actually records, so nothing on
- * it can be out of step with the numbers above.
- */
+/** Figures in two ruled rows of four (two across on a phone). */
 export function LeaseDetailsCard({ lease }: { lease: PortalLease }) {
   const { home, invoice } = lease
   const unit = [home.unitType, home.sizeSqm ? `${home.sizeSqm} m²` : null]
@@ -70,9 +65,6 @@ export function LeaseDetailsCard({ lease }: { lease: PortalLease }) {
       {/* The header card above already names the lease and the place. */}
       <div className="p-5 sm:p-6">
         <h3 className="text-lg font-semibold tracking-tight">Lease details</h3>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          What you agreed to for Unit {lease.unitLabel}.
-        </p>
       </div>
 
       <FactRow>
@@ -98,57 +90,8 @@ export function LeaseDetailsCard({ lease }: { lease: PortalLease }) {
         />
       </FactRow>
 
-      <div className="border-t p-5 sm:p-6">
-        <h4 className="font-semibold tracking-tight">Key terms</h4>
-        <ul className="mt-3 space-y-2.5">
-          {keyTerms(lease).map((term) => (
-            <li key={term} className="flex items-start gap-2.5 text-sm">
-              <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-              <span>{term}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </Card>
   )
-}
-
-function keyTerms(lease: PortalLease): string[] {
-  const terms = [
-    `Rent is ${formatCurrencyFull(lease.monthlyRent)} a month — ${formatCurrencyFull(lease.leaseAmount)} for the full ${lease.durationMonths}-month term.`,
-  ]
-
-  if (lease.invoice) {
-    terms.push(
-      `The whole term is invoiced as ${lease.invoice.reference}, due ${formatDate(lease.invoice.dueDate)}. You can pay it in parts; each month is covered as payments add up.`
-    )
-  } else {
-    terms.push("No invoice has been issued yet — your landlord will add it.")
-  }
-
-  if (lease.status === "Ended" || lease.status === "Renewed") {
-    terms.push(
-      lease.renewedTo
-        ? `This lease ended on ${formatDate(lease.endDate)} and was renewed as ${lease.renewedTo}.`
-        : `This lease ended on ${formatDate(lease.endDate)}.`
-    )
-  } else if (lease.autoRenew && lease.renewalMonths) {
-    terms.push(
-      `When it ends on ${formatDate(lease.endDate)} it renews automatically for another ${plural(lease.renewalMonths, "month")}.`
-    )
-  } else {
-    terms.push(
-      `It ends on ${formatDate(lease.endDate)} and does not renew on its own — speak to your landlord before then if you want to stay.`
-    )
-  }
-
-  if (lease.renewedFrom) {
-    terms.push(`This lease continues your earlier lease ${lease.renewedFrom}.`)
-  }
-  if (lease.home.amenities.length > 0) {
-    terms.push(`Included with the unit: ${lease.home.amenities.join(", ")}.`)
-  }
-  return terms
 }
 
 function FactRow({ children }: { children: React.ReactNode }) {
