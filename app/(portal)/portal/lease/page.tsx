@@ -1,3 +1,7 @@
+import { FileTextIcon } from "lucide-react"
+
+import { EmptyState } from "@/components/empty-state"
+import { FilterPills, parseFilter } from "@/components/portal/filter-pills"
 import { LeaseListCard } from "@/components/portal/lease-list-card"
 import { PortalNoLeases, PortalNoOrganization } from "@/components/portal/portal-states"
 import { requireTenantPage } from "@/lib/authz"
@@ -14,11 +18,29 @@ const STATUS_ORDER: Record<LeaseStatus, number> = {
   Ended: 2,
 }
 
+const FILTERS = [
+  { label: "All leases", value: undefined },
+  { label: "Active", value: "active" },
+  { label: "Upcoming", value: "upcoming" },
+  { label: "Past", value: "past" },
+] as const
+
+function matches(status: LeaseStatus, filter: string | undefined) {
+  if (filter === "active") return status === "Active"
+  if (filter === "upcoming") return status === "Upcoming"
+  if (filter === "past") return status === "Ended" || status === "Renewed"
+  return true
+}
+
 /**
- * Every lease the tenant holds here, as a grid of cards like the landlord's
- * Properties page. Each opens its own detail page.
+ * Every lease the tenant holds here, as a grid of cards under the same filter
+ * pills as the landlord's Properties page. Each opens its own detail page.
  */
-export default async function PortalLeasesPage() {
+export default async function PortalLeasesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>
+}) {
   const access = await requireTenantPage()
   if (!access) return <PortalNoOrganization />
 
@@ -31,29 +53,28 @@ export default async function PortalLeasesPage() {
     )
   }
 
+  const active = parseFilter(FILTERS, (await searchParams).status)
   // Stable sort over the newest-first list, so each group stays newest first.
-  const sorted = [...leases].sort(
-    (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
-  )
-  const running = leases.filter(
-    (l) => l.status === "Active" || l.status === "Upcoming"
-  ).length
+  const sorted = leases
+    .filter((l) => matches(l.status, active))
+    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">Your leases</h2>
-        <p className="text-sm text-muted-foreground">
-          {running > 0
-            ? `${running} running · ${leases.length - running} past`
-            : `${leases.length} past ${leases.length === 1 ? "lease" : "leases"}`}
-        </p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {sorted.map((lease) => (
-          <LeaseListCard key={lease.id} lease={lease} />
-        ))}
-      </div>
+    <div className="flex flex-col gap-6">
+      <FilterPills basePath="/portal/lease" filters={FILTERS} active={active} />
+      {sorted.length === 0 ? (
+        <EmptyState
+          icon={FileTextIcon}
+          title="No matching leases"
+          description="No leases with this status. Try a different filter."
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {sorted.map((lease) => (
+            <LeaseListCard key={lease.id} lease={lease} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
