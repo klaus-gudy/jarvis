@@ -1,4 +1,5 @@
 import {
+  Building2Icon,
   BuildingIcon,
   FileTextIcon,
   LayoutDashboardIcon,
@@ -41,6 +42,14 @@ export type NavItem = {
    */
   permission?: Permission | readonly Permission[];
 };
+
+/** Any one of these opens Settings → Organization (the page checks the same). */
+export const ORGANIZATION_SETTINGS_PERMISSIONS = [
+  "org:manage",
+  "org:backup",
+  "org:restore",
+  "org:delete",
+] as const satisfies readonly Permission[];
 
 export const navItems: NavItem[] = [
   {
@@ -95,10 +104,17 @@ export const navItems: NavItem[] = [
   {
     title: "Settings",
     url: "/settings",
-    permission: ["template:manage"],
+    permission: ["template:manage", ...ORGANIZATION_SETTINGS_PERMISSIONS],
     icon: SettingsIcon,
     description: "How your organization works",
     items: [
+      {
+        title: "Organization",
+        url: "/settings/organization",
+        permission: ORGANIZATION_SETTINGS_PERMISSIONS,
+        icon: Building2Icon,
+        description: "Owner, backup and restore, and deleting the organization",
+      },
       {
         title: "Lease templates",
         url: "/settings/lease-templates",
