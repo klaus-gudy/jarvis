@@ -8,8 +8,9 @@ import {
 } from "lucide-react"
 
 import { leaseProgress, LeaseStatusPill } from "@/components/portal/lease-status"
+import { ViewContractButton } from "@/components/portal/view-contract-button"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatDate } from "@/lib/format"
 import { toInternationalTzPhone } from "@/lib/phone"
 import type { PortalLandlord, PortalLease } from "@/lib/portal"
@@ -20,10 +21,6 @@ import { cn } from "@/lib/utils"
  * `LeaseTermsCard` and `InvoiceCard`; these are the header and the side column
  * (the term with its actions, and who to call). Server components — nothing here changes state.
  */
-
-function contractHref(lease: PortalLease) {
-  return lease.contract ? `/api/portal/documents/${lease.contract.id}` : null
-}
 
 /** The staff detail pages' header card, tenant-side. */
 export function LeaseHeaderCard({ lease }: { lease: PortalLease }) {
@@ -54,14 +51,15 @@ export function LeaseHeaderCard({ lease }: { lease: PortalLease }) {
 /** Start → end, how much is left, and the two things to do with a lease. */
 export function LeaseTermCard({ lease }: { lease: PortalLease }) {
   const progress = leaseProgress(lease)
-  const contract = contractHref(lease)
   const running = lease.status === "Active" || lease.status === "Upcoming"
   const warn = lease.expiry?.tier === "urgent" && !lease.autoRenew
 
   return (
-    <Card className="shadow-sm">
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle className="text-base">Lease progress</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-5">
-        <h3 className="text-lg font-semibold tracking-tight">Lease term</h3>
 
         <div className="space-y-2.5">
           <div className="flex justify-between gap-3 text-sm text-muted-foreground tabular-nums">
@@ -99,16 +97,8 @@ export function LeaseTermCard({ lease }: { lease: PortalLease }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          {contract ? (
-            <Button
-              size="lg"
-              className="w-full"
-              nativeButton={false}
-              render={<a href={contract} target="_blank" rel="noreferrer" />}
-            >
-              <FileTextIcon />
-              View contract
-            </Button>
+          {lease.contract ? (
+            <ViewContractButton contract={lease.contract} />
           ) : (
             <Button size="lg" className="w-full" disabled>
               <FileTextIcon />
