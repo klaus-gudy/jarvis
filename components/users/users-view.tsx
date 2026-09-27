@@ -51,6 +51,9 @@ export function UsersView({
   const viewer = usePermissions();
   const canInvite = useCan("member:invite");
   const canWrite = useCan("member:write");
+  // The member page asks for `tenant:read` before showing a tenant. Without it
+  // the row isn't a link, rather than a link to a page that answers 404.
+  const canReadTenants = useCan("tenant:read");
   // Courtesy only — the API re-checks (`canManageMember`). Owners are
   // manageable only by Owners.
   const mayManage = React.useCallback(
@@ -328,7 +331,11 @@ export function UsersView({
               },
             ]}
             emptyMessage="No members yet."
-            getRowHref={(member) => `/members/${member.membershipId}`}
+            getRowHref={(member) =>
+              member.isTenant && !canReadTenants
+                ? undefined
+                : `/members/${member.membershipId}`
+            }
             renderCard={(member) => <MemberCard member={member} />}
             /*
              * Mobile only, and *not* wired back into the desktop column here —
