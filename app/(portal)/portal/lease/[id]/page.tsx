@@ -3,8 +3,8 @@ import { notFound } from "next/navigation"
 import { ArrowLeftIcon } from "lucide-react"
 
 import { InvoiceCard } from "@/components/leases/invoice-card"
+import { LeaseTermsCard } from "@/components/leases/lease-terms-card"
 import {
-  LeaseDetailsCard,
   LeaseHeaderCard,
   LeaseTermCard,
 } from "@/components/portal/lease-detail"
@@ -56,7 +56,7 @@ export default async function PortalLeaseDetailPage({
           <div className="lg:hidden">
             <LeaseTermCard lease={lease} />
           </div>
-          <LeaseDetailsCard lease={lease} />
+          <LeaseTermsCard lease={lease} />
           <InvoiceCard invoice={lease.invoice} />
         </div>
         {/* Sticky beside the scrolling main column on wide screens. */}
