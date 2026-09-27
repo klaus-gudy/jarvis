@@ -58,7 +58,7 @@ export default async function PortalHomePage() {
           <RecentPaymentsPanel leases={leases} />
         </div>
         <div>
-          <QuickActions member={member} lease={lease} leases={leases} landlord={landlord} />
+          <QuickActions member={member} lease={lease} leases={leases} />
         </div>
       </div>
     </>
