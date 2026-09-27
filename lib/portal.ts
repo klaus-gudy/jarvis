@@ -103,6 +103,8 @@ export type PortalMember = {
 export type PortalDocument = {
   id: string;
   fileName: string;
+  fileType: string;
+  sizeBytes: number;
   label: string;
   createdAt: Date;
 };
@@ -282,7 +284,14 @@ export async function getPortalLeaseDocuments(
       unit: { select: { label: true, property: { select: { name: true } } } },
       fileAssets: {
         orderBy: { createdAt: "desc" },
-        select: { id: true, fileName: true, createdAt: true, assetType: { select: { label: true } } },
+        select: {
+          id: true,
+          fileName: true,
+          fileType: true,
+          sizeBytes: true,
+          createdAt: true,
+          assetType: { select: { label: true } },
+        },
       },
     },
   });
@@ -296,6 +305,8 @@ export async function getPortalLeaseDocuments(
       documents: lease.fileAssets.map((doc) => ({
         id: doc.id,
         fileName: doc.fileName,
+        fileType: doc.fileType,
+        sizeBytes: doc.sizeBytes,
         label: doc.assetType.label,
         createdAt: doc.createdAt,
       })),
