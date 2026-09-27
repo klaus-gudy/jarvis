@@ -65,7 +65,7 @@ export default async function PortalLayout({ children }: { children: React.React
         <SidebarInset className="min-w-0">
           <PortalHeader />
           <ViewTransition default="page">
-            <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-4">
+            <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4">
               {children}
             </div>
           </ViewTransition>
