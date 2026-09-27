@@ -28,6 +28,7 @@ export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const held = user.activeMembership?.permissions ?? [];
   const profile = await getProfile(user.id, user.activeOrgId);
   const { personal, organization, membershipId } = profile;
   const name = displayName(personal);
@@ -88,10 +89,11 @@ export default async function ProfilePage() {
           title="Organization information"
           stackAction
           action={
-            // Owner-only: this is a full backup of the organization's data
-            // (every tenant's NIDA number and emergency contacts included),
-            // the same boundary `AccountSettingsCard` draws around delete.
-            profile.isOwner && organization ? (
+            // A full backup of the organization's data (every tenant's NIDA
+            // number and emergency contacts included), so it follows the
+            // `org:backup` / `org:restore` permissions — the buttons inside
+            // check which one each needs.
+            (held.includes("org:backup") || held.includes("org:restore")) && organization ? (
               <OrganizationDataActions
                 // Restoring into a non-empty organization would duplicate or
                 // merge unrelated data, so the button greys out rather than
@@ -140,11 +142,10 @@ export default async function ProfilePage() {
 
       <AccountSettingsCard
         canSignIn={profile.canSignIn}
-        // Owner-only, and resolved here rather than in the card: `isOwner`
-        // already comes from the profile query, so the card never has to ask
-        // who may delete.
+        // Resolved here from `org:delete` so the card never has to ask who
+        // may delete; the API re-checks it inside the delete transaction.
         organization={
-          profile.isOwner && organization
+          held.includes("org:delete") && organization
             ? { id: organization.id, name: organization.name }
             : null
         }

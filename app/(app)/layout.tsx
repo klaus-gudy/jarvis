@@ -9,6 +9,7 @@ import { PermissionsProvider } from "@/components/permissions-provider"
 import { TourProvider } from "@/components/tour/tour-provider"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { needsEmailVerification } from "@/lib/auth/email-verification"
+import { firstAllowedPath } from "@/lib/nav"
 import { getCurrentUser } from "@/lib/auth/session"
 import { getProfilePhotoIds } from "@/lib/documents"
 import { prisma } from "@/lib/prisma"
@@ -29,8 +30,17 @@ export default async function AppLayout({
   // and this state deliberately isn't in the token.
   if (needsEmailVerification(user)) redirect("/verify-email")
 
-  // Tenants have their own portal and never see the staff app.
-  if (user.activeMembership?.kind === "TENANT") redirect("/portal")
+  // A tenant sees the staff app only for what their role has been given;
+  // with nothing, the portal is their whole app.
+  if (
+    user.activeMembership?.kind === "TENANT" &&
+    !firstAllowedPath({
+      kind: "TENANT",
+      permissions: user.activeMembership.permissions,
+    })
+  ) {
+    redirect("/portal")
+  }
 
   // getCurrentUser has already validated activeOrgId against live memberships;
   // this query re-fetches them with org + role names for the switcher.

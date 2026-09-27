@@ -10,13 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireStaffPage } from "@/lib/authz";
-import { isGrantable } from "@/lib/permissions";
 import { getRole } from "@/lib/roles";
 
 /**
  * One role. Laid out like the lease and property detail pages: outline back
- * button, a compact identity card (name with its type badge beside it, one
- * muted line under), then line tabs with count badges.
+ * button, a compact identity card (name with its type badge beside it), then
+ * line tabs with count badges.
  */
 export default async function RoleDetailPage({
   params,
@@ -32,13 +31,10 @@ export default async function RoleDetailPage({
   const role = await getRole(access.organizationId, id);
   if (!role) notFound();
 
-  // People by default; the Roles page's "Configure permissions" link asks for
-  // the other tab.
-  const tab = (await searchParams).tab === "permissions" ? "permissions" : "people";
+  // Permissions first and by default; `?tab=members` opens the other one.
+  const tab = (await searchParams).tab === "members" ? "members" : "permissions";
 
-  // Counted like the editor's "Grants N of 23": owner-only permissions are
-  // implicit, not listed, so they don't count here either.
-  const grantedCount = role.permissions.filter(isGrantable).length;
+  const grantedCount = role.permissions.length;
 
   // Only an Owner may edit the Owner role (the API enforces it too).
   const mayEditRole = role.kind !== "OWNER" || access.kind === "OWNER";
@@ -75,9 +71,6 @@ export default async function RoleDetailPage({
                   {role.isSystem ? "Built-in" : "Custom"}
                 </Badge>
               </div>
-              {role.description && (
-                <p className="truncate text-sm text-muted-foreground">{role.description}</p>
-              )}
             </div>
           </div>
           {mayEditRole && <RoleActions role={role} />}
@@ -86,16 +79,6 @@ export default async function RoleDetailPage({
 
       <Tabs defaultValue={tab}>
         <TabsList variant="line" className="w-full justify-start border-b">
-          <TabsTrigger value="people" className="flex-none gap-2 px-3">
-            People
-            {/* Hidden at zero, like every other tab count — a "0" reads as a
-                problem rather than a total. */}
-            {role.memberCount > 0 && (
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-                {role.memberCount}
-              </span>
-            )}
-          </TabsTrigger>
           <TabsTrigger value="permissions" className="flex-none gap-2 px-3">
             Permissions
             {grantedCount > 0 && (
@@ -104,11 +87,17 @@ export default async function RoleDetailPage({
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="members" className="flex-none gap-2 px-3">
+            Members
+            {/* Hidden at zero, like every other tab count — a "0" reads as a
+                problem rather than a total. */}
+            {role.memberCount > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                {role.memberCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="people" className="pt-5">
-          <RoleMembersTable members={role.members} />
-        </TabsContent>
 
         <TabsContent value="permissions" className="pt-5">
           <RolePermissionsEditor
@@ -119,7 +108,12 @@ export default async function RoleDetailPage({
             kind={role.kind}
             granted={role.permissions}
             memberCount={role.memberCount}
+            editable={mayEditRole}
           />
+        </TabsContent>
+
+        <TabsContent value="members" className="pt-5">
+          <RoleMembersTable members={role.members} />
         </TabsContent>
       </Tabs>
     </div>
