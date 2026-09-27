@@ -1,24 +1,14 @@
 import { redirect } from "next/navigation";
-import {
-  BuildingIcon,
-  CalendarIcon,
-  ShieldCheckIcon,
-  UserRoundIcon,
-} from "lucide-react";
 
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
 import { AccountSettingsCard } from "@/components/profile/account-settings-card";
-import { OrganizationDataActions } from "@/components/profile/organization-data-actions";
 import { PaymentAccountsCard } from "@/components/profile/payment-accounts-card";
 import { SignatureCard } from "@/components/members/signature-card";
 import { PersonalInfoCard } from "@/components/profile/personal-info-card";
-import { ProfileCardHeader } from "@/components/profile/profile-card-header";
-import { ProfileField } from "@/components/profile/profile-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { listAssetTypes } from "@/lib/asset-types";
 import { getCurrentUser } from "@/lib/auth/session";
 import { listDocuments } from "@/lib/documents";
-import { formatDate } from "@/lib/format";
 import { getProfile } from "@/lib/profile";
 import { displayName, primaryContact } from "@/lib/user-display";
 
@@ -28,7 +18,6 @@ export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const held = user.activeMembership?.permissions ?? [];
   const profile = await getProfile(user.id, user.activeOrgId);
   const { personal, organization, membershipId } = profile;
   const name = displayName(personal);
@@ -84,72 +73,8 @@ export default async function ProfilePage() {
         />
       )}
 
-      <Card>
-        <ProfileCardHeader
-          title="Organization information"
-          stackAction
-          action={
-            // A full backup of the organization's data (every tenant's NIDA
-            // number and emergency contacts included), so it follows the
-            // `org:backup` / `org:restore` permissions — the buttons inside
-            // check which one each needs.
-            (held.includes("org:backup") || held.includes("org:restore")) && organization ? (
-              <OrganizationDataActions
-                // Restoring into a non-empty organization would duplicate or
-                // merge unrelated data, so the button greys out rather than
-                // vanishing once this one has a property or a second member —
-                // matches the server-side guard on the import route exactly.
-                canImport={
-                  organization.propertyCount === 0 && organization.memberCount <= 1
-                }
-              />
-            ) : undefined
-          }
-        />
-        <CardContent>
-          <dl className="grid gap-4 sm:grid-cols-2">
-            {organization ? (
-              <>
-                <ProfileField
-                  label="Organization"
-                  value={organization.name}
-                  icon={BuildingIcon}
-                />
-                <ProfileField
-                  label="Your role"
-                  value={organization.roleName}
-                  icon={ShieldCheckIcon}
-                />
-                <ProfileField
-                  label="Owner"
-                  value={organization.ownerName}
-                  icon={UserRoundIcon}
-                />
-                <ProfileField
-                  label="Member since"
-                  value={formatDate(organization.joinedAt)}
-                  icon={CalendarIcon}
-                />
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground sm:col-span-2">
-                You are not a member of an organization yet.
-              </p>
-            )}
-          </dl>
-        </CardContent>
-      </Card>
 
-      <AccountSettingsCard
-        canSignIn={profile.canSignIn}
-        // Resolved here from `org:delete` so the card never has to ask who
-        // may delete; the API re-checks it inside the delete transaction.
-        organization={
-          held.includes("org:delete") && organization
-            ? { id: organization.id, name: organization.name }
-            : null
-        }
-      />
+      <AccountSettingsCard canSignIn={profile.canSignIn} />
 
       <PaymentAccountsCard accounts={profile.paymentAccounts} />
     </div>
