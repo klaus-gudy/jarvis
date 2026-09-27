@@ -1,5 +1,6 @@
 import Link from "next/link"
 import {
+  ChevronRightIcon,
   FileTextIcon,
   FolderOpenIcon,
   KeyRoundIcon,
@@ -219,29 +220,28 @@ export function QuickActions({
         <ZapIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <h3 className="text-sm font-semibold">Quick actions</h3>
       </div>
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="flex flex-col gap-2 p-3">
         {sorted.slice(0, 8).map((action) => {
           const className = cn(
-            "relative flex min-w-0 flex-col gap-2 rounded-lg border p-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring",
+            "group flex min-w-0 items-center gap-3 rounded-lg border px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring",
             action.needed && "border-stat-accent/50 bg-stat-accent/5"
           )
           const body = (
             <>
-              <action.icon
-                className={cn(
-                  "size-4",
-                  action.needed ? "text-stat-accent" : "text-muted-foreground"
-                )}
-                aria-hidden
-              />
-              <div className="min-w-0">
+              <RowIcon icon={action.icon} urgent={action.needed} />
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{action.label}</p>
-                <p className="truncate text-[11px] text-muted-foreground">{action.caption}</p>
+                <p className="truncate text-xs text-muted-foreground">{action.caption}</p>
               </div>
-              {action.needed && (
-                <span className="absolute top-2.5 right-2.5 rounded-full bg-stat-accent px-1.5 py-0.5 text-[10px] font-semibold text-stat-foreground">
+              {action.needed ? (
+                <span className="shrink-0 rounded-full bg-stat-accent px-2 py-0.5 text-[10px] font-semibold text-stat-foreground">
                   To do
                 </span>
+              ) : (
+                <ChevronRightIcon
+                  className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                  aria-hidden
+                />
               )}
             </>
           )
