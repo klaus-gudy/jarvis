@@ -35,6 +35,7 @@ function initials(value: string) {
 
 export function NavUser({
   user,
+  inPortal = false,
 }: {
   user: {
     name: string
@@ -42,6 +43,8 @@ export function NavUser({
     role: string | null
     photoId: string | null
   }
+  /** Rendered by the tenant portal: profile lives there, and so does the tenancy. */
+  inPortal?: boolean
 }) {
   const router = useRouter()
   const { isMobile } = useSidebar()
@@ -105,13 +108,13 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuLinkItem render={<Link href="/profile" />}>
+              <DropdownMenuLinkItem render={<Link href={inPortal ? "/portal/profile" : "/profile"} />}>
                 <UserRoundIcon />
                 Profile
               </DropdownMenuLinkItem>
               {/* A tenant whose role opens parts of the staff app still has
                   their own tenancy in the portal. */}
-              {viewer.kind === "TENANT" && (
+              {viewer.kind === "TENANT" && !inPortal && (
                 <DropdownMenuLinkItem render={<Link href="/portal" />}>
                   <HomeIcon />
                   My tenancy
