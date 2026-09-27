@@ -58,7 +58,7 @@ model Role {
   id   String @id @default(cuid())
   name String
 
-  kind RoleKind @default(STAFF)
+  kind        RoleKind @default(STAFF)
   /// Permission keys from `lib/permissions.ts`. Only meaningful for STAFF:
   /// OWNER holds everything implicitly, TENANT holds nothing staff-side.
   permissions String[] @default([])
@@ -91,13 +91,11 @@ model User {
   /**
    * Guided tours this person has finished or dismissed, and the
    * `TOURS_VERSION` the list was recorded against.
-   *
    * On `User` rather than `Membership`: which tours somebody has already sat
    * through follows the person, not whichever organization they happen to be
    * looking at. It replaces a localStorage key, which meant a tour greeted the
    * same person again on every new device and never at all on a device where
    * they had dismissed one by accident.
-   *
    * The version is stored beside the list instead of being baked into a key,
    * so a bumped `TOURS_VERSION` makes an older list *stale* rather than wrong:
    * `getToursSeen` returns nothing for a version it does not recognise, and a
@@ -181,6 +179,7 @@ model Membership {
   leases          Lease[]
   profile         MemberProfile?
   paymentAccounts PaymentAccount[]
+  paymentClaims   PaymentClaim[]
 
   fileAssets         FileAsset[] @relation("FileAssetSubject")
   uploadedFileAssets FileAsset[] @relation("FileAssetUploader")
@@ -302,10 +301,10 @@ model Lease {
   durationMonths Int
   status         LeaseStatus @default(Active)
 
-  monthlyRent    Int
-  leaseAmount    Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  monthlyRent Int
+  leaseAmount Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   unitId String
   unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
@@ -333,8 +332,9 @@ model Invoice {
   leaseId String @unique
   lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
 
-  payments   Payment[]
-  fileAssets FileAsset[]
+  payments      Payment[]
+  paymentClaims PaymentClaim[]
+  fileAssets    FileAsset[]
 }
 
 model Payment {
@@ -349,8 +349,41 @@ model Payment {
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   fileAssets FileAsset[]
+  claim      PaymentClaim?
 
   @@index([invoiceId])
+}
+
+enum PaymentClaimStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+/// A payment a tenant says they made. Never summed into a balance: confirming
+/// one creates a real `Payment` (through `recordPayment`) and links it here.
+model PaymentClaim {
+  id         String             @id @default(cuid())
+  amount     Int
+  paidAt     DateTime
+  method     String?
+  notes      String?
+  status     PaymentClaimStatus @default(PENDING)
+  createdAt  DateTime           @default(now())
+  reviewedAt DateTime?
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  /// The tenant who submitted it.
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  /// Set on confirmation.
+  paymentId String?  @unique
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, status])
 }
 
 enum FileAssetSubject {
