@@ -7,12 +7,13 @@ import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ContractTab } from "@/components/leases/contract-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { InvoiceCard } from "@/components/leases/invoice-card";
+import { LeaseTermsCard } from "@/components/leases/lease-terms-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
-import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { formatCurrencyFull } from "@/lib/format";
 import { listAssetTypes } from "@/lib/asset-types";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contracts";
 import { listDocuments } from "@/lib/documents";
@@ -239,44 +240,7 @@ export default async function LeaseDetailPage({
             </div>
 
             <div className="flex flex-col gap-5">
-            <Card className="grow">
-              <CardHeader className="border-b">
-                <CardTitle className="text-base">Lease terms</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <dl>
-                  <DetailRow
-                    label="Start date"
-                    value={formatDate(lease.startDate)}
-                  />
-                  <DetailRow label="End date" value={formatDate(lease.endDate)} />
-                  <DetailRow
-                    label="Duration"
-                    value={`${lease.durationMonths} months`}
-                  />
-                  <DetailRow label="Payment frequency" value="Monthly" />
-                  {/* The rate this lease was agreed at — not `unit.rentAmount`,
-                      which is the asking price and shown on the Unit info card.
-                      They differ whenever the rent was negotiated. */}
-                  <DetailRow
-                    label="Monthly rent"
-                    value={
-                      <span className="font-mono tabular-nums">
-                        {formatCurrencyFull(lease.monthlyRent)}
-                      </span>
-                    }
-                  />
-                  <DetailRow
-                    label="Total lease amount"
-                    value={
-                      <span className="font-mono tabular-nums">
-                        {formatCurrencyFull(lease.leaseAmount)}
-                      </span>
-                    }
-                  />
-                </dl>
-              </CardContent>
-            </Card>
+            <LeaseTermsCard lease={lease} className="grow" />
 
             {/* The invoice is part of what this lease *is*, so it reads here;
                 the Billing tab is only the ledger. */}
