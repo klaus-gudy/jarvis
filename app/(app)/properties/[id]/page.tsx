@@ -11,7 +11,7 @@ import { UnitsTable } from "@/components/properties/units-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
@@ -25,7 +25,7 @@ export default async function PropertyDetailPage({
 }) {
   await requireStaffPage("property:read");
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
   if (!user.activeOrgId) redirect("/properties");
 
   const { id } = await params;
