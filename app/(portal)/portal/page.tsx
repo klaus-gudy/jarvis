@@ -52,13 +52,22 @@ export default async function PortalHomePage() {
         />
       </div>
 
+      {/* Every card fills its share of the row, like the landlord dashboard's
+          panels: the stacked lists split the column's height, and Quick
+          actions stretches to match them — so the row's bottom edges line up
+          whichever side has more in it. */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
-          <BillsPanel leases={leases} />
-          <RecentPaymentsPanel leases={leases} />
+          <BillsPanel leases={leases} className="flex-1" />
+          <RecentPaymentsPanel leases={leases} className="flex-1" />
         </div>
-        <div>
-          <QuickActions member={member} lease={lease} leases={leases} />
+        <div className="flex flex-col">
+          <QuickActions
+            member={member}
+            lease={lease}
+            leases={leases}
+            className="flex-1"
+          />
         </div>
       </div>
     </>
