@@ -8,11 +8,10 @@ import {
   PencilIcon,
   PlusIcon,
   Trash2Icon,
-  UploadIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { ExportButton } from "@/components/export-button";
+import { ImportExportActions } from "@/components/import-export-actions";
 import { UnitCard } from "@/components/properties/unit-card";
 import {
   buildUnitColumns,
@@ -162,27 +161,17 @@ export function UnitsTable({
   return (
     <div className="space-y-3">
       <div className="flex justify-end gap-2">
-        <ExportButton
-          url={`/api/properties/${propertyId}/units/export`}
-          label="Export units"
+        <ImportExportActions
+          exportUrl={`/api/properties/${propertyId}/units/export`}
+          exportLabel="Export units"
           filenameFallback="units.xlsx"
           getIds={() =>
             viewRef.current?.visibleRows()?.map((u) => u.id) ?? null
           }
+          importLabel="Import units"
+          onImport={() => setImportOpen(true)}
+          canImport={canWrite}
         />
-        {/* bg-card, not the variant's bg-background: this button sits directly on
-            the page rather than on a card, where `outline`'s fill is the exact
-            same colour as the page and only the border shows. */}
-        <Button
-          disabled={!canWrite}
-          title={canWrite ? undefined : "Your role doesn't allow this"}
-          variant="outline"
-          className="bg-card"
-          onClick={() => setImportOpen(true)}
-        >
-          <UploadIcon />
-          Import units
-        </Button>
         <Button
           disabled={!canWrite}
           title={canWrite ? undefined : "Your role doesn't allow this"}
