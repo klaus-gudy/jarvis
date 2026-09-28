@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/one-time-code";
 import { normalizeTzPhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 
 /**
  * Password reset by one-time code.
@@ -18,6 +19,7 @@ import { prisma } from "@/lib/prisma";
 
 export const RESET_CODE_LENGTH = CODE_LENGTH;
 export const RESET_TTL_MINUTES = 10;
+const CODES_PER_HOUR = { limit: 5, windowMs: 60 * 60_000 };
 
 /**
  * Resolves "email or phone, as typed" to an account, the same way
@@ -67,6 +69,12 @@ export async function requestPasswordReset(
   // has no channel to receive a code on; nothing is issued, because a code
   // that cannot be delivered is only a row that can be guessed at.
   if (!user.email) return null;
+
+  // Per account, after the lookup: however the identifier was spelled and
+  // whichever address asked, one account gets a handful of codes an hour.
+  // Each code allows 5 guesses at one in a million; this caps how many codes
+  // there are to guess at.
+  if (!rateLimit(`forgot:user:${user.id}`, CODES_PER_HOUR).ok) return null;
 
   const code = generateCode();
   const expiresAt = new Date(Date.now() + RESET_TTL_MINUTES * 60_000);
@@ -154,7 +162,9 @@ export async function completePasswordReset(
     prisma.passwordResetToken.deleteMany({ where: { userId } }),
     prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      // Signs out every existing session: a reset is how someone recovers an
+      // account they think another person is in.
+      data: { passwordHash, sessionVersion: { increment: 1 } },
       select: { email: true, name: true },
     }),
   ]);
