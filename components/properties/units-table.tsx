@@ -160,7 +160,8 @@ export function UnitsTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end gap-2">
+      {/* Equal shares of the row on a phone (one button fills it alone); a right-aligned row from `sm`. */}
+      <div className="grid auto-cols-fr grid-flow-col gap-2 sm:flex sm:justify-end">
         <ImportExportActions
           exportUrl={`/api/properties/${propertyId}/units/export`}
           exportLabel="Export units"
