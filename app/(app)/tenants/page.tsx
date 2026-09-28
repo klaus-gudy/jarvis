@@ -3,7 +3,7 @@ import { UsersIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { TenantsTable } from "@/components/tenants/tenants-table";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
 import { getLeaseOptions } from "@/lib/leases";
 import { getTenants } from "@/lib/tenants";
@@ -11,7 +11,7 @@ import { getTenants } from "@/lib/tenants";
 export default async function TenantsPage() {
   await requireStaffPage("tenant:read");
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
 
   if (!user.activeOrgId) {
     return (
