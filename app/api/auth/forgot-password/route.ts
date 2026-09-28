@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { requestPasswordReset } from "@/lib/auth/reset";
 import { sendPasswordResetCodeEmail } from "@/lib/mail/auth";
-import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { clientIp, identifierKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const forgotPasswordSchema = z.object({
   identifier: z.string().trim().min(1, "Enter your email or phone"),
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   const { identifier } = parsed.data;
 
   const byIdentifier = rateLimit(
-    `forgot:id:${identifier.toLowerCase()}`,
+    `forgot:id:${identifierKey(identifier)}`,
     PER_IDENTIFIER
   );
 
