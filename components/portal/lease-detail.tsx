@@ -37,7 +37,7 @@ export function LeaseHeaderCard({ lease }: { lease: PortalLease }) {
             </h2>
             <LeaseStatusPill status={lease.status} />
           </div>
-          <p className="truncate text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground sm:truncate">
             {lease.propertyName} · Unit {lease.unitLabel} · {lease.home.address}
           </p>
         </div>
