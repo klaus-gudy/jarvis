@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ExportButton } from "@/components/export-button";
 import { PropertyCard } from "@/components/properties/property-card";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
 import type { PropertyType } from "@/lib/generated/prisma/enums";
 import { getOrganizationOwnerName } from "@/lib/organizations";
@@ -27,7 +27,7 @@ export default async function PropertiesPage({
 }) {
   await requireStaffPage("property:read");
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
 
   if (!user.activeOrgId) {
     return (
