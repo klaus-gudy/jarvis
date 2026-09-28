@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { needsEmailVerification } from "@/lib/auth/email-verification";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { firstAllowedPath } from "@/lib/nav";
 import type { Permission, RoleKind } from "@/lib/permissions";
 
@@ -136,7 +136,7 @@ export async function requireStaffPage(
 ): Promise<AuthContext | null> {
   const resolved = await resolve();
   if (!resolved.ok) {
-    if (resolved.status === 401) redirect("/login");
+    if (resolved.status === 401) redirect(SESSION_EXPIRED_PATH);
     if ((resolved.extra as { reason?: string } | undefined)?.reason === "email-unverified") {
       redirect("/verify-email");
     }
@@ -156,7 +156,7 @@ export async function requireStaffPage(
 export async function requireTenantPage(): Promise<AuthContext | null> {
   const resolved = await resolve();
   if (!resolved.ok) {
-    if (resolved.status === 401) redirect("/login");
+    if (resolved.status === 401) redirect(SESSION_EXPIRED_PATH);
     if ((resolved.extra as { reason?: string } | undefined)?.reason === "email-unverified") {
       redirect("/verify-email");
     }
