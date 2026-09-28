@@ -42,13 +42,13 @@ export function InvoiceHeaderCard({ lease }: { lease: Invoiced }) {
 
 /* ---------------------------------------------------------------- side -- */
 
-/** What is left to pay, what that means in months, and the way to the lease. */
+/**
+ * What is left to pay, and what to do about it. No bar and no due date here:
+ * the Invoice card beside it already carries both.
+ */
 export function InvoiceBalanceCard({ lease }: { lease: Invoiced }) {
   const { invoice } = lease
-  const { coverage } = invoice
-  const behind = coverage.amountBehind > 0
-  const percent =
-    invoice.amount > 0 ? Math.min(100, Math.round((invoice.paid / invoice.amount) * 100)) : 100
+  const behind = invoice.coverage.amountBehind > 0
 
   return (
     <Card>
@@ -68,46 +68,6 @@ export function InvoiceBalanceCard({ lease }: { lease: Invoiced }) {
           <p className="text-sm text-muted-foreground">
             {invoice.balance === 0 ? "Nothing left to pay" : "left to pay on this invoice"}
           </p>
-        </div>
-
-        <div className="space-y-2">
-          <div
-            className="h-2 overflow-hidden rounded-full bg-muted"
-            role="progressbar"
-            aria-valuenow={percent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Share of the invoice paid"
-          >
-            <div
-              className="h-full animate-bar-grow rounded-full bg-stat-accent"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-          <p className="text-sm">
-            <span className="font-semibold tabular-nums">{percent}%</span>{" "}
-            <span className="text-muted-foreground">
-              paid · {formatCurrencyFull(invoice.paid)} of {formatCurrencyFull(invoice.amount)}
-            </span>
-          </p>
-        </div>
-
-        <div className="rounded-lg border px-3 py-2.5 text-sm">
-          {behind ? (
-            <>
-              <span className="text-muted-foreground">Due </span>
-              <span className="font-semibold tabular-nums">{formatDate(invoice.dueDate)}</span>
-            </>
-          ) : invoice.balance === 0 ? (
-            <span className="text-muted-foreground">The whole term is paid.</span>
-          ) : (
-            <>
-              <span className="text-muted-foreground">Rent covered until </span>
-              <span className="font-semibold tabular-nums">
-                {formatDate(coverage.coveredUntil)}
-              </span>
-            </>
-          )}
         </div>
 
         {invoice.pendingClaims.length > 0 && (
