@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthHeader } from "@/components/auth/auth-header";
 import { VerifyEmailForm } from "@/components/auth/verify-email-form";
 import { needsEmailVerification } from "@/lib/auth/email-verification";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 
 /**
  * The one signed-in page outside the app shell. It deliberately sits in the
@@ -13,7 +13,7 @@ import { getCurrentUser } from "@/lib/auth/session";
  */
 export default async function VerifyEmailPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
 
   // Nothing to do here — already confirmed, or never required. Sending them on
   // rather than showing a code box for a gate that isn't holding them.
