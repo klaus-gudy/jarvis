@@ -35,10 +35,15 @@ const STATUS_DOT: Record<LeaseStatus, string> = {
   Renewed: "bg-sky-500",
 };
 
+/** Tabs a link may open on, e.g. the dashboard's "Confirm payment" → billing. */
+const TABS = ["overview", "billing", "contract", "documents"] as const;
+
 export default async function LeaseDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   await requireStaffPage("lease:read");
   const user = await getCurrentUser();
@@ -46,6 +51,8 @@ export default async function LeaseDetailPage({
   if (!user.activeOrgId) redirect("/leases");
 
   const { id } = await params;
+  const requestedTab = (await searchParams).tab;
+  const initialTab = TABS.find((tab) => tab === requestedTab) ?? "overview";
   const [lease, invoice, documents, documentAssetTypes] = await Promise.all([
     getLease(user.activeOrgId, id),
     getInvoiceForLease(user.activeOrgId, id),
@@ -125,7 +132,7 @@ export default async function LeaseDetailPage({
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={initialTab}>
         <TabsList variant="line" className="w-full justify-start border-b">
           <TabsTrigger value="overview" className="flex-none px-3">
             Overview
