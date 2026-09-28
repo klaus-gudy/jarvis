@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 /**
  * One lease in the My lease grid — the same card shape as a property on the
  * landlord's Properties page: icon and status on top, name and place, a bar,
- * then the figures under a rule. The whole card opens the lease.
+ * then a one-line footer with the term, rate and total. The whole card opens the lease.
  */
 export function LeaseListCard({ lease }: { lease: PortalLease }) {
   const progress = leaseProgress(lease)
@@ -79,31 +79,18 @@ export function LeaseListCard({ lease }: { lease: PortalLease }) {
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-3 border-t px-4 py-3">
-          <div className="flex items-end gap-5">
-            <div>
-              <p className="font-mono text-base font-semibold tabular-nums">
-                {formatCurrencyFull(lease.monthlyRent)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                a month · {plural(lease.durationMonths, "month")}
-              </p>
-            </div>
-            {lease.invoice && (
-              <div>
-                <p
-                  className={cn(
-                    "font-mono text-base font-semibold tabular-nums",
-                    lease.invoice.coverage.amountBehind > 0 && "text-stat-accent"
-                  )}
-                >
-                  {formatCurrencyFull(lease.invoice.balance)}
-                </p>
-                <p className="text-xs text-muted-foreground">Balance</p>
-              </div>
-            )}
-          </div>
-          <ChevronRightIcon className="mb-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        {/* One small line: the term at its rate, and what that comes to. The
+            balance lives on the invoice, not here. */}
+        <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-xs">
+          <p className="min-w-0 truncate text-muted-foreground tabular-nums">
+            {plural(lease.durationMonths, "month")} @ {formatCurrencyFull(lease.monthlyRent)}
+            <span className="mx-1.5">·</span>
+            Total{" "}
+            <span className="font-medium text-foreground">
+              {formatCurrencyFull(lease.leaseAmount)}
+            </span>
+          </p>
+          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         </div>
       </Link>
     </Card>
