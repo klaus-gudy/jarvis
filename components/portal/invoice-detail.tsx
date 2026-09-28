@@ -31,7 +31,7 @@ export function InvoiceHeaderCard({ lease }: { lease: Invoiced }) {
             </h2>
             <InvoiceStatusPill status={lease.invoice.status} />
           </div>
-          <p className="truncate text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground sm:truncate">
             Rent for {lease.propertyName} · Unit {lease.unitLabel} · Lease {lease.reference}
           </p>
         </div>
