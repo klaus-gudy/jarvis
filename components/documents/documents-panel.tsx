@@ -236,7 +236,7 @@ export function DocumentsPanel({
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <FileIcon className="size-4 shrink-0" />
-                  <span className="truncate text-sm italic">Not uploaded</span>
+                  <span className="truncate pr-0.5 text-sm italic">Not uploaded</span>
                 </div>
                 <Badge variant="outline" className="font-normal">
                   {type.label}
@@ -357,7 +357,7 @@ export function DocumentsPanel({
                     <TableCell className="font-medium">
                       <span className="flex max-w-[22rem] items-center gap-2 text-muted-foreground">
                         <FileIcon className="size-4 shrink-0" />
-                        <span className="italic">Not uploaded</span>
+                        <span className="pr-0.5 italic">Not uploaded</span>
                       </span>
                     </TableCell>
                     <TableCell>
