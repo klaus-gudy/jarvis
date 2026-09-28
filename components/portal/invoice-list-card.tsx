@@ -11,8 +11,8 @@ type Invoiced = PortalLease & { invoice: NonNullable<PortalLease["invoice"]> }
 
 /**
  * One invoice in the Payments grid — the same shape as `LeaseListCard`: icon
- * and status, what it is for, a bar (paid against the total), then the money
- * under a rule. The whole card opens the invoice.
+ * and status, what it is for, a bar (paid against the total), then a one-line
+ * footer with the balance and where it leaves the tenant. The whole card opens the invoice.
  */
 export function InvoiceListCard({ lease }: { lease: Invoiced }) {
   const { invoice } = lease
@@ -40,10 +40,7 @@ export function InvoiceListCard({ lease }: { lease: Invoiced }) {
             </h3>
             <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <CalendarIcon className="size-3.5 shrink-0" aria-hidden />
-              <span className="truncate">
-                Lease {lease.reference} · {plural(lease.durationMonths, "month")} from{" "}
-                {formatDate(lease.startDate)}
-              </span>
+              <span className="truncate">Due {formatDate(invoice.dueDate)}</span>
             </p>
           </div>
 
@@ -70,33 +67,26 @@ export function InvoiceListCard({ lease }: { lease: Invoiced }) {
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-3 border-t px-4 py-3">
-          <div className="flex items-end gap-5">
-            <div>
-              <p
-                className={cn(
-                  "font-mono text-base font-semibold tabular-nums",
-                  behind && "text-stat-accent"
-                )}
-              >
-                {formatCurrencyFull(invoice.balance)}
-              </p>
-              <p className="text-xs text-muted-foreground">Balance</p>
-            </div>
-            <div>
-              <p className="font-mono text-base font-semibold tabular-nums">
-                {behind
-                  ? plural(invoice.coverage.monthsBehind, "month")
-                  : invoice.balance === 0
-                    ? "Settled"
-                    : formatDate(invoice.coverage.coveredUntil)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {behind ? "Behind" : invoice.balance === 0 ? "Whole term" : "Covered until"}
-              </p>
-            </div>
-          </div>
-          <ChevronRightIcon className="mb-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        {/* One small line, like the lease card: what is left, and where that
+            leaves the tenant — behind, covered until, or settled. */}
+        <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-xs">
+          <p className="min-w-0 truncate text-muted-foreground tabular-nums">
+            Balance{" "}
+            <span className={cn("font-medium text-foreground", behind && "text-stat-accent")}>
+              {formatCurrencyFull(invoice.balance)}
+            </span>
+            <span className="mx-1.5">·</span>
+            {behind ? (
+              <span className="text-stat-accent">
+                {plural(invoice.coverage.monthsBehind, "month")} behind
+              </span>
+            ) : invoice.balance === 0 ? (
+              "Settled"
+            ) : (
+              `Covered until ${formatDate(invoice.coverage.coveredUntil)}`
+            )}
+          </p>
+          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         </div>
       </Link>
     </Card>
