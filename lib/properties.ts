@@ -169,6 +169,9 @@ export async function getProperty(organizationId: string, propertyId: string) {
       photos: unit.fileAssets,
       isOccupied: lease !== null,
       tenantName: lease?.membership.user.name ?? lease?.membership.user.email ?? null,
+      // For links from the unit to its tenant and its lease.
+      tenantMembershipId: lease?.membershipId ?? null,
+      leaseId: lease?.id ?? null,
       leaseStart: lease?.startDate ?? null,
       leaseEnd: lease?.endDate ?? null,
     };
