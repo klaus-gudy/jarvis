@@ -117,10 +117,12 @@ export function PaymentsTable({
     <div className="space-y-4">
       {/* Totals live on the dashboard's Payments card, not here — this page is
           the ledger. */}
-      <div className="flex justify-end gap-2">
+      {/* Equal shares of the row on a phone (one button fills it alone); a right-aligned row from `sm`. */}
+      <div className="grid auto-cols-fr grid-flow-col gap-2 sm:flex sm:justify-end">
         <ExportButton
           url="/api/payments/export"
           label="Export payments"
+          shortLabel="Export"
           filenameFallback="payments.xlsx"
           getIds={() =>
             viewRef.current?.visibleRows()?.map((p) => p.id) ?? null
