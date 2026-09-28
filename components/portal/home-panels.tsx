@@ -32,7 +32,6 @@ export function BillsPanel({ leases, className }: { leases: PortalLease[]; class
   const bills = leases.flatMap((lease) =>
     lease.invoice && lease.invoice.balance > 0 ? [{ lease, invoice: lease.invoice }] : []
   )
-  const total = bills.reduce((sum, b) => sum + b.invoice.balance, 0)
   const shown = [...bills]
     .sort((a, b) => b.invoice.coverage.amountBehind - a.invoice.coverage.amountBehind)
     .slice(0, MAX_BILLS)
@@ -40,7 +39,7 @@ export function BillsPanel({ leases, className }: { leases: PortalLease[]; class
   return (
     <DashboardPanel
       className={className}
-      title={total > 0 ? `Bills to pay · ${formatCurrencyFull(total)}` : "Bills to pay"}
+      title="Bills to pay"
       icon={ReceiptIcon}
       href="/portal/payments"
       linkLabel="Payments"
@@ -58,8 +57,8 @@ export function BillsPanel({ leases, className }: { leases: PortalLease[]; class
             title={`Rent · ${lease.propertyName} · ${lease.unitLabel}`}
             subtitle={
               behind
-                ? `${invoice.reference} · due ${formatDate(invoice.dueDate)}`
-                : `${invoice.reference} · next month due ${formatDate(coverage.coveredUntil)}`
+                ? `Due ${formatDate(invoice.dueDate)}`
+                : `Next due ${formatDate(coverage.coveredUntil)}`
             }
             trailing={formatCurrencyFull(invoice.balance)}
             trailingCaption={invoice.status}
