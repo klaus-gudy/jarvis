@@ -370,8 +370,9 @@ function ToolButton({
  * attribute order, quoting or a nested span the way a pattern can.
  */
 export function editorHtmlToBody(html: string) {
-  const holder = document.createElement("div");
-  holder.innerHTML = html;
+  // An inert document, not a detached <div>: markup parsed into the live
+  // document fetches images and fires their `onerror` even when detached.
+  const holder = new DOMParser().parseFromString(html, "text/html").body;
 
   for (const chip of holder.querySelectorAll(`[${VARIABLE_ATTR}]`)) {
     const key = chip.getAttribute(VARIABLE_ATTR);
