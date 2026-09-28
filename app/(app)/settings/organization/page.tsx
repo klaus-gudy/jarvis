@@ -12,7 +12,7 @@ import { ProfileCardHeader } from "@/components/profile/profile-card-header";
 import { ProfileField } from "@/components/profile/profile-field";
 import { DeleteOrganizationCard } from "@/components/settings/delete-organization-card";
 import { Card, CardContent } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
 import { formatDate } from "@/lib/format";
 import { ORGANIZATION_SETTINGS_PERMISSIONS } from "@/lib/nav";
@@ -27,7 +27,7 @@ export const metadata = { title: "Organization" };
 export default async function OrganizationSettingsPage() {
   await requireStaffPage(ORGANIZATION_SETTINGS_PERMISSIONS);
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
 
   const held = user.activeMembership?.permissions ?? [];
   const { organization } = await getProfile(user.id, user.activeOrgId);
