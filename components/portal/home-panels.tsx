@@ -58,7 +58,7 @@ export function BillsPanel({ leases, className }: { leases: PortalLease[]; class
             title={`Rent · ${lease.propertyName} · ${lease.unitLabel}`}
             subtitle={
               behind
-                ? `${coverage.monthsBehind} month${coverage.monthsBehind === 1 ? "" : "s"} overdue · ${formatCurrencyFull(coverage.amountBehind)}`
+                ? `${invoice.reference} · due ${formatDate(invoice.dueDate)}`
                 : `${invoice.reference} · next month due ${formatDate(coverage.coveredUntil)}`
             }
             trailing={formatCurrencyFull(invoice.balance)}
