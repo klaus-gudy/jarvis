@@ -1,5 +1,17 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import { syncLeaseStatuses } from "@/lib/lease-lifecycle";
 import { runNotificationSweep } from "@/lib/notifications/sweep";
+
+/**
+ * Constant-time: `!==` stops at the first differing byte, which leaks the
+ * secret a prefix at a time to anyone patient enough to time it. Digests first
+ * so the two sides are always the same length, as `timingSafeEqual` requires.
+ */
+function bearerMatches(header: string | null, secret: string) {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(header ?? ""), digest(`Bearer ${secret}`));
+}
 
 /**
  * The scheduler this app has never had.
@@ -30,7 +42,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Not configured" }, { status: 503 });
   }
 
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!bearerMatches(request.headers.get("authorization"), secret)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
