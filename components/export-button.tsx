@@ -85,6 +85,7 @@ export function useExportDownload({
 export function ExportButton({
   url,
   label = "Export",
+  shortLabel,
   filenameFallback = "export.xlsx",
   size,
   className,
@@ -94,6 +95,8 @@ export function ExportButton({
   /** Hidden without it; the endpoint enforces the same one. */
   permission?: Permission;
   label?: string;
+  /** Shown instead of `label` below `sm`, where the toolbar is tight. */
+  shortLabel?: string;
   size?: React.ComponentProps<typeof Button>["size"];
   className?: string;
 }) {
@@ -111,7 +114,16 @@ export function ExportButton({
       disabled={downloading}
     >
       {downloading ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
-      {downloading ? "Preparing…" : label}
+      {downloading ? (
+        "Preparing…"
+      ) : shortLabel ? (
+        <>
+          <span className="sm:hidden">{shortLabel}</span>
+          <span className="hidden sm:inline">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </Button>
   );
 }
