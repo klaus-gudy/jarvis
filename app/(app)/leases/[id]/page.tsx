@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
-import { requireStaffPage } from "@/lib/authz";
+import { can, requireStaffPage } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
 import { listAssetTypes } from "@/lib/asset-types";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contracts";
@@ -45,7 +45,7 @@ export default async function LeaseDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
 }) {
-  await requireStaffPage("lease:read");
+  const access = await requireStaffPage("lease:read");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.activeOrgId) redirect("/leases");
@@ -89,6 +89,14 @@ export default async function LeaseDetailPage({
   );
 
   const { tenant, unit, property } = lease;
+  // Link only where the destination would open: the member page needs
+  // `tenant:read`, the property page `property:read` — otherwise it's a 404
+  // or a redirect, and plain text is the honest rendering.
+  const tenantHref =
+    access && can(access, "tenant:read") ? `/members/${tenant.membershipId}` : null;
+  const propertyHref =
+    access && can(access, "property:read") ? `/properties/${property.id}` : null;
+  const linkClass = "text-primary hover:underline";
 
   return (
     <div className="space-y-6">
@@ -126,7 +134,23 @@ export default async function LeaseDetailPage({
               </span>
             </div>
             <p className="truncate text-sm text-muted-foreground">
-              {tenant.name} · {property.name} · {unit.label}
+              {tenantHref ? (
+                <Link href={tenantHref} className="hover:text-foreground hover:underline">
+                  {tenant.name}
+                </Link>
+              ) : (
+                tenant.name
+              )}{" "}
+              ·{" "}
+              {propertyHref ? (
+                <Link href={propertyHref} className="hover:text-foreground hover:underline">
+                  {property.name} · {unit.label}
+                </Link>
+              ) : (
+                <>
+                  {property.name} · {unit.label}
+                </>
+              )}
             </p>
           </div>
         </CardContent>
@@ -197,12 +221,13 @@ export default async function LeaseDetailPage({
                   <DetailRow
                     label="Tenant name"
                     value={
-                      <Link
-                        href="/tenants"
-                        className="text-primary hover:underline"
-                      >
-                        {tenant.name}
-                      </Link>
+                      tenantHref ? (
+                        <Link href={tenantHref} className={linkClass}>
+                          {tenant.name}
+                        </Link>
+                      ) : (
+                        tenant.name
+                      )
                     }
                   />
                   <DetailRow label="Phone" value={orDash(tenant.phone)} />
@@ -220,15 +245,29 @@ export default async function LeaseDetailPage({
                   <DetailRow
                     label="Property"
                     value={
-                      <Link
-                        href={`/properties/${property.id}`}
-                        className="text-primary hover:underline"
-                      >
-                        {property.name}
-                      </Link>
+                      propertyHref ? (
+                        <Link href={propertyHref} className={linkClass}>
+                          {property.name}
+                        </Link>
+                      ) : (
+                        property.name
+                      )
                     }
                   />
-                  <DetailRow label="Unit" value={unit.label} />
+                  {/* Units have no page of their own; they live in the
+                      property's Units table. */}
+                  <DetailRow
+                    label="Unit"
+                    value={
+                      propertyHref ? (
+                        <Link href={propertyHref} className={linkClass}>
+                          {unit.label}
+                        </Link>
+                      ) : (
+                        unit.label
+                      )
+                    }
+                  />
                   <DetailRow label="Area" value={orDash(property.address)} />
                   <DetailRow label="Type" value={orDash(unit.unitType)} />
                   <DetailRow label="Floor" value={orDash(unit.floor)} />
