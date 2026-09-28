@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { hashPassword } from "@/lib/auth/hash";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AuthContext } from "@/lib/authz";
 import { parsePermissions } from "@/lib/permissions";
@@ -149,11 +150,29 @@ export async function getInvitationByToken(token: string) {
 
 /**
  * Accepting is the only way a tenant gains sign-in access: it attaches a
- * password to a new or existing user and creates the membership.
+ * password to a new or passwordless user and creates the membership.
+ *
+ * **An account that already exists is never taken over from here.** The
+ * inviter chooses the phone on an invitation, and the acceptor can type an
+ * email when it has none, so "the invitation names this person" proves
+ * nothing about who is holding the link. Matching an existing user used to
+ * rewrite their details and sign the link-holder in *as them* — anyone could
+ * register an organization, invite a stranger's phone number and walk into
+ * their account. So:
+ *
+ * - an existing user joins only while **signed in as themselves**
+ *   (`signedInUserId`), and nothing on their account is changed but the new
+ *   membership;
+ * - the one exception is the passwordless member *of this organization*
+ *   (onboarded by staff), whose activation is what the invitation is for —
+ *   and only when the invitation itself named them, never an identifier the
+ *   acceptor typed.
  */
 export async function acceptInvitation(
   token: string,
-  input: { name: string; password: string; email?: string; phone?: string }
+  input:
+    | { signedInUserId: string }
+    | { name: string; password: string; email?: string; phone?: string }
 ) {
   const invitation = await prisma.invitation.findUnique({
     where: { tokenHash: hashToken(token) },
@@ -174,39 +193,23 @@ export async function acceptInvitation(
   }
   if (invitation.expiresAt < new Date()) return { error: "expired" as const };
 
-  // Prefer the identifiers the inviter recorded; fall back to what the
-  // recipient supplies so an invite with neither still works.
-  const email = invitation.email ?? input.email ?? null;
-  const phone = invitation.phone ?? input.phone ?? null;
-  if (!email && !phone) return { error: "missing-identifier" as const };
-
-  /**
-   * Does accepting prove control of this address?
-   *
-   * **Only when the invitation itself carried the email.** That is the whole
-   * argument: the link was delivered *to* that inbox, and clicking it is
-   * evidence only the holder of that inbox could produce. An invitation
-   * recorded with a phone and no email, where the invitee types an address on
-   * the accept form, proves nothing — nothing was ever sent there, and
-   * stamping it verified would be recording a check that never happened.
-   *
-   * Compared case-insensitively because `createInvitationSchema` lowercases on
-   * the way in while `input.email` comes off a public form that does not.
-   */
-  const emailWasInvited =
-    Boolean(invitation.email) &&
-    invitation.email!.trim().toLowerCase() ===
-      (email ?? "").trim().toLowerCase();
-  const verifiedAt = emailWasInvited ? new Date() : null;
-
-  const passwordHash = await hashPassword(input.password);
-
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      OR: [...(email ? [{ email }] : []), ...(phone ? [{ phone }] : [])],
-    },
-    select: { id: true, passwordHash: true },
-  });
+  // Only what the inviter recorded identifies an existing account. What the
+  // acceptor types is used for a *new* account and nothing else.
+  const invitedIdentifiers = [
+    ...(invitation.email ? [{ email: invitation.email }] : []),
+    ...(invitation.phone ? [{ phone: invitation.phone }] : []),
+  ];
+  const matches = invitedIdentifiers.length
+    ? await prisma.user.findMany({
+        where: { OR: invitedIdentifiers },
+        select: { id: true, passwordHash: true },
+        take: 2,
+      })
+    : [];
+  // The invited email and phone belong to two different people: there is no
+  // right answer to pick, so refuse rather than guess.
+  if (matches.length > 1) return { error: "identifier-conflict" as const };
+  const existingUser = matches[0] ?? null;
 
   const alreadyMember = existingUser
     ? await prisma.membership.findUnique({
@@ -220,112 +223,83 @@ export async function acceptInvitation(
       })
     : null;
 
-  if (existingUser && alreadyMember) {
-    // Someone onboarded by staff already has a membership but no password.
-    // Inviting them is how they gain sign-in, so set the password rather than
-    // refusing. If they can already sign in, the invite is redundant.
-    if (existingUser.passwordHash) {
-      await prisma.invitation.update({
-        where: { id: invitation.id },
-        data: { status: "ACCEPTED", acceptedAt: new Date() },
-      });
-      return { error: "already-member" as const };
-    }
-
-    /*
-     * **The invited role is applied here, and it used not to be.** This branch
-     * set a password and nothing else, so inviting an existing Tenant as an
-     * Owner produced an email, an accepted invitation, and a membership still
-     * reading "Tenant" — the role on the invitation was silently discarded.
-     * The other branch (`membership.create` below) had always honoured it, so
-     * the same invitation meant two different things depending on whether the
-     * person happened to have a membership already.
-     *
-     * It is applied on *acceptance*, not when the invite is created: until
-     * someone accepts, nothing has been agreed, and granting Owner to a pending
-     * invitation would hand out the role before anyone clicked anything.
-     */
-    const wouldDemoteLastOwner =
-      alreadyMember.role.kind === "OWNER" &&
-      invitation.role.kind !== "OWNER" &&
-      (await prisma.membership.count({
-        where: {
-          organizationId: invitation.organizationId,
-          role: { kind: "OWNER" as const },
-        },
-      })) <= 1;
-
-    if (wouldDemoteLastOwner) {
-      // Refused, but the acceptance carries on: the person clicked a link to
-      // gain sign-in, and blocking that over a role they did not choose would
-      // punish the wrong party. An organization with no Owner at all is the
-      // one outcome worth protecting against — same rule `removeMember`
-      // enforces, for the same reason.
-      console.warn(
-        `[invitations] keeping ${alreadyMember.role.name} on membership ${alreadyMember.id}: ` +
-          `moving it to ${invitation.role.name} would leave the organization with no owner`
-      );
-    }
-
-    const activated = await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: existingUser.id },
-        data: {
-          name: input.name,
-          passwordHash,
-          ...(email ? { email } : {}),
-          ...(phone ? { phone } : {}),
-          // Clicking a link delivered to this address is the proof. Only
-          // stamped when the invitation carried the address — see above.
-          ...(verifiedAt ? { emailVerifiedAt: verifiedAt } : {}),
-        },
-      });
-
-      if (alreadyMember.roleId !== invitation.roleId && !wouldDemoteLastOwner) {
-        await tx.membership.update({
-          where: { id: alreadyMember.id },
-          data: { roleId: invitation.roleId },
-        });
-      }
-
-      await tx.invitation.update({
-        where: { id: invitation.id },
-        data: { status: "ACCEPTED", acceptedAt: new Date() },
-      });
-      return {
-        userId: existingUser.id,
-        organizationId: invitation.organizationId,
-      };
+  const markAccepted = (tx: Prisma.TransactionClient) =>
+    tx.invitation.update({
+      where: { id: invitation.id },
+      data: { status: "ACCEPTED", acceptedAt: new Date() },
     });
 
-    return { accepted: activated };
+  // --- Signed in: join as yourself, or not at all. ---
+  if ("signedInUserId" in input) {
+    if (!existingUser || existingUser.id !== input.signedInUserId) {
+      return { error: "wrong-account" as const };
+    }
+    if (alreadyMember) {
+      await markAccepted(prisma);
+      return { error: "already-member" as const };
+    }
+    const joined = await prisma.$transaction(async (tx) => {
+      await tx.membership.create({
+        data: {
+          userId: existingUser.id,
+          organizationId: invitation.organizationId,
+          roleId: invitation.roleId,
+        },
+      });
+      await markAccepted(tx);
+      return { userId: existingUser.id, organizationId: invitation.organizationId };
+    });
+    return { accepted: joined };
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const user = existingUser
-      ? await tx.user.update({
-          where: { id: existingUser.id },
-          data: {
-            name: input.name,
-            // Don't overwrite a working password on an existing account.
-            ...(existingUser.passwordHash ? {} : { passwordHash }),
-            ...(email ? { email } : {}),
-            ...(phone ? { phone } : {}),
-            ...(verifiedAt ? { emailVerifiedAt: verifiedAt } : {}),
+  // --- Signed out: a new account, or activating a passwordless member. ---
+  if (existingUser && !alreadyMember) {
+    // Somebody else's account. Only they can attach it, by signing in.
+    return {
+      error: existingUser.passwordHash
+        ? ("sign-in-required" as const)
+        : ("account-exists" as const),
+    };
+  }
+
+  if (existingUser && alreadyMember) {
+    if (existingUser.passwordHash) {
+      await markAccepted(prisma);
+      return { error: "already-member" as const };
+    }
+    return activatePasswordlessMember(invitation, existingUser.id, alreadyMember, input);
+  }
+
+  // A brand-new account. The identifiers the invitation left blank may come
+  // from the acceptor, but never ones that already belong to someone.
+  const email = invitation.email ?? input.email ?? null;
+  const phone = invitation.phone ?? input.phone ?? null;
+  if (!email && !phone) return { error: "missing-identifier" as const };
+
+  const typedClash =
+    (input.email && !invitation.email) || (input.phone && !invitation.phone)
+      ? await prisma.user.findFirst({
+          where: {
+            OR: [
+              ...(input.email && !invitation.email ? [{ email: input.email }] : []),
+              ...(input.phone && !invitation.phone ? [{ phone: input.phone }] : []),
+            ],
           },
           select: { id: true },
         })
-      : await tx.user.create({
-          data: {
-            name: input.name,
-            email,
-            phone,
-            passwordHash,
-            emailVerifiedAt: verifiedAt,
-          },
-          select: { id: true },
-        });
+      : null;
+  if (typedClash) return { error: "sign-in-required" as const };
 
+  const passwordHash = await hashPassword(input.password);
+  // Verified only when the invitation carried the address: clicking a link
+  // delivered there is the proof. A typed address proves nothing.
+  const verifiedAt = invitation.email ? new Date() : null;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { name: input.name, email, phone, passwordHash, emailVerifiedAt: verifiedAt },
+      select: { id: true },
+    });
     await tx.membership.create({
       data: {
         userId: user.id,
@@ -333,14 +307,80 @@ export async function acceptInvitation(
         roleId: invitation.roleId,
       },
     });
+    await markAccepted(tx);
+    return { userId: user.id, organizationId: invitation.organizationId };
+  });
+
+  return { accepted: result };
+}
+
+/**
+ * Someone onboarded by staff already has a membership here but no password.
+ * The invitation named them (see `acceptInvitation`), so setting the password
+ * is exactly what it is for.
+ *
+ * **The invited role is applied here**, on acceptance and never on creation:
+ * until someone accepts nothing has been agreed. A change that would leave the
+ * organization with no Owner is refused, but the activation still completes —
+ * the person clicked a link to gain sign-in, and blocking that over a role
+ * they did not choose would punish the wrong party.
+ */
+async function activatePasswordlessMember(
+  invitation: {
+    id: string;
+    email: string | null;
+    roleId: string;
+    role: { name: string; kind: string };
+    organizationId: string;
+  },
+  userId: string,
+  membership: { id: string; roleId: string; role: { name: string; kind: string } },
+  input: { name: string; password: string }
+) {
+  const wouldDemoteLastOwner =
+    membership.role.kind === "OWNER" &&
+    invitation.role.kind !== "OWNER" &&
+    (await prisma.membership.count({
+      where: {
+        organizationId: invitation.organizationId,
+        role: { kind: "OWNER" as const },
+      },
+    })) <= 1;
+
+  if (wouldDemoteLastOwner) {
+    console.warn(
+      `[invitations] keeping ${membership.role.name} on membership ${membership.id}: ` +
+        `moving it to ${invitation.role.name} would leave the organization with no owner`
+    );
+  }
+
+  const passwordHash = await hashPassword(input.password);
+
+  const activated = await prisma.$transaction(async (tx) => {
+    // Sign-in identifiers are left as the landlord recorded them — the
+    // acceptor proves nothing about any other address.
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        name: input.name,
+        passwordHash,
+        ...(invitation.email ? { emailVerifiedAt: new Date() } : {}),
+      },
+    });
+
+    if (membership.roleId !== invitation.roleId && !wouldDemoteLastOwner) {
+      await tx.membership.update({
+        where: { id: membership.id },
+        data: { roleId: invitation.roleId },
+      });
+    }
 
     await tx.invitation.update({
       where: { id: invitation.id },
       data: { status: "ACCEPTED", acceptedAt: new Date() },
     });
-
-    return { userId: user.id, organizationId: invitation.organizationId };
+    return { userId, organizationId: invitation.organizationId };
   });
 
-  return { accepted: result };
+  return { accepted: activated };
 }
