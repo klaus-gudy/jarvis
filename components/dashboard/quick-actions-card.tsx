@@ -25,12 +25,19 @@ export type QuickAction = {
  * `needed`, the everyday shortcuts are hidden so the list stays short; they
  * come back once nothing is waiting. Callers offer only actions that can work.
  */
-export function QuickActionsCard({ actions }: { actions: QuickAction[] }) {
+export function QuickActionsCard({
+  actions,
+  className,
+}: {
+  actions: QuickAction[]
+  /** e.g. `flex-1`, so the card fills a column rather than hugging its rows. */
+  className?: string
+}) {
   const urgent = actions.filter((action) => action.needed)
   const shown = urgent.length > 0 ? urgent : actions
 
   return (
-    <Card className="gap-0 p-0 shadow-sm">
+    <Card className={cn("gap-0 p-0 shadow-sm", className)}>
       <div className="flex items-center gap-2 border-b px-5 py-3.5">
         <ZapIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <h3 className="text-sm font-semibold">Quick actions</h3>
