@@ -41,7 +41,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { tokensToChips, usedPlaceholders } from "@/lib/lease-placeholders";
+import {
+  sanitizeTemplateHtml,
+  tokensToChips,
+  usedPlaceholders,
+} from "@/lib/lease-placeholders";
 import {
   languageLabel,
   type LeaseTemplateLanguage,
@@ -101,7 +105,7 @@ export function LeaseTemplateForm({
    * what it reads on mount, not a value pushed on every keystroke.
    */
   const initialEditorHtml = React.useMemo(
-    () => tokensToChips(template?.body ?? starterBody(details.language)),
+    () => tokensToChips(sanitizeTemplateHtml(template?.body ?? starterBody(details.language))),
     // Deliberately empty: reseeding on a body change would fight the caret.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
