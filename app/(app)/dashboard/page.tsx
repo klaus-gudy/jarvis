@@ -18,7 +18,7 @@ import {
   RenewalsPanel,
   VacantUnitsPanel,
 } from "@/components/dashboard/panels"
-import { getCurrentUser } from "@/lib/auth/session"
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session"
 import { requireStaffPage } from "@/lib/authz"
 import { getDashboardStats, getDashboardPanels } from "@/lib/dashboard"
 import { getDashboardAttention } from "@/lib/dashboard-actions"
@@ -35,7 +35,7 @@ function greeting(hour: number) {
 export default async function DashboardPage() {
   const ctx = await requireStaffPage("dashboard:read")
   const user = await getCurrentUser()
-  if (!user) redirect("/login")
+  if (!user) redirect(SESSION_EXPIRED_PATH)
 
   const orgId = user.activeOrgId ?? null
   const [stats, panels, properties, attention] = await Promise.all([
