@@ -4,7 +4,9 @@ import { authorizeMember, can } from "@/lib/authz";
 import { documentRequirement } from "@/lib/document-access";
 import { resolveAssetType } from "@/lib/asset-types";
 import {
+  ACCEPTED_FILE_TYPES,
   acceptedTypesFor,
+  bytesMatchType,
   labelForAcceptedTypes,
   MAX_FILE_BYTES,
 } from "@/lib/document-options";
@@ -74,7 +76,9 @@ export async function POST(request: Request) {
   // Cheap rejection before the body is buffered into memory. The header is a
   // claim, not a fact, so the real check is on the file below — but it costs
   // nothing and saves reading 200 MB to discover it was 200 MB.
-  const declaredSize = Number(request.headers.get("content-length") ?? 0);
+  // No header (a chunked body) counts as too large: without it the whole
+  // body would be buffered before any size check ran.
+  const declaredSize = Number(request.headers.get("content-length") ?? Infinity);
   if (declaredSize > MAX_FILE_BYTES) {
     return Response.json({ error: "That file is too large" }, { status: 413 });
   }
@@ -149,6 +153,12 @@ export async function POST(request: Request) {
   // `file.size` is what the client said; this is what actually arrived.
   if (bytes.byteLength > MAX_FILE_BYTES) {
     return Response.json({ error: "That file is too large" }, { status: 413 });
+  }
+  if (!bytesMatchType(bytes, file.type)) {
+    return Response.json(
+      { error: `That file's contents don't match its type (${ACCEPTED_FILE_TYPES[file.type].label})` },
+      { status: 415 }
+    );
   }
 
   try {
