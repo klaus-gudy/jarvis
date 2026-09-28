@@ -27,7 +27,38 @@ const PUBLIC_PAGES = ["/invite", "/opengraph-image", "/payment-complete"];
 
 const APP_HOME = "/dashboard";
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Cross-site request forgery, defence in depth. The session cookie is
+ * `SameSite=Lax`, which already keeps it off cross-site POSTs; this refuses any
+ * state-changing API call whose `Origin` names another site, so the guarantee
+ * doesn't rest on one cookie attribute (or on every browser honouring it).
+ * No `Origin` at all is let through: that is a server-to-server caller — the
+ * snippe webhook, the cron — which carries no cookie to ride on anyway.
+ */
+function crossSiteMutation(request: NextRequest) {
+  if (SAFE_METHODS.has(request.method)) return false;
+  const origin = request.headers.get("origin");
+  if (origin === null) return false;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return true; // "null" (a sandboxed frame) or garbage
+  }
+  const hosts = [request.headers.get("x-forwarded-host"), request.headers.get("host")];
+  return !hosts.some((host) => host && host.split(",")[0]!.trim() === originHost);
+}
+
 export async function proxy(request: NextRequest) {
+  // API routes enforce auth themselves; the proxy only screens their origin.
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return crossSiteMutation(request)
+      ? Response.json({ error: "Cross-site request refused" }, { status: 403 })
+      : NextResponse.next();
+  }
+
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySessionToken(token) : null;
   const { pathname } = request.nextUrl;
@@ -57,7 +88,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except API routes (they enforce auth themselves), Next
-  // internals, and static files with an extension.
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
+  // Pages: everything except Next internals and static files with an
+  // extension. API routes: only for the origin screen above.
+  matcher: ["/((?!api|_next|.*\\..*).*)", "/api/:path*"],
 };
