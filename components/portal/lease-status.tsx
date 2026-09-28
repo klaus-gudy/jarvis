@@ -19,21 +19,14 @@ const STATUS_DOT: Record<LeaseStatus, string> = {
   Renewed: "bg-sky-500",
 }
 
-/** Just the coloured dot, for a compact cell whose status is spelled out on hover. */
-export function LeaseStatusDot({ status, className }: { status: LeaseStatus; className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status], className)}
-    />
-  )
-}
-
 export function LeaseStatusPill({
   status,
+  dot = true,
   className,
 }: {
   status: LeaseStatus
+  /** The leading coloured dot; off where a plain label reads cleaner. */
+  dot?: boolean
   className?: string
 }) {
   return (
@@ -44,7 +37,7 @@ export function LeaseStatusPill({
         className
       )}
     >
-      <span aria-hidden className={cn("size-1.5 rounded-full", STATUS_DOT[status])} />
+      {dot && <span aria-hidden className={cn("size-1.5 rounded-full", STATUS_DOT[status])} />}
       {status}
     </span>
   )
