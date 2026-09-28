@@ -1,6 +1,4 @@
-import Link from "next/link"
 import {
-  ChevronRightIcon,
   FileTextIcon,
   FolderOpenIcon,
   KeyRoundIcon,
@@ -8,16 +6,11 @@ import {
   ReceiptIcon,
   UserRoundPenIcon,
   WalletIcon,
-  ZapIcon,
   type LucideIcon,
 } from "lucide-react"
 
 import { DashboardPanel, PanelRow } from "@/components/dashboard/panel"
-import {
-  PortalDocumentViewer,
-  type PortalViewableDocument,
-} from "@/components/portal/portal-document-viewer"
-import { Card } from "@/components/ui/card"
+import { QuickActionsCard, type QuickAction } from "@/components/dashboard/quick-actions-card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLease, PortalMember } from "@/lib/portal"
 import { cn } from "@/lib/utils"
@@ -112,22 +105,11 @@ function RowIcon({ icon: Icon, urgent = false }: { icon: LucideIcon; urgent?: bo
   )
 }
 
-type QuickAction = {
-  label: string
-  caption: string
-  icon: LucideIcon
-  /** An in-app page — or, with `document`, nothing: the row opens the viewer. */
-  href?: string
-  document?: PortalViewableDocument
-  /** Something the tenant should do now — sorted first and marked. */
-  needed?: boolean
-}
-
 /**
- * What needs doing now — and only that. The everyday shortcuts (payment
- * history, contract, documents, password) appear only when nothing is urgent,
- * so the list stays short. Only actions that can work are offered: no "View
- * contract" without one. Call / WhatsApp the landlord were dropped on purpose.
+ * The tenant's quick actions, drawn by the shared `QuickActionsCard` (urgent
+ * only while anything is urgent). Everyday shortcuts: payment history,
+ * contract, documents, password. Call / WhatsApp the landlord were dropped on
+ * purpose.
  */
 export function QuickActions({
   member,
@@ -192,55 +174,5 @@ export function QuickActions({
     }
   )
 
-  const urgent = actions.filter((action) => action.needed)
-  const sorted = urgent.length > 0 ? urgent : actions
-
-  return (
-    <Card className="gap-0 p-0 shadow-sm">
-      <div className="flex items-center gap-2 border-b px-5 py-3.5">
-        <ZapIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <h3 className="text-sm font-semibold">Quick actions</h3>
-      </div>
-      <div className="flex flex-col gap-2 p-3">
-        {sorted.map((action) => {
-          const className = cn(
-            "group flex min-w-0 items-center gap-3 rounded-lg border px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring",
-            action.needed && "border-stat-accent/50 bg-stat-accent/5"
-          )
-          const body = (
-            <>
-              <RowIcon icon={action.icon} urgent={action.needed} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{action.label}</p>
-                <p className="truncate text-xs text-muted-foreground">{action.caption}</p>
-              </div>
-              {action.needed ? (
-                <span className="shrink-0 rounded-full bg-stat-accent px-2 py-0.5 text-[10px] font-semibold text-stat-foreground">
-                  To do
-                </span>
-              ) : (
-                <ChevronRightIcon
-                  className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                  aria-hidden
-                />
-              )}
-            </>
-          )
-          return action.document ? (
-            <PortalDocumentViewer
-              key={action.label}
-              document={action.document}
-              className={cn(className, "text-left")}
-            >
-              {body}
-            </PortalDocumentViewer>
-          ) : (
-            <Link key={action.label} href={action.href ?? "/portal"} className={className}>
-              {body}
-            </Link>
-          )
-        })}
-      </div>
-    </Card>
-  )
+  return <QuickActionsCard actions={actions} />
 }
