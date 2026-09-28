@@ -1,3 +1,5 @@
+import { normalizeTzPhone } from "@/lib/phone";
+
 /**
  * A small fixed-window rate limiter for the endpoints worth brute-forcing.
  *
@@ -59,18 +61,38 @@ export function rateLimit(
 }
 
 /**
- * Best-effort client address. Behind Railway's proxy the real address is the
- * first entry of `x-forwarded-for`; locally there is no such header and every
- * caller collapses to one bucket, which is fine for a dev machine.
+ * Best-effort client address, read from the **right** of `x-forwarded-for`.
  *
- * Spoofable in principle — anyone can send `x-forwarded-for` — but the hosting
- * proxy overwrites it, and a limiter keyed on a spoofable value still costs an
- * attacker something. The per-account key below is the part that doesn't move.
+ * A proxy appends the address it saw, so the rightmost entries are written by
+ * infrastructure and everything to their left by the client. Taking the first
+ * entry — as this used to — let anyone send their own `x-forwarded-for` and get
+ * a fresh per-IP budget with every request. `TRUSTED_PROXY_HOPS` is how many
+ * proxies sit in front of the app (1 on Railway); the entry that many places
+ * from the end is the one the outermost trusted proxy recorded. Locally there
+ * is no header and every caller collapses to one bucket, which is fine.
  */
 export function clientIp(request: Request) {
+  const hops = Math.max(1, Number(process.env.TRUSTED_PROXY_HOPS) || 1);
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim();
+  if (forwarded) {
+    const chain = forwarded.split(",").map((entry) => entry.trim()).filter(Boolean);
+    const ip = chain[Math.max(0, chain.length - hops)];
+    if (ip) return ip;
+  }
   return request.headers.get("x-real-ip") ?? "unknown";
+}
+
+/**
+ * The per-account limiter key for an identifier as typed.
+ *
+ * Normalised the same way the account lookup is, or the budget is per
+ * *spelling*: `0712 345 678`, `0712-345678` and `+255712345678` are one phone
+ * and must be one bucket, not an unlimited supply of fresh ones.
+ */
+export function identifierKey(identifier: string) {
+  const trimmed = identifier.trim().toLowerCase();
+  if (trimmed.includes("@")) return trimmed;
+  return normalizeTzPhone(trimmed) ?? trimmed;
 }
 
 /** The 429 every limited route returns, so they can't describe it differently. */
