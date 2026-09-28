@@ -3,14 +3,14 @@ import { WalletIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { PaymentsTable } from "@/components/payments/payments-table";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
 import { getPayableInvoices, getPayments } from "@/lib/payments";
 
 export default async function PaymentsPage() {
   await requireStaffPage("payment:read");
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
 
   if (!user.activeOrgId) {
     return (
