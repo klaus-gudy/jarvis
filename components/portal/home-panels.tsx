@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
  * Everything unpaid, one row per invoice (a lease has exactly one). Ended
  * leases stay listed while money is owed on them.
  */
-export function BillsPanel({ leases }: { leases: PortalLease[] }) {
+export function BillsPanel({ leases, className }: { leases: PortalLease[]; className?: string }) {
   const bills = leases.flatMap((lease) =>
     lease.invoice && lease.invoice.balance > 0 ? [{ lease, invoice: lease.invoice }] : []
   )
@@ -32,6 +32,7 @@ export function BillsPanel({ leases }: { leases: PortalLease[] }) {
 
   return (
     <DashboardPanel
+      className={className}
       title={total > 0 ? `Bills to pay · ${formatCurrencyFull(total)}` : "Bills to pay"}
       icon={ReceiptIcon}
       href="/portal/payments"
@@ -63,7 +64,13 @@ export function BillsPanel({ leases }: { leases: PortalLease[] }) {
   )
 }
 
-export function RecentPaymentsPanel({ leases }: { leases: PortalLease[] }) {
+export function RecentPaymentsPanel({
+  leases,
+  className,
+}: {
+  leases: PortalLease[]
+  className?: string
+}) {
   const payments = leases
     .flatMap((lease) =>
       (lease.invoice?.payments ?? []).map((payment) => ({ payment, lease }))
@@ -73,6 +80,7 @@ export function RecentPaymentsPanel({ leases }: { leases: PortalLease[] }) {
 
   return (
     <DashboardPanel
+      className={className}
       title="Recent payments"
       icon={WalletIcon}
       href="/portal/payments"
@@ -115,11 +123,13 @@ export function QuickActions({
   member,
   lease,
   leases,
+  className,
 }: {
   member: PortalMember
   /** The current lease, for its contract. */
   lease: PortalLease | null
   leases: PortalLease[]
+  className?: string
 }) {
   const owing = leases.some((l) => (l.invoice?.balance ?? 0) > 0)
   const profileIncomplete =
@@ -174,5 +184,5 @@ export function QuickActions({
     }
   )
 
-  return <QuickActionsCard actions={actions} />
+  return <QuickActionsCard actions={actions} className={className} />
 }
