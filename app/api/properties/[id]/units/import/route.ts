@@ -29,7 +29,9 @@ export async function POST(
   }
 
   // Cheap rejection before the body is buffered into memory.
-  const declaredSize = Number(request.headers.get("content-length") ?? 0);
+  // No header (a chunked body) counts as too large: without it the whole
+  // body would be buffered before any size check ran.
+  const declaredSize = Number(request.headers.get("content-length") ?? Infinity);
   if (declaredSize > MAX_IMPORT_BYTES) {
     return Response.json({ error: "That file is too large" }, { status: 413 });
   }
