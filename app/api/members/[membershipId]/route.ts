@@ -2,8 +2,16 @@ import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/authz";
 import { authorizeMemberTarget } from "@/lib/member-access";
-import { changeMemberRole, removeMember, updateMember } from "@/lib/members";
+import {
+  changeMemberRole,
+  checkIdentifierEdit,
+  removeMember,
+  updateMember,
+} from "@/lib/members";
 import { updateMemberSchema } from "@/lib/members-schemas";
+
+const SELF_MANAGED =
+  "This person manages their own sign-in details, so their phone and email can't be changed here.";
 
 /**
  * Serves the Users and Tenants pages and the profile editor — a tenant is just
@@ -37,7 +45,20 @@ export async function PATCH(
   if (!access.ok) return access.response;
 
   const { roleId, ...details } = parsed.data;
-  // The role change goes first: it is the guarded part, and a refusal must
+
+  // Checked before anything is written, so a refused identifier edit can't
+  // leave a role change behind it.
+  const identifiers = await checkIdentifierEdit(
+    auth.context.organizationId,
+    membershipId,
+    auth.context.userId,
+    details
+  );
+  if ("error" in identifiers && identifiers.error === "self-managed") {
+    return Response.json({ error: SELF_MANAGED, reason: "self-managed" }, { status: 409 });
+  }
+
+  // The role change goes next: it is the guarded part, and a refusal must
   // leave nothing half-saved.
   if (roleId) {
     const changed = await changeMemberRole(auth.context, access.target, roleId);
@@ -57,11 +78,15 @@ export async function PATCH(
   const result = await updateMember(
     auth.context.organizationId,
     membershipId,
+    auth.context.userId,
     details
   );
 
   if (result.error === "not-found") {
     return Response.json({ error: "Member not found" }, { status: 404 });
+  }
+  if (result.error === "self-managed") {
+    return Response.json({ error: SELF_MANAGED, reason: "self-managed" }, { status: 409 });
   }
   if (result.error === "duplicate") {
     return Response.json(
