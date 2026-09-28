@@ -13,6 +13,7 @@
     "studio:prod:confirm": "dotenv -e .env.production -- prisma studio --port 5599",
     "backfill:contracts": "tsx worker/backfill-contracts.ts",
     "templates:add-signatures": "tsx worker/add-signature-placeholders.ts",
+    "templates:sanitize": "tsx worker/sanitize-templates.ts",
     "check:authz": "node scripts/check-route-authz.mjs"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
     "input-otp": "^1.4.2",
+    "isomorphic-dompurify": "^4.4.0",
     "jose": "^6.2.7",
     "lucide-react": "^1.28.0",
     "motion": "^13.1.0",
