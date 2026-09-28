@@ -8,11 +8,10 @@ import {
   PencilIcon,
   PlusIcon,
   Trash2Icon,
-  UploadIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { ExportButton } from "@/components/export-button";
+import { ImportExportActions } from "@/components/import-export-actions";
 import { ImportDialog } from "@/components/import-dialog";
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
 import { MemberEditDialog } from "@/components/member-edit-dialog";
@@ -148,25 +147,17 @@ export function TenantsTable({
   return (
     <div className="space-y-3">
       <div className="flex justify-end gap-2">
-        <ExportButton
-          url="/api/tenants/export"
-          label="Export tenants"
+        <ImportExportActions
+          exportUrl="/api/tenants/export"
+          exportLabel="Export tenants"
           filenameFallback="tenants.xlsx"
           getIds={() =>
             viewRef.current?.visibleRows()?.map((t) => t.membershipId) ?? null
           }
+          importLabel="Import tenants"
+          onImport={() => setImportOpen(true)}
+          canImport={canWrite}
         />
-        {/* bg-card, not the variant's bg-background, which is the page colour. */}
-        <Button
-          disabled={!canWrite}
-          title={canWrite ? undefined : "Your role doesn't allow this"}
-          variant="outline"
-          className="bg-card"
-          onClick={() => setImportOpen(true)}
-        >
-          <UploadIcon />
-          Import tenants
-        </Button>
         <Button
           disabled={!canWrite}
           title={canWrite ? undefined : "Your role doesn't allow this"} data-tour="add-tenant" onClick={() => setFormOpen(true)}>
