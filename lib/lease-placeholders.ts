@@ -1,3 +1,5 @@
+import DOMPurify from "isomorphic-dompurify";
+
 import { CURRENCY, formatDate, formatMoneyFull } from "@/lib/format";
 
 /**
@@ -422,32 +424,31 @@ export function escapeHtml(value: string) {
  * A template body is HTML written by a member of the organization, so it is
  * trusted about as far as any CMS trusts its authors — which is to say it is
  * still stripped before anyone else's browser sees it. A tenant reading their
- * own contract should not be running a manager's script.
+ * own contract should not be running a manager's script, and an Owner opening
+ * the editor should not be running a staff member's.
  *
- * This is an allowlist over markup, not a parser, so it is the second line of
- * defence rather than the only one: every surface that renders a body puts it
- * in a `sandbox`ed iframe, where scripts do not run at all. The two together
- * are the guarantee; neither alone is.
+ * A real parser (DOMPurify), not patterns: the regex allowlist this replaced
+ * missed `<img/src=x/onerror=…>` (no whitespace before the handler) and
+ * entity-encoded `javascript:` URLs, and the editor put its output straight
+ * into the app's own DOM. Sanitised on write, on render and before the editor
+ * seeds itself; the sandboxed preview iframe remains the second line.
  */
-const FORBIDDEN_ELEMENTS =
-  /<\s*(script|iframe|object|embed|applet|link|meta|base|form|input|button|textarea|select)\b[\s\S]*?(<\s*\/\s*\1\s*>|>)/gi;
-const DANGLING_FORBIDDEN_CLOSERS =
-  /<\s*\/\s*(script|iframe|object|embed|applet|link|meta|base|form|input|button|textarea|select)\s*>/gi;
-/** `onclick=…`, quoted or bare. */
-const EVENT_HANDLERS = /\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
-/** `href="javascript:…"`, and the `data:text/html` trick that behaves like it. */
-const SCRIPT_URLS =
-  /\s(href|src|xlink:href|action|formaction)\s*=\s*(?:"\s*(?:javascript|vbscript|data)\s*:[^"]*"|'\s*(?:javascript|vbscript|data)\s*:[^']*'|(?:javascript|vbscript|data)\s*:[^\s>]*)/gi;
+const FORBIDDEN_TAGS = [
+  "script", "iframe", "object", "embed", "applet", "link", "meta", "base",
+  "form", "input", "button", "textarea", "select", "svg", "math", "template",
+];
 /** CSS that reaches outside the document, in a `style` attribute or a `<style>` block. */
 const CSS_ESCAPES = /(@import|expression\s*\(|javascript\s*:|behavior\s*:)/gi;
 
 export function sanitizeTemplateHtml(html: string) {
-  return html
-    .replace(FORBIDDEN_ELEMENTS, "")
-    .replace(DANGLING_FORBIDDEN_CLOSERS, "")
-    .replace(EVENT_HANDLERS, "")
-    .replace(SCRIPT_URLS, "")
-    .replace(CSS_ESCAPES, "");
+  const clean = DOMPurify.sanitize(html, {
+    FORBID_TAGS: FORBIDDEN_TAGS,
+    // The key an editor chip carries (chips are rebuilt after sanitising).
+    ADD_ATTR: [VARIABLE_ATTR],
+    // Signatures are inlined PNGs and nothing else reaches a contract.
+    ALLOWED_URI_REGEXP: /^(?:data:image\/png;base64,|https?:|mailto:|tel:|#)/i,
+  });
+  return clean.replace(CSS_ESCAPES, "");
 }
 
 export type RenderedTemplate = {
