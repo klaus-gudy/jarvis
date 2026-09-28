@@ -89,6 +89,13 @@ model User {
   emailVerificationRequired Boolean @default(false)
 
   /**
+   * Carried in the session JWT as `sv`; a token whose `sv` differs is dead.
+   * Bumped on a password change or reset, which is how a 7-day cookie that
+   * has been stolen stops working without waiting for it to expire.
+   */
+  sessionVersion Int @default(0)
+
+  /**
    * Guided tours this person has finished or dismissed, and the
    * `TOURS_VERSION` the list was recorded against.
    * On `User` rather than `Membership`: which tours somebody has already sat
