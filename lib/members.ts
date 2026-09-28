@@ -92,24 +92,71 @@ export async function removeMember(
 }
 
 /**
+ * Whether an edit may change the sign-in identifiers (phone, email) of the
+ * User behind a membership.
+ *
+ * Users are global: the same account can be a tenant here and an Owner
+ * elsewhere, and its email is where password-reset codes go. Letting staff of
+ * one organization rewrite it would let them reset the password and walk into
+ * every other organization that person belongs to. So identifiers are editable
+ * only by the person themselves, or by staff when the record is theirs alone —
+ * a passwordless account (assisted onboarding) that belongs to no other
+ * organization. Anything else is "self-managed" and keeps its identifiers.
+ */
+export async function checkIdentifierEdit(
+  organizationId: string,
+  membershipId: string,
+  actorUserId: string,
+  input: Pick<UpdateMemberInput, "phone" | "email">
+) {
+  const membership = await prisma.membership.findFirst({
+    where: { id: membershipId, organizationId },
+    select: {
+      user: {
+        select: {
+          id: true,
+          phone: true,
+          email: true,
+          passwordHash: true,
+          memberships: { select: { organizationId: true } },
+        },
+      },
+    },
+  });
+  if (!membership) return { error: "not-found" as const };
+
+  const { user } = membership;
+  const changing =
+    (user.phone ?? null) !== (input.phone ?? null) ||
+    (user.email ?? null) !== (input.email ?? null);
+  if (!changing || user.id === actorUserId) return { ok: true as const, user };
+
+  const landlordManaged =
+    !user.passwordHash &&
+    user.memberships.every((m) => m.organizationId === organizationId);
+  return landlordManaged
+    ? { ok: true as const, user }
+    : { error: "self-managed" as const };
+}
+
+/**
  * Updates the User behind a membership. phone/email are globally unique, so a
  * clash with another account is reported as a conflict rather than surfacing a
- * raw constraint error.
+ * raw constraint error. Identifier changes go through `checkIdentifierEdit`.
  */
 export async function updateMember(
   organizationId: string,
   membershipId: string,
+  actorUserId: string,
   input: UpdateMemberInput
 ) {
-  const membership = await prisma.membership.findFirst({
-    where: { id: membershipId, organizationId },
-    select: { id: true, userId: true },
-  });
-  if (!membership) return { error: "not-found" as const };
+  const allowed = await checkIdentifierEdit(organizationId, membershipId, actorUserId, input);
+  if ("error" in allowed) return allowed;
+  const { user } = allowed;
 
   const clash = await prisma.user.findFirst({
     where: {
-      id: { not: membership.userId },
+      id: { not: user.id },
       OR: [
         { phone: input.phone },
         ...(input.email ? [{ email: input.email }] : []),
@@ -124,13 +171,16 @@ export async function updateMember(
     };
   }
 
+  const email = input.email ?? null;
   await prisma.user.update({
-    where: { id: membership.userId },
+    where: { id: user.id },
     data: {
       name: input.name,
       phone: input.phone,
       // Clearing the field stores null rather than an empty string.
-      email: input.email ?? null,
+      email,
+      // A new address has proved nothing yet.
+      ...(email !== user.email ? { emailVerifiedAt: null } : {}),
     },
   });
 
