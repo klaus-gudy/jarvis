@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { PasswordInput } from "@/components/auth/password-input";
@@ -23,6 +24,7 @@ export function AcceptInviteForm({
   presetName,
   presetEmail,
   presetPhone,
+  signedInAs,
 }: {
   token: string;
   organizationName: string;
@@ -30,12 +32,15 @@ export function AcceptInviteForm({
   presetName: string | null;
   presetEmail: string | null;
   presetPhone: string | null;
+  /** Set when a session exists: the form becomes a single "join" button. */
+  signedInAs?: string;
 }) {
   const router = useRouter();
   const [name, setName] = React.useState(presetName ?? "");
   const [password, setPassword] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [needsSignIn, setNeedsSignIn] = React.useState(false);
 
   const contact = presetPhone ?? presetEmail;
 
@@ -47,7 +52,9 @@ export function AcceptInviteForm({
     const response = await fetch("/api/invitations/accept", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, name, password }),
+      body: JSON.stringify(
+        signedInAs ? { token, asSignedIn: true } : { token, name, password }
+      ),
     });
 
     if (response.ok) {
@@ -58,6 +65,7 @@ export function AcceptInviteForm({
     }
 
     const data = await response.json().catch(() => null);
+    setNeedsSignIn(data?.reason === "sign-in-required");
     setError(
       data?.issues?.password?.[0] ??
         data?.issues?.name?.[0] ??
@@ -65,6 +73,43 @@ export function AcceptInviteForm({
         "Something went wrong"
     );
     setPending(false);
+  }
+
+  const errorBlock = error && (
+    <FieldError>
+      {error}
+      {needsSignIn && (
+        <>
+          {" "}
+          <Link
+            href={`/login?next=${encodeURIComponent(`/invite/${token}`)}`}
+            className="underline underline-offset-4"
+          >
+            Sign in
+          </Link>
+        </>
+      )}
+    </FieldError>
+  );
+
+  if (signedInAs) {
+    return (
+      <form onSubmit={handleSubmit}>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="accept-account">Joining as</FieldLabel>
+            <Input id="accept-account" value={signedInAs} readOnly disabled />
+            <FieldDescription>
+              The invitation must match this account&apos;s email or phone.
+            </FieldDescription>
+          </Field>
+          {errorBlock}
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Joining…" : "Accept invitation"}
+          </Button>
+        </FieldGroup>
+      </form>
+    );
   }
 
   return (
@@ -105,7 +150,7 @@ export function AcceptInviteForm({
           <FieldDescription>At least 8 characters.</FieldDescription>
         </Field>
 
-        {error && <FieldError>{error}</FieldError>}
+        {errorBlock}
 
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Setting up…" : "Accept invitation"}
