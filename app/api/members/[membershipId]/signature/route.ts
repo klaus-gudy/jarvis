@@ -110,7 +110,9 @@ export async function PUT(request: Request, ctx: Context) {
   if (!own.ok) return own.response;
 
   // Cheap early refusal; the real check is on the bytes below.
-  const declared = Number(request.headers.get("content-length") ?? 0);
+  // No header (a chunked body) counts as too large: without it the whole
+  // body would be buffered before any size check ran.
+  const declared = Number(request.headers.get("content-length") ?? Infinity);
   if (declared > SIGNATURE_MAX_BYTES + 64 * 1024) {
     return Response.json({ error: "Signature image is too large" }, { status: 413 });
   }
