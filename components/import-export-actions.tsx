@@ -1,12 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  ArrowDownUpIcon,
-  DownloadIcon,
-  Loader2Icon,
-  UploadIcon,
-} from "lucide-react";
+import { DownloadIcon, UploadIcon } from "lucide-react";
 
 import { ExportButton, useExportDownload } from "@/components/export-button";
 import { useCan } from "@/components/permissions-provider";
@@ -20,9 +15,9 @@ import {
 
 /**
  * Export and Import for a table toolbar. From `sm` up they are two buttons, as
- * before; on a phone they fold into one "Import / Export" menu, so the
- * toolbar is two controls (this and the page's Add button) and nothing
- * overlaps at 375px.
+ * before; on a phone they fold into one text-only "Import / Export" menu, so
+ * the toolbar is two equal controls (this and the page's Add button) and
+ * nothing overlaps at 375px.
  *
  * The switch is CSS, not `useIsMobile`, so the server and the first client
  * render agree and nothing flashes on hydration.
@@ -79,12 +74,7 @@ export function ImportExportActions({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button variant="outline" className="bg-card" disabled={downloading}>
-                {downloading ? (
-                  <Loader2Icon className="animate-spin" />
-                ) : (
-                  <ArrowDownUpIcon />
-                )}
+              <Button variant="outline" className="w-full bg-card" disabled={downloading}>
                 {downloading ? "Preparing…" : "Import / Export"}
               </Button>
             }
