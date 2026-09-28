@@ -11,7 +11,7 @@ import { LeaseTermsCard } from "@/components/leases/lease-terms-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
 import { listAssetTypes } from "@/lib/asset-types";
@@ -47,7 +47,7 @@ export default async function LeaseDetailPage({
 }) {
   const access = await requireStaffPage("lease:read");
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
   if (!user.activeOrgId) redirect("/leases");
 
   const { id } = await params;
