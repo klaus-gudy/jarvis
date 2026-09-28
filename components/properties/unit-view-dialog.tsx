@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { CheckIcon, ImagePlusIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
+import { useCan } from "@/components/permissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +33,9 @@ export function UnitViewDialog({
   /** Hands the unit back so the table can open the picker for it. */
   onAddPhotos: (unit: UnitRow) => void;
 }) {
+  const canReadTenants = useCan("tenant:read");
+  const canReadLeases = useCan("lease:read");
+
   return (
     <Dialog open={unit !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-lg">
@@ -120,7 +125,36 @@ export function UnitViewDialog({
                   value={unit.autoRenew ? "On" : "Off"}
                 />
                 <DetailRow label="Status" value={unit.status} />
-                <DetailRow label="Tenant" value={orDash(unit.tenantName)} />
+                <DetailRow
+                  label="Tenant"
+                  value={
+                    // A link only where it can open: the member page needs
+                    // `tenant:read`, the lease page `lease:read`.
+                    unit.tenantName && unit.tenantMembershipId && canReadTenants ? (
+                      <Link
+                        href={`/members/${unit.tenantMembershipId}`}
+                        className="text-primary hover:underline"
+                      >
+                        {unit.tenantName}
+                      </Link>
+                    ) : (
+                      orDash(unit.tenantName)
+                    )
+                  }
+                />
+                {unit.leaseId && canReadLeases && (
+                  <DetailRow
+                    label="Current lease"
+                    value={
+                      <Link
+                        href={`/leases/${unit.leaseId}`}
+                        className="text-primary hover:underline"
+                      >
+                        View lease
+                      </Link>
+                    }
+                  />
+                )}
               </dl>
             </div>
 
