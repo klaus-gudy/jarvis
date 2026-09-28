@@ -2,11 +2,11 @@ import { after } from "next/server";
 
 import { sendAccountLockedEmail } from "@/lib/mail/auth";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, verifyPassword } from "@/lib/auth/hash";
+import { hashPassword, needsRehash, verifyPassword } from "@/lib/auth/hash";
 import { loginSchema } from "@/lib/auth/schemas";
 import { createSession } from "@/lib/auth/session";
 import { normalizeTzPhone } from "@/lib/phone";
-import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { clientIp, identifierKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /** Generous enough for someone genuinely mistyping, useless for guessing. */
 const PER_IP = { limit: 10, windowMs: 60_000 };
@@ -48,13 +48,10 @@ export async function POST(request: Request) {
 
   const { identifier, password } = parsed.data;
 
-  // Keyed on the identifier as typed, lowercased — close enough to "the
-  // account being targeted" without a lookup, and a miss just means the
-  // attacker is spreading across spellings, which is slower for them anyway.
-  const byAccount = rateLimit(
-    `login:id:${identifier.trim().toLowerCase()}`,
-    PER_ACCOUNT
-  );
+  // Keyed on the normalised identifier, so every spelling of one phone
+  // number shares one budget.
+  const accountKey = identifierKey(identifier);
+  const byAccount = rateLimit(`login:id:${accountKey}`, PER_ACCOUNT);
 
   const isEmail = identifier.includes("@");
   // Stored phones are always the normalized 10-digit local form, so a phone
@@ -65,7 +62,7 @@ export async function POST(request: Request) {
 
   if (!byAccount.ok) {
     const noticeAllowed = rateLimit(
-      `lockout-notice:${identifier.trim().toLowerCase()}`,
+      `lockout-notice:${accountKey}`,
       LOCKOUT_NOTICE
     );
 
@@ -126,6 +123,17 @@ export async function POST(request: Request) {
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
     return Response.json({ error: "Invalid credentials" }, { status: 401 });
+  }
+
+  // Upgrade an older, cheaper hash while the plaintext is at hand. After the
+  // response: the caller shouldn't wait on a second bcrypt.
+  if (needsRehash(user.passwordHash)) {
+    after(async () => {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: await hashPassword(password) },
+      });
+    });
   }
 
   const activeMembership = user.memberships[0] ?? null;
