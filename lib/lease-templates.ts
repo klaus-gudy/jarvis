@@ -2,6 +2,7 @@ import { leaseReference } from "@/lib/leases";
 import {
   renderLeaseTemplate,
   placeholderValues,
+  sanitizeTemplateHtml,
   usedPlaceholders,
   type LeaseContractContext,
   type RenderedTemplate,
@@ -151,7 +152,8 @@ export async function createLeaseTemplate(
         name: input.name,
         description: input.description,
         language: input.language,
-        body: input.body,
+        // Stored clean, so no reader has to remember to sanitise it.
+        body: sanitizeTemplateHtml(input.body),
         isDefault,
       },
       select: ROW_SELECT,
@@ -201,7 +203,8 @@ export async function updateLeaseTemplate(
         name: input.name,
         description: input.description,
         language: input.language,
-        body: input.body,
+        // Stored clean, so no reader has to remember to sanitise it.
+        body: sanitizeTemplateHtml(input.body),
         isDefault,
       },
       select: ROW_SELECT,
