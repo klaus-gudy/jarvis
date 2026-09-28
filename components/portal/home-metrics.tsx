@@ -5,10 +5,6 @@ import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates"
 import { formatCurrency, formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLandlord, PortalLease } from "@/lib/portal"
 
-function months(n: number) {
-  return `${n} month${n === 1 ? "" : "s"}`
-}
-
 /**
  * The first three cards of the tenant Home's top row, all about the current
  * lease — the fourth, how to pay, is interactive and lives in
@@ -37,7 +33,7 @@ export function OutstandingCard({ lease }: { lease: PortalLease | null }) {
   const { coverage } = invoice
   const footer =
     coverage.amountBehind > 0
-      ? `${months(coverage.monthsBehind)} behind · ${formatCurrencyFull(coverage.amountBehind)}`
+      ? `Due ${formatDate(invoice.dueDate)}`
       : invoice.balance === 0
         ? "The whole lease is paid"
         : `Rent covered until ${formatDate(coverage.coveredUntil)}`
