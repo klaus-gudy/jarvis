@@ -13,7 +13,7 @@ import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
@@ -50,7 +50,7 @@ export default async function MemberDetailPage({
 }) {
   const access = await requireStaffPage(["tenant:read", "member:read"]);
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
   if (!user.activeOrgId) redirect("/users");
 
   const { membershipId } = await params;
