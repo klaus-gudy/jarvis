@@ -32,6 +32,15 @@ export async function POST(request: Request) {
   }
 
   const result = await createTenant(auth.context.organizationId, parsed.data);
+  if (result.error === "account-exists") {
+    return Response.json(
+      {
+        error:
+          "This phone or email already belongs to an account. Invite them from the Users page instead — they'll accept it themselves.",
+      },
+      { status: 409 }
+    );
+  }
   if (result.error === "already-member") {
     return Response.json(
       { error: "Someone with this phone or email is already in this organization" },
