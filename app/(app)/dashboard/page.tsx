@@ -8,6 +8,7 @@ import {
   WalletIcon,
 } from "lucide-react"
 
+import { LandlordQuickActions } from "@/components/dashboard/landlord-quick-actions"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import {
   ActivityPanel,
@@ -20,6 +21,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/session"
 import { requireStaffPage } from "@/lib/authz"
 import { getDashboardStats, getDashboardPanels } from "@/lib/dashboard"
+import { getDashboardAttention } from "@/lib/dashboard-actions"
 import { formatCurrency, formatCurrencyFull } from "@/lib/format"
 import { getProperties } from "@/lib/properties"
 
@@ -31,15 +33,16 @@ function greeting(hour: number) {
 }
 
 export default async function DashboardPage() {
-  await requireStaffPage("dashboard:read")
+  const ctx = await requireStaffPage("dashboard:read")
   const user = await getCurrentUser()
   if (!user) redirect("/login")
 
   const orgId = user.activeOrgId ?? null
-  const [stats, panels, properties] = await Promise.all([
+  const [stats, panels, properties, attention] = await Promise.all([
     getDashboardStats(orgId),
     getDashboardPanels(orgId),
     orgId ? getProperties(orgId) : Promise.resolve([]),
+    ctx ? getDashboardAttention(ctx) : Promise.resolve(null),
   ])
 
   // Worst first: the point of the breakdown is to find what drags the average.
@@ -183,6 +186,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {/* First, so whatever is waiting on this person is the first panel read. */}
+        {attention && ctx && (
+          <LandlordQuickActions attention={attention} permissions={ctx.permissions} />
+        )}
         <RenewalsPanel renewals={panels.renewals} />
         <OccupancyPanel properties={byOccupancy} />
         {/* <VacantUnitsPanel units={panels.vacantUnits} /> */}
