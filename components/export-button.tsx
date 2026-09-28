@@ -18,28 +18,24 @@ import { cn } from "@/lib/utils";
  * POSTed and only those rows come back, in that order; `null` means the table
  * isn't narrowed and the plain GET exports everything.
  */
-export function ExportButton({
-  url,
-  label = "Export",
-  filenameFallback = "export.xlsx",
-  size,
-  className,
-  getIds,
-  permission = "export:run",
-}: {
+type ExportOptions = {
   url: string;
-  /** Hidden without it; the endpoint enforces the same one. */
-  permission?: Permission;
-  label?: string;
   filenameFallback?: string;
-  size?: React.ComponentProps<typeof Button>["size"];
-  className?: string;
   getIds?: () => string[] | null;
-}) {
-  const [downloading, setDownloading] = React.useState(false);
-  const allowed = useCan(permission);
+};
 
-  async function handleExport() {
+/**
+ * The download itself, apart from any button — so the same export can be
+ * started from `ExportButton` or from a menu item (`ImportExportActions`).
+ */
+export function useExportDownload({
+  url,
+  filenameFallback = "export.xlsx",
+  getIds,
+}: ExportOptions) {
+  const [downloading, setDownloading] = React.useState(false);
+
+  async function run() {
     const ids = getIds?.() ?? null;
     if (ids?.length === 0) {
       toast.error("No rows match the current filters");
@@ -83,6 +79,27 @@ export function ExportButton({
     }
   }
 
+  return { run, downloading };
+}
+
+export function ExportButton({
+  url,
+  label = "Export",
+  filenameFallback = "export.xlsx",
+  size,
+  className,
+  getIds,
+  permission = "export:run",
+}: ExportOptions & {
+  /** Hidden without it; the endpoint enforces the same one. */
+  permission?: Permission;
+  label?: string;
+  size?: React.ComponentProps<typeof Button>["size"];
+  className?: string;
+}) {
+  const allowed = useCan(permission);
+  const { run, downloading } = useExportDownload({ url, filenameFallback, getIds });
+
   if (!allowed) return null;
 
   return (
@@ -90,7 +107,7 @@ export function ExportButton({
       variant="outline"
       className={cn("bg-card", className)}
       size={size}
-      onClick={handleExport}
+      onClick={run}
       disabled={downloading}
     >
       {downloading ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
