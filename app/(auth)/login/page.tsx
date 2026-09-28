@@ -12,6 +12,16 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
+/**
+ * Where to land after signing in. Only an invitation link is honoured — it is
+ * the one flow that sends people here to come back — and only in its exact
+ * shape, so `?next=` can never become an open redirect.
+ */
+function nextPath() {
+  const next = new URLSearchParams(window.location.search).get("next")
+  return next && /^\/invite\/[A-Za-z0-9_-]+$/.test(next) ? next : "/"
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [remember, setRemember] = React.useState(true)
@@ -33,7 +43,7 @@ export default function LoginPage() {
     })
 
     if (response.ok) {
-      router.push("/")
+      router.push(nextPath())
       router.refresh()
       return
     }
