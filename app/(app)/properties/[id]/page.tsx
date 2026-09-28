@@ -253,6 +253,8 @@ export default async function PropertyDetailPage({
               amenities: unit.amenities,
               status: unit.isOccupied ? "Occupied" : "Vacant",
               tenantName: unit.tenantName,
+              tenantMembershipId: unit.tenantMembershipId,
+              leaseId: unit.leaseId,
               // Dates must be serialisable to cross the server/client boundary.
               leaseStart: unit.leaseStart ? unit.leaseStart.toISOString() : null,
               photos: unit.photos,
