@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { CalendarIcon, ChevronRightIcon, ReceiptIcon } from "lucide-react"
 
-import { InvoiceStatusPill, plural } from "@/components/portal/lease-status"
+import { InvoiceStatusPill } from "@/components/portal/lease-status"
 import { Card } from "@/components/ui/card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLease } from "@/lib/portal"
@@ -68,22 +68,22 @@ export function InvoiceListCard({ lease }: { lease: Invoiced }) {
         </div>
 
         {/* One small line, like the lease card: what is left, and where that
-            leaves the tenant — behind, covered until, or settled. */}
+            leaves the tenant — covered until, or settled. */}
         <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-xs">
           <p className="min-w-0 truncate text-muted-foreground tabular-nums">
             Balance{" "}
             <span className={cn("font-medium text-foreground", behind && "text-stat-accent")}>
               {formatCurrencyFull(invoice.balance)}
             </span>
-            <span className="mx-1.5">·</span>
-            {behind ? (
-              <span className="text-stat-accent">
-                {plural(invoice.coverage.monthsBehind, "month")} behind
-              </span>
-            ) : invoice.balance === 0 ? (
-              "Settled"
-            ) : (
-              `Covered until ${formatDate(invoice.coverage.coveredUntil)}`
+            {/* The due date is already the subtitle, so an unpaid invoice's
+                footer is just its balance. */}
+            {!behind && (
+              <>
+                <span className="mx-1.5">·</span>
+                {invoice.balance === 0
+                  ? "Settled"
+                  : `Covered until ${formatDate(invoice.coverage.coveredUntil)}`}
+              </>
             )}
           </p>
           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
