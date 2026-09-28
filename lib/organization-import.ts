@@ -4,7 +4,8 @@ import ExcelJS from "exceljs";
 import { parsePermissions, PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/role-constants";
-import { cellText } from "@/lib/xlsx-import";
+import { cellText, inflatesSafely } from "@/lib/xlsx-import";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { PropertyStatus, PropertyType } from "@/lib/generated/prisma/enums";
 
 /**
@@ -184,6 +185,9 @@ function dataRows(sheet: ExcelJS.Worksheet): { row: ExcelJS.Row; rowNumber: numb
 export async function parseOrganizationBackup(
   buffer: ArrayBuffer
 ): Promise<ParseBackupResult> {
+  if (!inflatesSafely(buffer)) {
+    return { ok: false, errors: ["That file isn't a readable .xlsx workbook, or it is far too large."] };
+  }
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(buffer);
@@ -472,9 +476,56 @@ export type ImportSummary = {
  * transaction: a restore that lands half its leases because a later payment
  * failed would be a worse state than refusing the whole file.
  */
+/**
+ * A backup row matched an account the restoring user has no authority over.
+ * Thrown inside the transaction so nothing from the restore is kept.
+ */
+export class ForeignAccountError extends Error {
+  constructor(readonly contact: string) {
+    super(`${contact} already has their own account`);
+  }
+}
+
+/**
+ * Whether a backup row may be attached to an existing User.
+ *
+ * A backup is a spreadsheet anyone holding `org:restore` can write, so an
+ * email or phone in it proves nothing. Reusing whatever account matched would
+ * let a crafted file pull a stranger into this organization — and hand their
+ * name and contact details to it. Only two accounts are fair game: the
+ * restoring user's own, and passwordless records (assisted onboarding) that
+ * live solely in organizations the restoring user owns — their own tenants,
+ * restored alongside them.
+ */
+async function mayReuseUser(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  actorUserId: string
+) {
+  if (userId === actorUserId) return true;
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: {
+      passwordHash: true,
+      memberships: { select: { organizationId: true } },
+    },
+  });
+  if (!user || user.passwordHash) return false;
+  const orgIds = [...new Set(user.memberships.map((m) => m.organizationId))];
+  const owned = await tx.membership.count({
+    where: {
+      userId: actorUserId,
+      organizationId: { in: orgIds },
+      role: { kind: "OWNER" },
+    },
+  });
+  return owned === orgIds.length;
+}
+
 export async function importOrganizationBackup(
   organizationId: string,
-  data: ParsedBackup
+  data: ParsedBackup,
+  { actorUserId }: { actorUserId: string }
 ): Promise<ImportSummary> {
   return prisma.$transaction(
     async (tx) => {
@@ -538,6 +589,11 @@ export async function importOrganizationBackup(
           },
           select: { id: true },
         });
+        if (existingUser && !(await mayReuseUser(tx, existingUser.id, actorUserId))) {
+          throw new ForeignAccountError(
+            membership.email ?? membership.phone ?? membership.name ?? "A member"
+          );
+        }
         const user =
           existingUser ??
           (await tx.user.create({
