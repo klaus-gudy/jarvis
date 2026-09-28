@@ -1,3 +1,5 @@
+import { inflateRawSync } from "node:zlib";
+
 import ExcelJS from "exceljs";
 import type { ZodType } from "zod";
 
@@ -15,6 +17,76 @@ const SHEET_REFERENCE = "Reference";
 export const MAX_IMPORT_ROWS = 500;
 /** A template is a few KB; anything approaching this is not one of ours. */
 export const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+
+/**
+ * The most an .xlsx may inflate to. A 500-row sheet is well under a megabyte
+ * of XML; 50 MB is generous. `MAX_IMPORT_BYTES` caps the upload, but an .xlsx
+ * is a zip, and 2 MB of zip can declare gigabytes — which exceljs would
+ * inflate in memory before a single row was read.
+ */
+export const MAX_INFLATED_BYTES = 50 * 1024 * 1024;
+
+/**
+ * How many bytes a zip really inflates to, found by inflating each entry with
+ * a hard output cap — the sizes a zip *declares* are written by whoever made
+ * it, so they are no defence against a crafted bomb. Stops at `limit`: `null`
+ * means over the limit, not a zip, or a compression method exceljs couldn't
+ * read anyway.
+ */
+export function inflatedZipSize(buffer: ArrayBuffer, limit = MAX_INFLATED_BYTES): number | null {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  // End-of-central-directory record: at least 22 bytes, comment up to 64 KB.
+  const floor = Math.max(0, buffer.byteLength - 22 - 0xffff);
+  let eocd = -1;
+  for (let i = buffer.byteLength - 22; i >= floor; i--) {
+    if (view.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) return null;
+
+  const entries = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  let total = 0;
+  try {
+    for (let n = 0; n < entries; n++) {
+      if (offset + 46 > buffer.byteLength) return null;
+      if (view.getUint32(offset, true) !== 0x02014b50) return null;
+      const method = view.getUint16(offset + 10, true);
+      const compressed = view.getUint32(offset + 20, true);
+      const local = view.getUint32(offset + 42, true);
+      if (local + 30 > buffer.byteLength || view.getUint32(local, true) !== 0x04034b50) {
+        return null;
+      }
+      const dataStart =
+        local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+      const data = bytes.subarray(dataStart, dataStart + compressed);
+
+      if (method === 0) total += data.byteLength;
+      else if (method === 8) {
+        // Throws a RangeError the moment output would pass what is left.
+        total += inflateRawSync(data, { maxOutputLength: Math.max(1, limit - total) }).byteLength;
+      } else return null;
+      if (total > limit) return null;
+
+      offset +=
+        46 +
+        view.getUint16(offset + 28, true) +
+        view.getUint16(offset + 30, true) +
+        view.getUint16(offset + 32, true);
+    }
+  } catch {
+    return null;
+  }
+  return total;
+}
+
+/** Whether a workbook is safe to hand to exceljs's in-memory loader. */
+export function inflatesSafely(buffer: ArrayBuffer) {
+  return inflatedZipSize(buffer) !== null;
+}
 
 export type ImportColumn<K extends string> = {
   key: K;
@@ -213,6 +285,9 @@ export async function parseWorkbook<K extends string, T>(
     schema: ZodType<T>;
   }
 ): Promise<ParseResult<T>> {
+  if (!inflatesSafely(buffer)) {
+    return { rows: [], fatal: "That file isn't a readable .xlsx workbook, or it is far too large." };
+  }
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(buffer);
