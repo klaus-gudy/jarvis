@@ -18,6 +18,7 @@ export function DashboardPanel({
   linkLabel = "View all",
   count,
   empty,
+  className,
   children,
 }: {
   title: string;
@@ -28,12 +29,19 @@ export function DashboardPanel({
   count?: number;
   /** Rendered instead of `children` when there is nothing to list. */
   empty: string;
+  /** e.g. `flex-1`, so a panel stacked in a column can fill it. */
+  className?: string;
   children?: React.ReactNode;
 }) {
   const isEmpty = React.Children.count(children) === 0;
 
   return (
-    <Card className="group/panel gap-0 p-0 shadow-sm transition-shadow hover:shadow-md">
+    <Card
+      className={cn(
+        "group/panel gap-0 p-0 shadow-sm transition-shadow hover:shadow-md",
+        className
+      )}
+    >
       <div className="flex items-center justify-between gap-3 border-b px-5 py-3.5">
         <div className="flex min-w-0 items-center gap-2">
           <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
