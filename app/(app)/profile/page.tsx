@@ -7,7 +7,7 @@ import { SignatureCard } from "@/components/members/signature-card";
 import { PersonalInfoCard } from "@/components/profile/personal-info-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { listAssetTypes } from "@/lib/asset-types";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { listDocuments } from "@/lib/documents";
 import { getProfile } from "@/lib/profile";
 import { displayName, primaryContact } from "@/lib/user-display";
@@ -16,7 +16,7 @@ export const metadata = { title: "Profile" };
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(SESSION_EXPIRED_PATH);
 
   const profile = await getProfile(user.id, user.activeOrgId);
   const { personal, organization, membershipId } = profile;
