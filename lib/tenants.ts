@@ -263,8 +263,12 @@ export async function updateMemberProfile(
  * not self-service, so the account exists for record-keeping and can only gain
  * sign-in access later through an invitation.
  *
- * A person may already exist as a User (e.g. a tenant of another org), so this
- * reuses the matching user rather than failing on the unique phone/email.
+ * A person who already has a User row is **never attached from here**. Users
+ * are global across organizations, and a phone number typed by staff proves
+ * nothing about consent: attaching the match would hand this organization
+ * someone else's name and email, and — before `updateMember` was guarded — the
+ * power to rewrite their sign-in address and reset their password. They join
+ * through an invitation they accept themselves.
  */
 export async function createTenant(
   organizationId: string,
@@ -288,23 +292,22 @@ export async function createTenant(
       select: { id: true },
     });
     if (alreadyMember) return { error: "already-member" as const };
+    return { error: "account-exists" as const };
   }
 
   const role = await ensureTenantRole(organizationId);
 
   const membership = await prisma.$transaction(async (tx) => {
-    const user = existingUser
-      ? existingUser
-      : await tx.user.create({
-          data: {
-            name: input.name,
-            phone: input.phone,
-            email: input.email ?? null,
-            // No password: this account cannot sign in until invited.
-            passwordHash: null,
-          },
-          select: { id: true },
-        });
+    const user = await tx.user.create({
+      data: {
+        name: input.name,
+        phone: input.phone,
+        email: input.email ?? null,
+        // No password: this account cannot sign in until invited.
+        passwordHash: null,
+      },
+      select: { id: true },
+    });
 
     return tx.membership.create({
       data: { userId: user.id, organizationId, roleId: role.id },
