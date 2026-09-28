@@ -10,7 +10,7 @@ import { TourProvider } from "@/components/tour/tour-provider"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { needsEmailVerification } from "@/lib/auth/email-verification"
 import { firstAllowedPath } from "@/lib/nav"
-import { getCurrentUser } from "@/lib/auth/session"
+import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session"
 import { getProfilePhotoIds } from "@/lib/documents"
 import { prisma } from "@/lib/prisma"
 import { getToursSeen } from "@/lib/tour-progress"
@@ -22,7 +22,7 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   const user = await getCurrentUser()
-  if (!user) redirect("/login")
+  if (!user) redirect(SESSION_EXPIRED_PATH)
 
   // Before anything is queried or rendered: a self-registered account that
   // hasn't proved its address gets no further than the verification screen.
