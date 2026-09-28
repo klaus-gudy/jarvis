@@ -1,7 +1,7 @@
 import { after } from "next/server";
 
 import { changePasswordSchema } from "@/lib/account-schemas";
-import { getCurrentUser } from "@/lib/auth/session";
+import { createSession, getCurrentUser, getSession } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/hash";
 import { sendPasswordChangedEmail } from "@/lib/mail/auth";
 import { prisma } from "@/lib/prisma";
@@ -59,10 +59,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // Every other session dies with the old password — a stolen cookie is the
+  // usual reason to change one.
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(parsed.data.newPassword) },
+    data: {
+      passwordHash: await hashPassword(parsed.data.newPassword),
+      sessionVersion: { increment: 1 },
+    },
   });
+
+  // …except this tab's: re-issued at the new version, keeping its org and its
+  // remember-me choice, so the change doesn't look like it failed.
+  const session = await getSession();
+  await createSession(user.id, user.activeOrgId, { persist: session?.persist ?? true });
 
   // A password change is the one account event worth telling someone about
   // even when they made it themselves — it is how an unauthorised change gets
@@ -75,9 +85,5 @@ export async function POST(request: Request) {
     })
   );
 
-  // The session cookie is deliberately left alone: signing the user out of the
-  // tab they just used would look like the change failed. Sessions elsewhere
-  // stay valid too — revoking them needs a token version on the JWT, which is
-  // a separate change.
   return Response.json({ ok: true });
 }
