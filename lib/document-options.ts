@@ -28,6 +28,30 @@ export const ACCEPTED_FILE_TYPES: FileTypeTable = {
   "image/webp": { extension: ".webp", label: "WebP" },
 };
 
+/**
+ * Whether the bytes really are the type the browser declared. `File.type` is
+ * whatever the client sent — the allowlist above only means something if the
+ * content agrees with it, since these files are served back from this origin.
+ */
+export function bytesMatchType(bytes: Uint8Array, mime: string) {
+  const starts = (...sig: number[]) => sig.every((b, i) => bytes[i] === b);
+  switch (mime) {
+    case "application/pdf":
+      return starts(0x25, 0x50, 0x44, 0x46, 0x2d); // %PDF-
+    case "image/png":
+      return starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+    case "image/jpeg":
+      return starts(0xff, 0xd8, 0xff);
+    case "image/webp":
+      return (
+        starts(0x52, 0x49, 0x46, 0x46) && // RIFF
+        bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50 // WEBP
+      );
+    default:
+      return false;
+  }
+}
+
 /** For a file input's `accept`. */
 export function extensionsOf(table: FileTypeTable) {
   return Object.values(table)
