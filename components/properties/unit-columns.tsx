@@ -25,6 +25,9 @@ export type UnitRow = {
   amenities: string[];
   status: "Occupied" | "Vacant";
   tenantName: string | null;
+  /** The current lease's tenant and the lease itself, for links; null when vacant. */
+  tenantMembershipId: string | null;
+  leaseId: string | null;
   leaseStart: string | null;
   /** Just enough to draw the strip in the View dialog: id is the URL, name is the alt text. */
   photos: { id: string; fileName: string }[];
