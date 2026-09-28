@@ -5,7 +5,7 @@ import { DownloadIcon, EyeIcon } from "lucide-react"
 
 import { DocumentIcon } from "@/components/documents/documents-panel"
 import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog"
-import { LeaseStatusDot, LeaseStatusPill } from "@/components/portal/lease-status"
+import { LeaseStatusPill } from "@/components/portal/lease-status"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -97,7 +97,7 @@ export function LeaseDocumentsTable({ rows }: { rows: LeaseDocumentRow[] }) {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <span className="truncate">{row.lease}</span>
-                  <LeaseStatusPill status={row.leaseStatus} />
+                  <LeaseStatusPill status={row.leaseStatus} dot={false} />
                 </div>
                 <p className="text-xs text-muted-foreground tabular-nums">{term(row)}</p>
               </button>
@@ -146,7 +146,7 @@ export function LeaseDocumentsTable({ rows }: { rows: LeaseDocumentRow[] }) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {/* The unit and a status dot; which property, the
+                      {/* Just the unit; which property, the
                           status in words, the dates and the length on hover —
                           the row stays one line tall. */}
                       <Tooltip>
@@ -154,15 +154,11 @@ export function LeaseDocumentsTable({ rows }: { rows: LeaseDocumentRow[] }) {
                           className="flex items-center gap-2 whitespace-nowrap underline decoration-dotted decoration-muted-foreground/50 underline-offset-4"
                           aria-label={`${row.lease}, ${row.leaseStatus}, ${term(row)}`}
                         >
-                          <LeaseStatusDot status={row.leaseStatus} />
                           {row.unit}
                         </TooltipTrigger>
                         <TooltipContent className="flex-col items-start gap-1 py-2">
                           <span className="font-medium">{row.lease}</span>
-                          <span className="flex items-center gap-1.5">
-                            <LeaseStatusDot status={row.leaseStatus} className="size-1.5" />
-                            {row.leaseStatus}
-                          </span>
+                          <span>{row.leaseStatus}</span>
                           <span className="tabular-nums opacity-80">{term(row)}</span>
                         </TooltipContent>
                       </Tooltip>
