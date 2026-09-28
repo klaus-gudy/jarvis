@@ -2,7 +2,7 @@ import Link from "next/link"
 import { FileTextIcon, ReceiptIcon } from "lucide-react"
 
 import { AddPaymentButton } from "@/components/portal/add-payment-button"
-import { InvoiceStatusPill, plural } from "@/components/portal/lease-status"
+import { InvoiceStatusPill } from "@/components/portal/lease-status"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
@@ -92,20 +92,11 @@ export function InvoiceBalanceCard({ lease }: { lease: Invoiced }) {
           </p>
         </div>
 
-        <div
-          className={cn(
-            "rounded-lg border px-3 py-2.5 text-sm",
-            behind && "border-stat-accent/40 bg-stat-accent/5"
-          )}
-        >
+        <div className="rounded-lg border px-3 py-2.5 text-sm">
           {behind ? (
             <>
-              <span className="font-semibold text-stat-accent">
-                {plural(coverage.monthsBehind, "month")} behind
-              </span>{" "}
-              <span className="text-muted-foreground">
-                · {formatCurrencyFull(coverage.amountBehind)} due now
-              </span>
+              <span className="text-muted-foreground">Due </span>
+              <span className="font-semibold tabular-nums">{formatDate(invoice.dueDate)}</span>
             </>
           ) : invoice.balance === 0 ? (
             <span className="text-muted-foreground">The whole term is paid.</span>
