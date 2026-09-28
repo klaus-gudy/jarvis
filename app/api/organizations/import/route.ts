@@ -1,6 +1,7 @@
 import { authorize } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import {
+  ForeignAccountError,
   importOrganizationBackup,
   parseOrganizationBackup,
 } from "@/lib/organization-import";
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  // No header (a chunked body) counts as too large: without it the whole
+  // body would be buffered before any size check ran.
+  const contentLength = Number(request.headers.get("content-length") ?? Infinity);
   if (contentLength > MAX_IMPORT_BYTES) {
     return Response.json({ error: "That file is too large." }, { status: 413 });
   }
@@ -57,10 +60,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const summary = await importOrganizationBackup(
-    auth.context.organizationId,
-    parsed.data
-  );
+  let summary;
+  try {
+    summary = await importOrganizationBackup(auth.context.organizationId, parsed.data, {
+      actorUserId: auth.context.userId,
+    });
+  } catch (cause) {
+    if (cause instanceof ForeignAccountError) {
+      return Response.json(
+        {
+          error: "This file couldn't be restored.",
+          issues: [
+            `${cause.contact} already has their own account. Remove them from the Memberships sheet and invite them instead.`,
+          ],
+        },
+        { status: 422 }
+      );
+    }
+    throw cause;
+  }
 
   return Response.json({ ok: true, summary });
 }
