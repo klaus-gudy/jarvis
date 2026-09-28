@@ -20,15 +20,22 @@ import { cn } from "@/lib/utils"
  * landlord dashboard's `DashboardPanel` so the lists share its look.
  */
 
+/** At most this many rows; the count badge and the Payments link cover the rest. */
+const MAX_BILLS = 5
+
 /**
- * Everything unpaid, one row per invoice (a lease has exactly one). Ended
- * leases stay listed while money is owed on them.
+ * Everything unpaid, one row per invoice (a lease has exactly one), largest
+ * arrears first and capped at five. Ended leases stay listed while money is
+ * owed on them.
  */
 export function BillsPanel({ leases, className }: { leases: PortalLease[]; className?: string }) {
   const bills = leases.flatMap((lease) =>
     lease.invoice && lease.invoice.balance > 0 ? [{ lease, invoice: lease.invoice }] : []
   )
   const total = bills.reduce((sum, b) => sum + b.invoice.balance, 0)
+  const shown = [...bills]
+    .sort((a, b) => b.invoice.coverage.amountBehind - a.invoice.coverage.amountBehind)
+    .slice(0, MAX_BILLS)
 
   return (
     <DashboardPanel
@@ -40,7 +47,7 @@ export function BillsPanel({ leases, className }: { leases: PortalLease[]; class
       count={bills.length}
       empty="Nothing to pay — you're all settled."
     >
-      {bills.map(({ lease, invoice }) => {
+      {shown.map(({ lease, invoice }) => {
         const { coverage } = invoice
         const behind = coverage.amountBehind > 0
         return (
@@ -60,42 +67,6 @@ export function BillsPanel({ leases, className }: { leases: PortalLease[]; class
           />
         )
       })}
-    </DashboardPanel>
-  )
-}
-
-export function RecentPaymentsPanel({
-  leases,
-  className,
-}: {
-  leases: PortalLease[]
-  className?: string
-}) {
-  const payments = leases
-    .flatMap((lease) =>
-      (lease.invoice?.payments ?? []).map((payment) => ({ payment, lease }))
-    )
-    .sort((a, b) => b.payment.paidAt.getTime() - a.payment.paidAt.getTime())
-    .slice(0, 4)
-
-  return (
-    <DashboardPanel
-      className={className}
-      title="Recent payments"
-      icon={WalletIcon}
-      href="/portal/payments"
-      empty="No payments recorded yet."
-    >
-      {payments.map(({ payment, lease }) => (
-        <PanelRow
-          key={payment.id}
-          leading={<RowIcon icon={ReceiptIcon} />}
-          title={formatCurrencyFull(payment.amount)}
-          subtitle={`${lease.propertyName} · ${lease.unitLabel}${payment.method ? ` · ${payment.method}` : ""}`}
-          trailing={formatDate(payment.paidAt)}
-          tone="muted"
-        />
-      ))}
     </DashboardPanel>
   )
 }
