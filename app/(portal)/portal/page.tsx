@@ -1,5 +1,5 @@
 import { DaysLeftCard, OutstandingCard, PropertyCard } from "@/components/portal/home-metrics"
-import { BillsPanel, QuickActions, RecentPaymentsPanel } from "@/components/portal/home-panels"
+import { BillsPanel, QuickActions } from "@/components/portal/home-panels"
 import { PayAccountsCard } from "@/components/portal/pay-accounts-card"
 import { PortalNoOrganization, PortalNotFound } from "@/components/portal/portal-states"
 import { requireTenantPage } from "@/lib/authz"
@@ -52,23 +52,18 @@ export default async function PortalHomePage() {
         />
       </div>
 
-      {/* Every card fills its share of the row, like the landlord dashboard's
-          panels: the stacked lists split the column's height, and Quick
-          actions stretches to match them — so the row's bottom edges line up
-          whichever side has more in it. */}
+      {/* Quick actions comes first in the markup so it leads on a phone, like
+          the landlord dashboard; from `lg` it moves to the right-hand column.
+          Both are direct grid items, so the grid stretches them to one height
+          and their bottom edges line up. */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="flex flex-col gap-4 lg:col-span-2">
-          <BillsPanel leases={leases} className="flex-1" />
-          <RecentPaymentsPanel leases={leases} className="flex-1" />
-        </div>
-        <div className="flex flex-col">
-          <QuickActions
-            member={member}
-            lease={lease}
-            leases={leases}
-            className="flex-1"
-          />
-        </div>
+        <QuickActions
+          member={member}
+          lease={lease}
+          leases={leases}
+          className="lg:order-last"
+        />
+        <BillsPanel leases={leases} className="lg:col-span-2" />
       </div>
     </>
   )
