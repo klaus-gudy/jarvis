@@ -8,8 +8,8 @@ import type { UnitRow } from "@/components/properties/unit-columns";
  * A unit as one card, for the mobile list on a property's Units tab.
  *
  * Keeps the table's five columns and nothing more — floor, block, tenure and
- * amenities stay on the unit's own page, which the mobile actions sheet
- * reaches in one tap.
+ * amenities stay where they already were, in the View dialog, which the mobile
+ * actions sheet reaches in one tap.
  */
 export function UnitCard({ unit }: { unit: UnitRow }) {
   const spec = [unit.unitType, unit.sizeSqm != null ? `${unit.sizeSqm} m²` : null]
