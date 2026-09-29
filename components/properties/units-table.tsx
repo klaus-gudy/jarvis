@@ -19,7 +19,7 @@ import {
 } from "@/components/properties/unit-columns";
 import {
   UnitFormDialog,
-  type UnitFormValues,
+  unitFormValues,
 } from "@/components/properties/unit-form-dialog";
 import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
 import { PhotoUploadDialog } from "@/components/documents/photo-upload-dialog";
@@ -43,23 +43,6 @@ import type { AssetTypeView } from "@/lib/asset-types";
 import { formatMoneyFull } from "@/lib/format";
 import { UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
 import type { CreateUnitInput } from "@/lib/units-schemas";
-
-const NONE = "__none__";
-
-function toFormValues(unit: UnitRow): UnitFormValues {
-  return {
-    label: unit.label,
-    rentAmount: String(unit.rentAmount),
-    minTenureMonths:
-      unit.minTenureMonths == null ? "" : String(unit.minTenureMonths),
-    autoRenew: unit.autoRenew,
-    unitType: unit.unitType ?? NONE,
-    floor: unit.floor ?? "",
-    block: unit.block ?? "",
-    sizeSqm: unit.sizeSqm == null ? "" : String(unit.sizeSqm),
-    amenities: unit.amenities,
-  };
-}
 
 export function UnitsTable({
   propertyId,
@@ -246,7 +229,7 @@ export function UnitsTable({
         onOpenChange={setFormOpen}
         propertyId={propertyId}
         unitId={editing?.id}
-        initialValues={editing ? toFormValues(editing) : undefined}
+        initialValues={editing ? unitFormValues(editing) : undefined}
       />
 
       {/* Remounted per open so a finished import doesn't reopen on its summary. */}
