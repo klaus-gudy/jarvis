@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { LeasePreview } from "@/components/hover-cards/lease-hover-card";
+import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
 import { formatCurrencyFull } from "@/lib/format";
 
 export type UnitRow = {
@@ -45,8 +46,11 @@ export type UnitRow = {
  */
 export function buildUnitColumns({
   rowActions,
+  canReadTenants,
 }: {
   rowActions: (unit: UnitRow) => RowAction[];
+  /** The tenant's name previews and links only when the member page would open. */
+  canReadTenants: boolean;
 }): ColumnDef<UnitRow>[] {
   return [
     {
@@ -116,10 +120,27 @@ export function buildUnitColumns({
       accessorKey: "tenantName",
       header: "Tenant",
       cell: ({ row }) => {
-        const { tenantName } = row.original;
+        const unit = row.original;
         return (
           <div className="leading-tight">
-            <div className="text-muted-foreground">{tenantName ?? "—"}</div>
+            <div className="text-muted-foreground">
+              {unit.tenantName && unit.tenantMembershipId ? (
+                <TenantHoverCard
+                  tenant={{
+                    name: unit.tenantName,
+                    phone: unit.tenantPhone,
+                    email: unit.tenantEmail,
+                    photoId: unit.tenantPhotoId,
+                    context: `Unit ${unit.label}`,
+                  }}
+                  href={canReadTenants ? `/members/${unit.tenantMembershipId}` : null}
+                  className="hover:text-foreground hover:underline"
+                  align="start"
+                />
+              ) : (
+                "—"
+              )}
+            </div>
           </div>
         );
       },
