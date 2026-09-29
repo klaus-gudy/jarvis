@@ -3,6 +3,7 @@
 import * as React from "react";
 import { EyeIcon } from "lucide-react";
 
+import { useCan } from "@/components/permissions-provider";
 import { UnitLeaseCard } from "@/components/properties/unit-lease-card";
 import {
   buildUnitLeaseColumns,
@@ -16,7 +17,11 @@ import { DataTable, type RowAction } from "@/components/ui/data-table";
  * because the lease form picks from free units and has no way to lock one.
  */
 export function UnitLeasesTab({ leases }: { leases: UnitLeaseRow[] }) {
-  const columns = React.useMemo(() => buildUnitLeaseColumns(), []);
+  const canReadTenants = useCan("tenant:read");
+  const columns = React.useMemo(
+    () => buildUnitLeaseColumns({ canReadTenants }),
+    [canReadTenants]
+  );
 
   return (
     <DataTable
