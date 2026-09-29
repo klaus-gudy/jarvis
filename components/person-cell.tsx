@@ -11,9 +11,12 @@ import { initials } from "@/lib/user-display";
 export function PersonCell({
   name,
   photoId,
+  children,
 }: {
   name: string;
   photoId?: string | null;
+  /** Replaces the plain name, e.g. with a hover card; the avatar stays. */
+  children?: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-2.5">
@@ -21,7 +24,7 @@ export function PersonCell({
         {photoId && <AvatarImage src={`/api/documents/${photoId}`} alt={name} />}
         <AvatarFallback className="text-xs">{initials(name)}</AvatarFallback>
       </Avatar>
-      <span className="font-medium">{name}</span>
+      <span className="font-medium">{children ?? name}</span>
     </div>
   );
 }
