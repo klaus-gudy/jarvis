@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { DetailRow } from "@/components/detail-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
@@ -14,6 +16,16 @@ export type LeaseTermsCardData = {
   renewalMonths: number | null;
 };
 
+/**
+ * The lease this one renewed, and the lease that renewed it. Each side is
+ * already rendered (a link, or plain text) because the landlord and tenant
+ * pages link to different routes.
+ */
+export type LeaseRenewalChain = {
+  renewedFrom?: ReactNode;
+  renewedTo?: ReactNode;
+};
+
 function months(n: number) {
   return `${n} month${n === 1 ? "" : "s"}`;
 }
@@ -24,9 +36,11 @@ function months(n: number) {
  */
 export function LeaseTermsCard({
   lease,
+  renewal,
   className,
 }: {
   lease: LeaseTermsCardData;
+  renewal?: LeaseRenewalChain;
   className?: string;
 }) {
   return (
@@ -36,6 +50,12 @@ export function LeaseTermsCard({
       </CardHeader>
       <CardContent className="p-0">
         <dl>
+          {renewal?.renewedFrom && (
+            <DetailRow label="Renewed from" value={renewal.renewedFrom} />
+          )}
+          {renewal?.renewedTo && (
+            <DetailRow label="Renewed as" value={renewal.renewedTo} />
+          )}
           <DetailRow label="Start date" value={formatDate(lease.startDate)} />
           <DetailRow label="End date" value={formatDate(lease.endDate)} />
           <DetailRow label="Duration" value={months(lease.durationMonths)} />
