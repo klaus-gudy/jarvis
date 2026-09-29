@@ -33,7 +33,7 @@ export type UnitRow = {
 
 /**
  * Floor, block, size, minimum tenure and amenities don't get columns — they
- * only ever show up in the View dialog, opened from the row actions.
+ * only ever show up on the unit's own page, opened from the row actions.
  */
 export function buildUnitColumns({
   rowActions,
