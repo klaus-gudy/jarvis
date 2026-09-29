@@ -2,6 +2,9 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
+import { PropertyHoverCard } from "@/components/hover-cards/property-hover-card";
+import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
+import { UnitHoverCard } from "@/components/hover-cards/unit-hover-card";
 import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
@@ -37,8 +40,13 @@ const INVOICE_STATUS_VARIANT: Record<
 
 export function buildLeaseColumns({
   rowActions,
+  canReadTenants,
+  canReadProperties,
 }: {
   rowActions: (lease: LeaseRow) => RowAction[];
+  /** Each name previews and links only when its page would open. */
+  canReadTenants: boolean;
+  canReadProperties: boolean;
 }): ColumnDef<LeaseRow>[] {
   return [
     {
@@ -72,7 +80,20 @@ export function buildLeaseColumns({
         />
       ),
       cell: ({ row }) => (
-        <PersonCell name={row.original.tenantName} photoId={row.original.photoId} />
+        <PersonCell name={row.original.tenantName} photoId={row.original.photoId}>
+          <TenantHoverCard
+            tenant={{
+              name: row.original.tenantName,
+              phone: row.original.tenantPhone,
+              email: row.original.tenantEmail,
+              photoId: row.original.photoId,
+              context: `Unit ${row.original.unitLabel} · ${row.original.propertyName}`,
+            }}
+            href={canReadTenants ? `/members/${row.original.membershipId}` : null}
+            className="hover:underline"
+            align="start"
+          />
+        </PersonCell>
       ),
     },
     {
@@ -85,7 +106,13 @@ export function buildLeaseColumns({
           className="-ml-2"
         />
       ),
-      cell: ({ row }) => row.original.propertyName,
+      cell: ({ row }) => (
+        <PropertyHoverCard
+          property={row.original.property}
+          href={canReadProperties ? `/properties/${row.original.propertyId}` : null}
+          className="hover:underline"
+        />
+      ),
       // Exact match, not TanStack's default substring behaviour — a facet
       // offering "Likely" must not also match "Likely Annex" — and any-of
       // matching, since this facet is multi-select.
@@ -94,7 +121,17 @@ export function buildLeaseColumns({
     {
       accessorKey: "unitLabel",
       header: "Unit",
-      cell: ({ row }) => <span className="font-medium">{row.original.unitLabel}</span>,
+      cell: ({ row }) => (
+        <UnitHoverCard
+          unit={row.original.unit}
+          href={
+            canReadProperties
+              ? `/properties/${row.original.propertyId}/units/${row.original.unitId}`
+              : null
+          }
+          className="font-medium hover:underline"
+        />
+      ),
     },
     {
       accessorKey: "startDate",
