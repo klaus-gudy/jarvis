@@ -1,4 +1,6 @@
 import type { PropertyStatus, PropertyType } from "@/lib/generated/prisma/enums";
+import { getProfilePhotoIds } from "@/lib/documents";
+import { leaseExpiry, leaseReference } from "@/lib/leases";
 import { getOrganizationOwnerName } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
 import type {
@@ -153,6 +155,12 @@ export async function getProperty(organizationId: string, propertyId: string) {
 
   if (!property) return null;
 
+  // For the tenant hover cards, batched per list rather than per unit.
+  const photoIds = await getProfilePhotoIds(
+    organizationId,
+    property.units.flatMap((unit) => unit.leases.map((lease) => lease.membershipId))
+  );
+
   const units = property.units.map((unit) => {
     const lease = unit.leases[0] ?? null;
     return {
@@ -171,6 +179,21 @@ export async function getProperty(organizationId: string, propertyId: string) {
       tenantName: lease?.membership.user.name ?? lease?.membership.user.email ?? null,
       // For links from the unit to its tenant and its lease.
       tenantMembershipId: lease?.membershipId ?? null,
+      tenantPhone: lease?.membership.user.phone ?? null,
+      tenantEmail: lease?.membership.user.email ?? null,
+      tenantPhotoId: lease ? (photoIds.get(lease.membershipId) ?? null) : null,
+      /** What the lease hover card shows; null when vacant. */
+      lease: lease
+        ? {
+            reference: leaseReference(lease.id),
+            status: lease.status,
+            startDate: lease.startDate.toISOString(),
+            endDate: lease.endDate.toISOString(),
+            durationMonths: lease.durationMonths,
+            monthlyRent: lease.monthlyRent,
+            expiry: leaseExpiry(now, lease.startDate, lease.endDate),
+          }
+        : null,
       leaseId: lease?.id ?? null,
       leaseStart: lease?.startDate ?? null,
       leaseEnd: lease?.endDate ?? null,
