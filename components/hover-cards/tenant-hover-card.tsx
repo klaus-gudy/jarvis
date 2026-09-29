@@ -31,10 +31,13 @@ export function TenantHoverCard({
   tenant,
   href,
   className,
+  align = "end",
 }: {
   tenant: TenantPreview;
   href: string | null;
   className?: string;
+  /** `end` suits a right-aligned detail row, `start` a table cell. */
+  align?: "start" | "center" | "end";
 }) {
   if (!href) return <span className={className}>{tenant.name}</span>;
 
@@ -46,7 +49,7 @@ export function TenantHoverCard({
       >
         {tenant.name}
       </HoverCardTrigger>
-      <HoverCardContent align="end" className="w-72 space-y-3 p-3 text-left">
+      <HoverCardContent align={align} className="w-72 space-y-3 p-3 text-left">
         <div className="flex items-center gap-3">
           <Avatar className="size-10 shrink-0">
             {tenant.photoId && (
