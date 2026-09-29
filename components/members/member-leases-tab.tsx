@@ -9,6 +9,7 @@ import {
   buildMemberLeaseColumns,
   type MemberLeaseRow,
 } from "@/components/members/member-lease-columns";
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
 import { DataTable, type RowAction } from "@/components/ui/data-table";
 import type { LeaseOptions } from "@/lib/leases";
@@ -35,7 +36,12 @@ export function MemberLeasesTab({
 }) {
   const [formOpen, setFormOpen] = React.useState(false);
 
-  const columns = React.useMemo(() => buildMemberLeaseColumns(), []);
+  const canReadProperties = useCan("property:read");
+  const canReadLeases = useCan("lease:read");
+  const columns = React.useMemo(
+    () => buildMemberLeaseColumns({ canReadProperties, canReadLeases }),
+    [canReadProperties, canReadLeases]
+  );
 
   return (
     <div className="space-y-3">
