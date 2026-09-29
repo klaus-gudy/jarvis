@@ -354,6 +354,10 @@ export default async function UnitDetailPage({
                 id: lease.id,
                 reference: lease.reference,
                 tenantName: lease.tenantName,
+                membershipId: lease.membershipId,
+                tenantPhone: lease.tenantPhone,
+                tenantEmail: lease.tenantEmail,
+                tenantPhotoId: lease.tenantPhotoId,
                 // Dates must be serialisable to cross the server/client boundary.
                 startDate: lease.startDate.toISOString(),
                 endDate: lease.endDate.toISOString(),
