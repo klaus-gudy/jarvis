@@ -6,6 +6,10 @@ import { BillingTab } from "@/components/leases/billing-tab";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ContractTab } from "@/components/leases/contract-tab";
 import { DetailRow, orDash } from "@/components/detail-row";
+import { LeaseHoverCard } from "@/components/hover-cards/lease-hover-card";
+import { PropertyHoverCard } from "@/components/hover-cards/property-hover-card";
+import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
+import { UnitHoverCard } from "@/components/hover-cards/unit-hover-card";
 import { InvoiceCard } from "@/components/leases/invoice-card";
 import { LeaseTermsCard } from "@/components/leases/lease-terms-card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +22,7 @@ import { listAssetTypes } from "@/lib/asset-types";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contracts";
 import { listDocuments } from "@/lib/documents";
 import { getInvoiceForLease } from "@/lib/invoices";
-import { getLease, type LeaseStatus } from "@/lib/leases";
+import { getLease, type LeaseLink, type LeaseStatus } from "@/lib/leases";
 import { cn } from "@/lib/utils";
 
 const STATUS_TONE: Record<LeaseStatus, string> = {
@@ -97,12 +101,30 @@ export default async function LeaseDetailPage({
   const propertyHref =
     access && can(access, "property:read") ? `/properties/${property.id}` : null;
   const linkClass = "text-primary hover:underline";
-  const leaseLink = (link: { id: string; reference: string } | null) =>
+  const leaseLink = (link: LeaseLink | null) =>
     link && (
-      <Link href={`/leases/${link.id}`} className={cn(linkClass, "font-mono")}>
-        {link.reference}
-      </Link>
+      <LeaseHoverCard
+        lease={link}
+        href={`/leases/${link.id}`}
+        className={cn(linkClass, "font-mono")}
+      />
     );
+  const propertyPreview = {
+    name: property.name,
+    address: property.address,
+    category: property.category,
+    type: property.type,
+  };
+  const unitPreview = {
+    label: unit.label,
+    propertyName: property.name,
+    unitType: unit.unitType,
+    sizeSqm: unit.sizeSqm,
+    rentAmount: unit.rentAmount,
+    floor: unit.floor,
+    block: unit.block,
+  };
+  const unitHref = propertyHref ? `${propertyHref}/units/${unit.id}` : null;
 
   return (
     <div className="space-y-6">
@@ -140,23 +162,30 @@ export default async function LeaseDetailPage({
               </span>
             </div>
             <p className="truncate text-sm text-muted-foreground">
-              {tenantHref ? (
-                <Link href={tenantHref} className="hover:text-foreground hover:underline">
-                  {tenant.name}
-                </Link>
-              ) : (
-                tenant.name
-              )}{" "}
+              <TenantHoverCard
+                tenant={{
+                  name: tenant.name,
+                  phone: tenant.phone,
+                  email: tenant.email,
+                  photoId: tenant.photoId,
+                  context: `Unit ${unit.label} · ${property.name}`,
+                }}
+                href={tenantHref}
+                className="hover:text-foreground hover:underline"
+                align="start"
+              />{" "}
               ·{" "}
-              {propertyHref ? (
-                <Link href={propertyHref} className="hover:text-foreground hover:underline">
-                  {property.name} · {unit.label}
-                </Link>
-              ) : (
-                <>
-                  {property.name} · {unit.label}
-                </>
-              )}
+              <PropertyHoverCard
+                property={propertyPreview}
+                href={propertyHref}
+                className="hover:text-foreground hover:underline"
+              />{" "}
+              ·{" "}
+              <UnitHoverCard
+                unit={unitPreview}
+                href={unitHref}
+                className="hover:text-foreground hover:underline"
+              />
             </p>
           </div>
         </CardContent>
@@ -251,28 +280,23 @@ export default async function LeaseDetailPage({
                   <DetailRow
                     label="Property"
                     value={
-                      propertyHref ? (
-                        <Link href={propertyHref} className={linkClass}>
-                          {property.name}
-                        </Link>
-                      ) : (
-                        property.name
-                      )
+                      <PropertyHoverCard
+                        property={propertyPreview}
+                        href={propertyHref}
+                        className={cn(propertyHref && linkClass)}
+                        align="end"
+                      />
                     }
                   />
                   <DetailRow
                     label="Unit"
                     value={
-                      propertyHref ? (
-                        <Link
-                          href={`${propertyHref}/units/${unit.id}`}
-                          className={linkClass}
-                        >
-                          {unit.label}
-                        </Link>
-                      ) : (
-                        unit.label
-                      )
+                      <UnitHoverCard
+                        unit={unitPreview}
+                        href={unitHref}
+                        className={cn(unitHref && linkClass)}
+                        align="end"
+                      />
                     }
                   />
                   <DetailRow label="Area" value={orDash(property.address)} />
