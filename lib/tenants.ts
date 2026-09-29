@@ -192,6 +192,12 @@ export type TenantDetail = {
     reference: string;
     propertyName: string;
     unitLabel: string;
+    /** For the property, unit and lease hover cards. */
+    propertyId: string;
+    unitId: string;
+    property: PropertyPreview;
+    unit: UnitPreview;
+    monthlyRent: number;
     startDate: Date;
     endDate: Date;
     durationMonths: number;
@@ -218,7 +224,15 @@ export async function getTenantDetail(
       profile: true,
       leases: {
         orderBy: { startDate: "desc" },
-        include: { unit: { include: { property: { select: { name: true } } } } },
+        include: {
+          unit: {
+            include: {
+              property: {
+                select: { id: true, name: true, address: true, category: true, type: true },
+              },
+            },
+          },
+        },
       },
     },
   });
@@ -259,6 +273,24 @@ export async function getTenantDetail(
       reference: leaseReference(lease.id),
       propertyName: lease.unit.property.name,
       unitLabel: lease.unit.label,
+      propertyId: lease.unit.property.id,
+      unitId: lease.unit.id,
+      property: {
+        name: lease.unit.property.name,
+        address: lease.unit.property.address,
+        category: lease.unit.property.category,
+        type: lease.unit.property.type,
+      },
+      unit: {
+        label: lease.unit.label,
+        propertyName: lease.unit.property.name,
+        unitType: lease.unit.unitType,
+        sizeSqm: lease.unit.sizeSqm,
+        rentAmount: lease.unit.rentAmount,
+        floor: lease.unit.floor,
+        block: lease.unit.block,
+      },
+      monthlyRent: lease.monthlyRent,
       startDate: lease.startDate,
       endDate: lease.endDate,
       durationMonths: lease.durationMonths,
