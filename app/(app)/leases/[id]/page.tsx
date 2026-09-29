@@ -97,6 +97,12 @@ export default async function LeaseDetailPage({
   const propertyHref =
     access && can(access, "property:read") ? `/properties/${property.id}` : null;
   const linkClass = "text-primary hover:underline";
+  const leaseLink = (link: { id: string; reference: string } | null) =>
+    link && (
+      <Link href={`/leases/${link.id}`} className={cn(linkClass, "font-mono")}>
+        {link.reference}
+      </Link>
+    );
 
   return (
     <div className="space-y-6">
@@ -286,7 +292,14 @@ export default async function LeaseDetailPage({
             </div>
 
             <div className="flex flex-col gap-5">
-            <LeaseTermsCard lease={lease} className="grow" />
+            <LeaseTermsCard
+              lease={lease}
+              renewal={{
+                renewedFrom: leaseLink(lease.renewedFrom),
+                renewedTo: leaseLink(lease.renewedTo),
+              }}
+              className="grow"
+            />
 
             {/* The invoice is part of what this lease *is*, so it reads here;
                 the Billing tab is only the ledger. */}
