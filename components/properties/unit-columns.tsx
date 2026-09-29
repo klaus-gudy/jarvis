@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { LeasePreview } from "@/components/hover-cards/lease-hover-card";
 import { formatCurrencyFull } from "@/lib/format";
 
 export type UnitRow = {
@@ -29,6 +30,11 @@ export type UnitRow = {
   tenantMembershipId: string | null;
   leaseId: string | null;
   leaseStart: string | null;
+  /** For the tenant and lease hover cards; null when vacant. */
+  tenantPhone: string | null;
+  tenantEmail: string | null;
+  tenantPhotoId: string | null;
+  lease: LeasePreview | null;
   /** Just enough to draw the strip in the View dialog: id is the URL, name is the alt text. */
   photos: { id: string; fileName: string }[];
 };
