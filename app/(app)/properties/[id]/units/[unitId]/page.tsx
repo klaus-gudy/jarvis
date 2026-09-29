@@ -90,7 +90,7 @@ export default async function UnitDetailPage({
         render={<Link href={`${propertyHref}?tab=units`} />}
       >
         <ArrowLeftIcon />
-        <span className="truncate">{property.name}</span>
+        <span className="min-w-0 truncate">{property.name}</span>
       </Button>
 
       <Card>
