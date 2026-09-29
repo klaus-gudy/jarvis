@@ -1,3 +1,4 @@
+import { getProfilePhotoIds } from "@/lib/documents";
 import { leaseExpiry, leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
 import type { CreateUnitInput, UpdateUnitInput } from "@/lib/units-schemas";
@@ -118,6 +119,12 @@ export async function getUnit(
   });
   if (!unit) return null;
 
+  // Batched per list, as everywhere else, for the tenant hover cards.
+  const photoIds = await getProfilePhotoIds(
+    organizationId,
+    unit.leases.map((lease) => lease.membershipId)
+  );
+
   const now = new Date();
   const leases = unit.leases.map((lease) => ({
     id: lease.id,
@@ -128,6 +135,9 @@ export async function getUnit(
       lease.membership.user.email ??
       lease.membership.user.phone ??
       "Unnamed",
+    tenantPhone: lease.membership.user.phone,
+    tenantEmail: lease.membership.user.email,
+    tenantPhotoId: photoIds.get(lease.membershipId) ?? null,
     startDate: lease.startDate,
     endDate: lease.endDate,
     durationMonths: lease.durationMonths,
