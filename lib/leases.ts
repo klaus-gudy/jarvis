@@ -209,7 +209,16 @@ export type LeaseDetail = {
   monthlyRent: number;
   leaseAmount: number;
   invoice: InvoiceSummary | null;
+  /** The term this lease renewed, and the term that renewed it (`Lease.renewedFromId`). */
+  renewedFrom: LeaseLink | null;
+  renewedTo: LeaseLink | null;
 };
+
+export type LeaseLink = { id: string; reference: string };
+
+function leaseLink(lease: { id: string } | null): LeaseLink | null {
+  return lease ? { id: lease.id, reference: leaseReference(lease.id) } : null;
+}
 
 /** Scoped through both relations, matching getLeases, so one org can't read another's lease. */
 export async function getLease(
@@ -228,6 +237,7 @@ export async function getLease(
         include: { user: { select: { name: true, email: true, phone: true } } },
       },
       invoice: { include: { payments: { select: { amount: true } } } },
+      renewedTo: { select: { id: true } },
     },
   });
   if (!lease) return null;
@@ -269,6 +279,8 @@ export async function getLease(
     monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
+    renewedFrom: leaseLink(lease.renewedFromId ? { id: lease.renewedFromId } : null),
+    renewedTo: leaseLink(lease.renewedTo),
   };
 }
 
