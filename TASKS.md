@@ -48,7 +48,7 @@ Working list. Architecture and standing rules are in `plan.md`.
 - [ ] `notifier/.env.template` leaves `RABBITMQ_EMAIL_QUEUE=` blank; confirm the running notifier picked up `NOTIFIER_EMAIL_QUEUE` (0 consumers means mail accumulates).
 
 ### Never verified in a signed-in browser
-Verified by code, CSS or direct function calls only; worth a click-through next time you're signed in: the tenant portal sections and profile edit (2026-09-27, needs a tenant login); the Phase 38 rent field and "Monthly rent" row; the Phase 43 loader/sidebar/payments-in-search and hover states; Phase 42 reduced-motion; the successful path of the profile password change; the invitation accept form; the Phase 96 day-count badge; the lease Overview's "Renewed from / Renewed as" rows (2026-09-29, no renewed pair in the local DB).
+Verified by code, CSS or direct function calls only; worth a click-through next time you're signed in: the tenant portal sections and profile edit (2026-09-27, needs a tenant login); the Phase 38 rent field and "Monthly rent" row; the Phase 43 loader/sidebar/payments-in-search and hover states; Phase 42 reduced-motion; the successful path of the profile password change; the invitation accept form; the Phase 96 day-count badge; the lease Overview's "Renewed from / Renewed as" rows (2026-09-29, no renewed pair in the local DB); the unit page `/properties/[id]/units/[unitId]` (2026-09-29, typechecked and linted only — another session held the dev server).
 
 ## Shipped (index of the archive)
 
