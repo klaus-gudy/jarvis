@@ -78,7 +78,7 @@ export function UnitsTable({
       {
         label: `View unit ${unit.label}`,
         icon: EyeIcon,
-        onSelect: () => setViewing(unit),
+        href: `/properties/${propertyId}/units/${unit.id}`,
       },
       {
         label: `Edit unit ${unit.label}`,
@@ -103,7 +103,7 @@ export function UnitsTable({
         },
       },
     ],
-    []
+    [propertyId]
   );
   // Greyed out, not hidden, when the role can't use them; the API enforces it.
   const rowActions = React.useCallback(
@@ -193,6 +193,7 @@ export function UnitsTable({
           },
         ]}
         emptyMessage="No units yet. Use “Add unit” to create the first one."
+        getRowHref={(unit) => `/properties/${propertyId}/units/${unit.id}`}
         renderCard={(unit) => <UnitCard unit={unit} />}
         rowActions={rowActions}
       />
