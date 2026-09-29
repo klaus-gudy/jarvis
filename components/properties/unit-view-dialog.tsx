@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckIcon, ImagePlusIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon, ImagePlusIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
 import { useCan } from "@/components/permissions-provider";
@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -19,16 +21,18 @@ import type { UnitRow } from "@/components/properties/unit-columns";
 
 /**
  * Read-only counterpart to the add/edit form — same fields, same order, so a
- * unit reads back the way it was entered. Exists because the table only shows
- * label/type/status/tenant/rent; floor, block, size, minimum tenure and
- * amenities have nowhere else to be seen.
+ * unit reads back the way it was entered. The quick look from the Units table;
+ * "View more" leads to the unit's own page for its lease history, the full
+ * gallery and its documents.
  */
 export function UnitViewDialog({
   unit,
+  propertyId,
   onOpenChange,
   onAddPhotos,
 }: {
   unit: UnitRow | null;
+  propertyId: string;
   onOpenChange: (open: boolean) => void;
   /** Hands the unit back so the table can open the picker for it. */
   onAddPhotos: (unit: UnitRow) => void;
@@ -47,8 +51,7 @@ export function UnitViewDialog({
         {unit && (
           <div className="space-y-4">
             {/* Photos first — a unit is a room, and a picture says more about
-                it than the rent does. This is also the only place they can be
-                seen: a unit has no page of its own. */}
+                it than the rent does. */}
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">
@@ -181,6 +184,21 @@ export function UnitViewDialog({
               )}
             </div>
           </div>
+        )}
+
+        {unit && (
+          // Stacks full width on a phone with "View more" on top (the footer is
+          // `flex-col-reverse`), a right-aligned row from `sm`.
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline">Close</Button>} />
+            <Button
+              nativeButton={false}
+              render={<Link href={`/properties/${propertyId}/units/${unit.id}`} />}
+            >
+              View more
+              <ArrowRightIcon />
+            </Button>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>
