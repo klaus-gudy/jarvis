@@ -70,6 +70,7 @@ export function TenantsTable({
   const canLease = useCan("lease:write");
   const canWrite = useCan("tenant:write");
   const canEdit = useCan(["tenant:write", "member:write"]);
+  const canReadProperties = useCan("property:read");
   const baseRowActions = React.useCallback(
     (tenant: TenantRow): RowAction[] => [
       /*
@@ -116,8 +117,8 @@ export function TenantsTable({
   );
 
   const columns = React.useMemo(
-    () => buildTenantColumns({ rowActions }),
-    [rowActions]
+    () => buildTenantColumns({ rowActions, canReadProperties }),
+    [rowActions, canReadProperties]
   );
 
   async function handleDelete() {
