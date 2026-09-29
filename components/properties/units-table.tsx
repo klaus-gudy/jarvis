@@ -192,7 +192,6 @@ export function UnitsTable({
           },
         ]}
         emptyMessage="No units yet. Use “Add unit” to create the first one."
-        getRowHref={(unit) => `/properties/${propertyId}/units/${unit.id}`}
         renderCard={(unit) => <UnitCard unit={unit} />}
         rowActions={rowActions}
       />
