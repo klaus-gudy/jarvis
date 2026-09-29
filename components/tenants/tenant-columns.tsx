@@ -2,6 +2,8 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
+import { PropertyHoverCard } from "@/components/hover-cards/property-hover-card";
+import { UnitHoverCard } from "@/components/hover-cards/unit-hover-card";
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,8 +34,11 @@ export const TENANT_STATUS_VARIANT: Record<
  */
 export function buildTenantColumns({
   rowActions,
+  canReadProperties,
 }: {
   rowActions: (tenant: TenantRow) => RowAction[];
+  /** Property and unit names preview and link only when those pages would open. */
+  canReadProperties: boolean;
 }): ColumnDef<TenantRow>[] {
   return [
     {
@@ -103,10 +108,19 @@ export function buildTenantColumns({
     {
       accessorKey: "propertyName",
       header: "Property",
-      cell: ({ row }) =>
-        row.original.propertyName ?? (
-          <span className="text-muted-foreground">—</span>
-        ),
+      cell: ({ row }) => {
+        const { property, propertyId } = row.original;
+        if (!property || !propertyId) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        return (
+          <PropertyHoverCard
+            property={property}
+            href={canReadProperties ? `/properties/${propertyId}` : null}
+            className="hover:underline"
+          />
+        );
+      },
       // Exact match, not the default substring: a facet offering "Likely" must
       // not also sweep in "Likely Annex". A tenant with no property is null and
       // matches nothing, which is right — they aren't in any of them.
@@ -116,18 +130,28 @@ export function buildTenantColumns({
       accessorKey: "unitLabel",
       header: "Unit",
       cell: ({ row }) => {
-        const { unitLabel, status } = row.original;
-        if (!unitLabel) return <span className="text-muted-foreground">—</span>;
+        const { unitLabel, status, unit, unitId, propertyId } = row.original;
+        if (!unitLabel || !unit || !unitId || !propertyId) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        const href = canReadProperties
+          ? `/properties/${propertyId}/units/${unitId}`
+          : null;
         // Neither a Vacated nor an Upcoming tenant is in the unit right now,
         // so both are dimmed and marked rather than reading as a current
         // occupancy — "past" for one, "from" for the other.
-        if (status === "Vacated") {
-          return <span className="text-muted-foreground">{unitLabel} (past)</span>;
+        if (status === "Vacated" || status === "Upcoming") {
+          return (
+            <UnitHoverCard
+              unit={unit}
+              href={href}
+              className="text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {unitLabel} ({status === "Vacated" ? "past" : "upcoming"})
+            </UnitHoverCard>
+          );
         }
-        if (status === "Upcoming") {
-          return <span className="text-muted-foreground">{unitLabel} (upcoming)</span>;
-        }
-        return unitLabel;
+        return <UnitHoverCard unit={unit} href={href} className="hover:underline" />;
       },
     },
     {
