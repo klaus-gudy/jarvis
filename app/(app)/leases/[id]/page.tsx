@@ -260,13 +260,14 @@ export default async function LeaseDetailPage({
                       )
                     }
                   />
-                  {/* Units have no page of their own; they live in the
-                      property's Units table. */}
                   <DetailRow
                     label="Unit"
                     value={
                       propertyHref ? (
-                        <Link href={propertyHref} className={linkClass}>
+                        <Link
+                          href={`${propertyHref}/units/${unit.id}`}
+                          className={linkClass}
+                        >
                           {unit.label}
                         </Link>
                       ) : (
