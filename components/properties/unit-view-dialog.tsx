@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ArrowRightIcon, CheckIcon, ImagePlusIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
+import { LeaseHoverCard } from "@/components/hover-cards/lease-hover-card";
+import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
 import { useCan } from "@/components/permissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -131,30 +133,34 @@ export function UnitViewDialog({
                 <DetailRow
                   label="Tenant"
                   value={
-                    // A link only where it can open: the member page needs
-                    // `tenant:read`, the lease page `lease:read`.
-                    unit.tenantName && unit.tenantMembershipId && canReadTenants ? (
-                      <Link
-                        href={`/members/${unit.tenantMembershipId}`}
+                    // A link and preview only where it can open: the member
+                    // page needs `tenant:read`, the lease page `lease:read`.
+                    unit.tenantName && unit.tenantMembershipId ? (
+                      <TenantHoverCard
+                        tenant={{
+                          name: unit.tenantName,
+                          phone: unit.tenantPhone,
+                          email: unit.tenantEmail,
+                          photoId: unit.tenantPhotoId,
+                          context: `Unit ${unit.label}`,
+                        }}
+                        href={canReadTenants ? `/members/${unit.tenantMembershipId}` : null}
                         className="text-primary hover:underline"
-                      >
-                        {unit.tenantName}
-                      </Link>
+                      />
                     ) : (
                       orDash(unit.tenantName)
                     )
                   }
                 />
-                {unit.leaseId && canReadLeases && (
+                {unit.leaseId && unit.lease && canReadLeases && (
                   <DetailRow
                     label="Current lease"
                     value={
-                      <Link
+                      <LeaseHoverCard
+                        lease={{ ...unit.lease, subtitle: unit.tenantName }}
                         href={`/leases/${unit.leaseId}`}
-                        className="text-primary hover:underline"
-                      >
-                        View lease
-                      </Link>
+                        className="font-mono text-primary hover:underline"
+                      />
                     }
                   />
                 )}
