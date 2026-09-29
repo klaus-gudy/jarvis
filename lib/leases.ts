@@ -3,6 +3,8 @@ import {
   sendLeaseRenewedToOwner,
   type LeaseFacts,
 } from "@/lib/mail/leases";
+import type { PropertyPreview } from "@/components/hover-cards/property-hover-card";
+import type { UnitPreview } from "@/components/hover-cards/unit-hover-card";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { getOwnerRecipients } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
@@ -40,6 +42,11 @@ export type LeaseRow = {
   membershipId: string;
   tenantName: string;
   photoId: string | null;
+  /** For the tenant, property and unit hover cards. */
+  tenantPhone: string | null;
+  tenantEmail: string | null;
+  property: PropertyPreview;
+  unit: UnitPreview;
   unitLabel: string;
   propertyName: string;
   startDate: string;
@@ -127,7 +134,13 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     },
     orderBy: { updatedAt: "desc" },
     include: {
-      unit: { include: { property: { select: { id: true, name: true } } } },
+      unit: {
+        include: {
+          property: {
+            select: { id: true, name: true, address: true, category: true, type: true },
+          },
+        },
+      },
       membership: {
         include: { user: { select: { name: true, email: true, phone: true } } },
       },
@@ -149,6 +162,23 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
       lease.membership.user.phone ??
       "Unnamed",
     photoId: photoIds.get(lease.membershipId) ?? null,
+    tenantPhone: lease.membership.user.phone,
+    tenantEmail: lease.membership.user.email,
+    property: {
+      name: lease.unit.property.name,
+      address: lease.unit.property.address,
+      category: lease.unit.property.category,
+      type: lease.unit.property.type,
+    },
+    unit: {
+      label: lease.unit.label,
+      propertyName: lease.unit.property.name,
+      unitType: lease.unit.unitType,
+      sizeSqm: lease.unit.sizeSqm,
+      rentAmount: lease.unit.rentAmount,
+      floor: lease.unit.floor,
+      block: lease.unit.block,
+    },
     unitLabel: lease.unit.label,
     propertyName: lease.unit.property.name,
     startDate: lease.startDate.toISOString(),
