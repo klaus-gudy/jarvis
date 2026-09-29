@@ -2,6 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
+import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
 import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { LEASE_STATUS_VARIANT } from "@/components/members/member-lease-columns";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,10 @@ export type UnitLeaseRow = {
   id: string;
   reference: string;
   tenantName: string;
+  membershipId: string;
+  tenantPhone: string | null;
+  tenantEmail: string | null;
+  tenantPhotoId: string | null;
   startDate: string;
   endDate: string;
   durationMonths: number;
@@ -27,7 +32,12 @@ export type UnitLeaseRow = {
  * this unit, so Property and Unit give way to the tenant, and the agreed rent
  * is shown because it is what changes from one term to the next here.
  */
-export function buildUnitLeaseColumns(): ColumnDef<UnitLeaseRow>[] {
+export function buildUnitLeaseColumns({
+  canReadTenants,
+}: {
+  /** The tenant's name previews and links only when the member page would open. */
+  canReadTenants: boolean;
+}): ColumnDef<UnitLeaseRow>[] {
   return [
     {
       accessorKey: "reference",
@@ -49,7 +59,17 @@ export function buildUnitLeaseColumns(): ColumnDef<UnitLeaseRow>[] {
         />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.tenantName}</span>
+        <TenantHoverCard
+          tenant={{
+            name: row.original.tenantName,
+            phone: row.original.tenantPhone,
+            email: row.original.tenantEmail,
+            photoId: row.original.tenantPhotoId,
+          }}
+          href={canReadTenants ? `/members/${row.original.membershipId}` : null}
+          className="font-medium hover:underline"
+          align="start"
+        />
       ),
     },
     {
