@@ -35,10 +35,13 @@ export function LeaseHoverCard({
   lease,
   href,
   className,
+  align = "end",
 }: {
   lease: LeasePreview;
   href: string | null;
   className?: string;
+  /** `end` suits a right-aligned detail row, `start` a table cell. */
+  align?: "start" | "center" | "end";
 }) {
   if (!href) return <span className={className}>{lease.reference}</span>;
 
@@ -50,7 +53,7 @@ export function LeaseHoverCard({
       >
         {lease.reference}
       </HoverCardTrigger>
-      <HoverCardContent align="end" className="w-72 space-y-3 p-3 text-left">
+      <HoverCardContent align={align} className="w-72 space-y-3 p-3 text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-mono text-xs font-medium">Lease {lease.reference}</p>
