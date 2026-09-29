@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon, DoorOpenIcon } from "lucide-react";
@@ -77,9 +78,7 @@ export default async function UnitDetailPage({
     unit.unitType,
     unit.sizeSqm != null ? `${unit.sizeSqm} m²` : null,
     `${formatCurrencyFull(unit.rentAmount)}/mo`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ].filter((part): part is string => Boolean(part));
 
   return (
     <div className="space-y-6">
@@ -108,10 +107,20 @@ export default async function UnitDetailPage({
                 <StatusPill occupied={isOccupied} />
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                <Link href={propertyHref} className="hover:text-foreground hover:underline">
+                <Link
+                  href={propertyHref}
+                  className="inline-block max-w-full truncate align-bottom hover:text-foreground hover:underline"
+                >
                   {property.name}
                 </Link>
-                {spec && ` · ${spec}`}
+                {/* Each part stays whole when the line wraps on a phone, so
+                    "TZS 70,000/mo" never splits across two lines. */}
+                {spec.map((part) => (
+                  <Fragment key={part}>
+                    {" · "}
+                    <span className="whitespace-nowrap">{part}</span>
+                  </Fragment>
+                ))}
               </p>
             </div>
           </div>
