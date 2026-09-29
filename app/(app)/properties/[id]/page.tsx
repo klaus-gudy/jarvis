@@ -264,7 +264,6 @@ export default async function PropertyDetailPage({
               leaseId: unit.leaseId,
               // Dates must be serialisable to cross the server/client boundary.
               leaseStart: unit.leaseStart ? unit.leaseStart.toISOString() : null,
-              photos: unit.photos,
             }))}
             photoAssetTypes={unitPhotoTypes}
           />
