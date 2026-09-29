@@ -72,6 +72,7 @@ export function UnitsTable({
   /** One description of what you can do to a unit, for both surfaces. */
   const canWrite = useCan("property:write");
   const canPhoto = useCan(["property:write", "document:write"]);
+  const canReadTenants = useCan("tenant:read");
   const baseRowActions = React.useCallback(
     (unit: UnitRow): RowAction[] => [
       {
@@ -111,8 +112,8 @@ export function UnitsTable({
   );
 
   const columns = React.useMemo(
-    () => buildUnitColumns({ rowActions }),
-    [rowActions]
+    () => buildUnitColumns({ rowActions, canReadTenants }),
+    [rowActions, canReadTenants]
   );
 
   async function handleDelete() {
