@@ -21,7 +21,6 @@ import {
   UnitFormDialog,
   unitFormValues,
 } from "@/components/properties/unit-form-dialog";
-import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
 import { PhotoUploadDialog } from "@/components/documents/photo-upload-dialog";
 import { ImportDialog } from "@/components/import-dialog";
 import { gateActions, useCan } from "@/components/permissions-provider";
@@ -58,12 +57,10 @@ export function UnitsTable({
   const viewRef = React.useRef<DataTableView<UnitRow>>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
-  const [viewing, setViewing] = React.useState<UnitRow | null>(null);
   const [editing, setEditing] = React.useState<UnitRow | null>(null);
   /**
-   * A unit has no page of its own, so its photos are reached from the row
-   * rather than from a tab — the action opens the same dialog the property
-   * gallery uses, pointed at this unit.
+   * A shortcut to the unit page's Photos tab: the same dialog its gallery
+   * uses, opened from the row so adding pictures doesn't need a page visit.
    */
   const [photographing, setPhotographing] = React.useState<UnitRow | null>(null);
   const [deleting, setDeleting] = React.useState<UnitRow | null>(null);
@@ -196,17 +193,6 @@ export function UnitsTable({
         getRowHref={(unit) => `/properties/${propertyId}/units/${unit.id}`}
         renderCard={(unit) => <UnitCard unit={unit} />}
         rowActions={rowActions}
-      />
-
-      <UnitViewDialog
-        unit={viewing}
-        onOpenChange={(open) => !open && setViewing(null)}
-        onAddPhotos={(unit) => {
-          // One dialog at a time: the viewer closes as the picker opens, so
-          // they don't stack.
-          setViewing(null);
-          setPhotographing(unit);
-        }}
       />
 
       {/* Remounted per unit so a previous pick never carries over. */}
