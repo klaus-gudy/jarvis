@@ -70,6 +70,32 @@ const EMPTY: UnitFormValues = {
   amenities: [],
 };
 
+/** Seeds the edit form from a stored unit — shared by the units table and the unit page. */
+export function unitFormValues(unit: {
+  label: string;
+  rentAmount: number;
+  minTenureMonths: number | null;
+  autoRenew: boolean;
+  unitType: string | null;
+  floor: string | null;
+  block: string | null;
+  sizeSqm: number | null;
+  amenities: string[];
+}): UnitFormValues {
+  return {
+    label: unit.label,
+    rentAmount: String(unit.rentAmount),
+    minTenureMonths:
+      unit.minTenureMonths == null ? "" : String(unit.minTenureMonths),
+    autoRenew: unit.autoRenew,
+    unitType: unit.unitType ?? NONE,
+    floor: unit.floor ?? "",
+    block: unit.block ?? "",
+    sizeSqm: unit.sizeSqm == null ? "" : String(unit.sizeSqm),
+    amenities: unit.amenities,
+  };
+}
+
 type FieldErrors = Partial<Record<keyof UnitFormValues, string[]>>;
 
 export function UnitFormDialog({
