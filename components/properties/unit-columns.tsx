@@ -29,6 +29,8 @@ export type UnitRow = {
   tenantMembershipId: string | null;
   leaseId: string | null;
   leaseStart: string | null;
+  /** Just enough to draw the strip in the View dialog: id is the URL, name is the alt text. */
+  photos: { id: string; fileName: string }[];
 };
 
 /**
