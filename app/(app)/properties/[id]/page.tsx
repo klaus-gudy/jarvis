@@ -18,10 +18,15 @@ import { listDocuments } from "@/lib/documents";
 import { getProperty } from "@/lib/properties";
 import { cn } from "@/lib/utils";
 
+/** Tabs a link may open on, e.g. a unit page's back link → units. */
+const TABS = ["overview", "units", "images", "documents"] as const;
+
 export default async function PropertyDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   await requireStaffPage("property:read");
   const user = await getCurrentUser();
@@ -29,6 +34,8 @@ export default async function PropertyDetailPage({
   if (!user.activeOrgId) redirect("/properties");
 
   const { id } = await params;
+  const requestedTab = (await searchParams).tab;
+  const initialTab = TABS.find((tab) => tab === requestedTab) ?? "overview";
   const property = await getProperty(user.activeOrgId, id);
   if (!property) notFound();
 
@@ -125,7 +132,7 @@ export default async function PropertyDetailPage({
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={initialTab}>
         <TabsList variant="line" className="w-full justify-start border-b">
           <TabsTrigger value="overview" className="flex-none px-3">
             Overview
