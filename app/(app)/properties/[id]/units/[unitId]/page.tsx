@@ -5,6 +5,8 @@ import { ArrowLeftIcon, CheckIcon, DoorOpenIcon } from "lucide-react";
 
 import { DetailRow, orDash } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { LeaseHoverCard } from "@/components/hover-cards/lease-hover-card";
+import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
 import { PhotoGallery } from "@/components/documents/photo-gallery";
 import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { UnitActions } from "@/components/properties/unit-actions";
@@ -250,31 +252,40 @@ export default async function UnitDetailPage({
                       <DetailRow
                         label="Tenant"
                         value={
-                          canReadTenants ? (
-                            <Link
-                              href={`/members/${currentLease.membershipId}`}
-                              className={linkClass}
-                            >
-                              {currentLease.tenantName}
-                            </Link>
-                          ) : (
-                            currentLease.tenantName
-                          )
+                          <TenantHoverCard
+                            tenant={{
+                              name: currentLease.tenantName,
+                              phone: currentLease.tenantPhone,
+                              email: currentLease.tenantEmail,
+                              photoId: currentLease.tenantPhotoId,
+                              context: `Unit ${unit.label} · ${property.name}`,
+                            }}
+                            href={
+                              canReadTenants
+                                ? `/members/${currentLease.membershipId}`
+                                : null
+                            }
+                            className={linkClass}
+                          />
                         }
                       />
                       <DetailRow
                         label="Lease"
                         value={
-                          canReadLeases ? (
-                            <Link
-                              href={`/leases/${currentLease.id}`}
-                              className={cn(linkClass, "font-mono")}
-                            >
-                              {currentLease.reference}
-                            </Link>
-                          ) : (
-                            <span className="font-mono">{currentLease.reference}</span>
-                          )
+                          <LeaseHoverCard
+                            lease={{
+                              reference: currentLease.reference,
+                              status: currentLease.status,
+                              startDate: currentLease.startDate.toISOString(),
+                              endDate: currentLease.endDate.toISOString(),
+                              durationMonths: currentLease.durationMonths,
+                              monthlyRent: currentLease.monthlyRent,
+                              expiry: currentLease.expiry,
+                              subtitle: currentLease.tenantName,
+                            }}
+                            href={canReadLeases ? `/leases/${currentLease.id}` : null}
+                            className={cn(canReadLeases && linkClass, "font-mono")}
+                          />
                         }
                       />
                       <DetailRow
