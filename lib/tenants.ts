@@ -5,6 +5,8 @@ import {
   type LeaseExpiry,
   type LeaseStatus,
 } from "@/lib/leases";
+import type { PropertyPreview } from "@/components/hover-cards/property-hover-card";
+import type { UnitPreview } from "@/components/hover-cards/unit-hover-card";
 import type { UpdateMemberProfileInput } from "@/lib/member-profile-schemas";
 import { prisma } from "@/lib/prisma";
 import { ensureTenantRole } from "@/lib/roles";
@@ -49,6 +51,11 @@ export type TenantRow = {
   joinedAt: string;
   unitLabel: string | null;
   propertyName: string | null;
+  /** For the property and unit hover cards; null with no lease. */
+  propertyId: string | null;
+  unitId: string | null;
+  property: PropertyPreview | null;
+  unit: UnitPreview | null;
   status: TenantStatus;
   canSignIn: boolean;
   photoId: string | null;
@@ -75,7 +82,15 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
       },
       leases: {
         orderBy: { startDate: "desc" },
-        include: { unit: { include: { property: { select: { name: true } } } } },
+        include: {
+          unit: {
+            include: {
+              property: {
+                select: { id: true, name: true, address: true, category: true, type: true },
+              },
+            },
+          },
+        },
       },
     },
   });
@@ -108,6 +123,27 @@ export async function getTenants(organizationId: string): Promise<TenantRow[]> {
       joinedAt: membership.createdAt.toISOString(),
       unitLabel: relevantLease?.unit.label ?? null,
       propertyName: relevantLease?.unit.property.name ?? null,
+      propertyId: relevantLease?.unit.property.id ?? null,
+      unitId: relevantLease?.unit.id ?? null,
+      property: relevantLease
+        ? {
+            name: relevantLease.unit.property.name,
+            address: relevantLease.unit.property.address,
+            category: relevantLease.unit.property.category,
+            type: relevantLease.unit.property.type,
+          }
+        : null,
+      unit: relevantLease
+        ? {
+            label: relevantLease.unit.label,
+            propertyName: relevantLease.unit.property.name,
+            unitType: relevantLease.unit.unitType,
+            sizeSqm: relevantLease.unit.sizeSqm,
+            rentAmount: relevantLease.unit.rentAmount,
+            floor: relevantLease.unit.floor,
+            block: relevantLease.unit.block,
+          }
+        : null,
       status,
       // Surfaced so staff can see who still needs an invite to actually log in.
       canSignIn: membership.user.passwordHash !== null,
