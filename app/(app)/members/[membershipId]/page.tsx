@@ -278,6 +278,11 @@ export default async function MemberDetailPage({
               reference: lease.reference,
               propertyName: lease.propertyName,
               unitLabel: lease.unitLabel,
+              propertyId: lease.propertyId,
+              unitId: lease.unitId,
+              property: lease.property,
+              unit: lease.unit,
+              monthlyRent: lease.monthlyRent,
               // Dates must be serialisable to cross the server/client boundary.
               startDate: lease.startDate.toISOString(),
               endDate: lease.endDate.toISOString(),
