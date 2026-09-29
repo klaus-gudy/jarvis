@@ -128,6 +128,22 @@ export async function getProperty(organizationId: string, propertyId: string) {
               take: 1,
               include: { membership: { include: { user: true } } },
             },
+            /**
+             * Enough to render the unit's photo strip, and no more: the id is
+             * the image URL and the name is its alt text. Loaded with the
+             * units rather than fetched per row, because the view dialog opens
+             * from a table that is already in memory and a spinner there would
+             * be a round trip to show four thumbnails.
+             */
+            fileAssets: {
+              // Any photo type, not the seeded `UNIT_PHOTO` by name: an
+              // organization that added its own unit photo type should see
+              // those here too, and `isPhoto` is what the carousel and the
+              // narrow MIME allowlist already key off.
+              where: { assetType: { isPhoto: true } },
+              orderBy: { createdAt: "asc" },
+              select: { id: true, fileName: true },
+            },
           },
         },
       },
@@ -150,6 +166,7 @@ export async function getProperty(organizationId: string, propertyId: string) {
       block: unit.block,
       sizeSqm: unit.sizeSqm,
       amenities: unit.amenities,
+      photos: unit.fileAssets,
       isOccupied: lease !== null,
       tenantName: lease?.membership.user.name ?? lease?.membership.user.email ?? null,
       // For links from the unit to its tenant and its lease.
