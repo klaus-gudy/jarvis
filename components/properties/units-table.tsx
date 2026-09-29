@@ -21,6 +21,7 @@ import {
   UnitFormDialog,
   unitFormValues,
 } from "@/components/properties/unit-form-dialog";
+import { UnitViewDialog } from "@/components/properties/unit-view-dialog";
 import { PhotoUploadDialog } from "@/components/documents/photo-upload-dialog";
 import { ImportDialog } from "@/components/import-dialog";
 import { gateActions, useCan } from "@/components/permissions-provider";
@@ -57,6 +58,7 @@ export function UnitsTable({
   const viewRef = React.useRef<DataTableView<UnitRow>>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
+  const [viewing, setViewing] = React.useState<UnitRow | null>(null);
   const [editing, setEditing] = React.useState<UnitRow | null>(null);
   /**
    * A shortcut to the unit page's Photos tab: the same dialog its gallery
@@ -75,7 +77,7 @@ export function UnitsTable({
       {
         label: `View unit ${unit.label}`,
         icon: EyeIcon,
-        href: `/properties/${propertyId}/units/${unit.id}`,
+        onSelect: () => setViewing(unit),
       },
       {
         label: `Edit unit ${unit.label}`,
@@ -100,7 +102,7 @@ export function UnitsTable({
         },
       },
     ],
-    [propertyId]
+    []
   );
   // Greyed out, not hidden, when the role can't use them; the API enforces it.
   const rowActions = React.useCallback(
@@ -193,6 +195,18 @@ export function UnitsTable({
         getRowHref={(unit) => `/properties/${propertyId}/units/${unit.id}`}
         renderCard={(unit) => <UnitCard unit={unit} />}
         rowActions={rowActions}
+      />
+
+      <UnitViewDialog
+        unit={viewing}
+        propertyId={propertyId}
+        onOpenChange={(open) => !open && setViewing(null)}
+        onAddPhotos={(unit) => {
+          // One dialog at a time: the viewer closes as the picker opens, so
+          // they don't stack.
+          setViewing(null);
+          setPhotographing(unit);
+        }}
       />
 
       {/* Remounted per unit so a previous pick never carries over. */}
