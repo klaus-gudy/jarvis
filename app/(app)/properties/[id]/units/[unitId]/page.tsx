@@ -271,7 +271,9 @@ export default async function UnitDetailPage({
                       <DetailRow
                         label="Term"
                         value={
-                          <span className="inline-flex items-center gap-2">
+                          // Wraps the badge under the dates on a narrow card
+                          // instead of clipping it.
+                          <span className="inline-flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
                             {formatDate(currentLease.startDate)} →{" "}
                             {formatDate(currentLease.endDate)}
                             <ExpiryTag expiry={currentLease.expiry} />
