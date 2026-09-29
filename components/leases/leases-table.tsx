@@ -47,6 +47,8 @@ export function LeasesTable({
   const canPay = useCan("payment:record");
   const canWrite = useCan("lease:write");
   const canDelete = useCan("lease:delete");
+  const canReadTenants = useCan("tenant:read");
+  const canReadProperties = useCan("property:read");
   const baseRowActions = React.useCallback(
     (lease: LeaseRow): RowAction[] => {
       const balance = lease.invoice
@@ -100,8 +102,8 @@ export function LeasesTable({
   );
 
   const columns = React.useMemo(
-    () => buildLeaseColumns({ rowActions }),
-    [rowActions]
+    () => buildLeaseColumns({ rowActions, canReadTenants, canReadProperties }),
+    [rowActions, canReadTenants, canReadProperties]
   );
 
   async function handleDelete() {
