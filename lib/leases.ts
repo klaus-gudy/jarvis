@@ -213,6 +213,7 @@ export type LeaseDetail = {
     name: string;
     phone: string | null;
     email: string | null;
+    photoId: string | null;
   };
   unit: {
     id: string;
@@ -228,6 +229,7 @@ export type LeaseDetail = {
     name: string;
     address: string;
     category: string;
+    type: "RESIDENTIAL" | "COMMERCIAL";
   };
   startDate: Date;
   endDate: Date;
@@ -244,10 +246,47 @@ export type LeaseDetail = {
   renewedTo: LeaseLink | null;
 };
 
-export type LeaseLink = { id: string; reference: string };
+/** A neighbouring lease in a renewal chain, with enough to preview it on hover. */
+export type LeaseLink = {
+  id: string;
+  reference: string;
+  status: LeaseStatus;
+  startDate: string;
+  endDate: string;
+  durationMonths: number;
+  monthlyRent: number;
+};
 
-function leaseLink(lease: { id: string } | null): LeaseLink | null {
-  return lease ? { id: lease.id, reference: leaseReference(lease.id) } : null;
+const LEASE_LINK_SELECT = {
+  id: true,
+  status: true,
+  startDate: true,
+  endDate: true,
+  durationMonths: true,
+  monthlyRent: true,
+} as const;
+
+function leaseLink(
+  lease: {
+    id: string;
+    status: LeaseStatus;
+    startDate: Date;
+    endDate: Date;
+    durationMonths: number;
+    monthlyRent: number;
+  } | null
+): LeaseLink | null {
+  return lease
+    ? {
+        id: lease.id,
+        reference: leaseReference(lease.id),
+        status: lease.status,
+        startDate: lease.startDate.toISOString(),
+        endDate: lease.endDate.toISOString(),
+        durationMonths: lease.durationMonths,
+        monthlyRent: lease.monthlyRent,
+      }
+    : null;
 }
 
 /** Scoped through both relations, matching getLeases, so one org can't read another's lease. */
@@ -267,10 +306,13 @@ export async function getLease(
         include: { user: { select: { name: true, email: true, phone: true } } },
       },
       invoice: { include: { payments: { select: { amount: true } } } },
-      renewedTo: { select: { id: true } },
+      renewedFrom: { select: LEASE_LINK_SELECT },
+      renewedTo: { select: LEASE_LINK_SELECT },
     },
   });
   if (!lease) return null;
+
+  const photoIds = await getProfilePhotoIds(organizationId, [lease.membershipId]);
 
   return {
     id: lease.id,
@@ -285,6 +327,7 @@ export async function getLease(
         "Unnamed",
       phone: lease.membership.user.phone,
       email: lease.membership.user.email,
+      photoId: photoIds.get(lease.membershipId) ?? null,
     },
     unit: {
       id: lease.unit.id,
@@ -300,6 +343,7 @@ export async function getLease(
       name: lease.unit.property.name,
       address: lease.unit.property.address,
       category: lease.unit.property.category,
+      type: lease.unit.property.type,
     },
     startDate: lease.startDate,
     endDate: lease.endDate,
@@ -309,7 +353,7 @@ export async function getLease(
     monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
     invoice: lease.invoice ? invoiceSummary(lease.invoice) : null,
-    renewedFrom: leaseLink(lease.renewedFromId ? { id: lease.renewedFromId } : null),
+    renewedFrom: leaseLink(lease.renewedFrom),
     renewedTo: leaseLink(lease.renewedTo),
   };
 }
