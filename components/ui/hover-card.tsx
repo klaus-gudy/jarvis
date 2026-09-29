@@ -15,8 +15,9 @@ function HoverCardTrigger({ ...props }: PreviewCardPrimitive.Trigger.Props) {
 
 function HoverCardContent({
   className,
+  children,
   side = "bottom",
-  sideOffset = 4,
+  sideOffset = 10,
   align = "center",
   alignOffset = 4,
   ...props
@@ -41,7 +42,13 @@ function HoverCardContent({
             className
           )}
           {...props}
-        />
+        >
+          {children}
+          {/* Points at the trigger. A square turned 45° in the card's colour,
+              outlined on its two outer edges only, so it reads as part of the
+              card's own border rather than a separate shape. */}
+          <PreviewCardPrimitive.Arrow className="size-3 rotate-45 border-foreground/15 bg-popover data-[side=bottom]:-top-1.5 data-[side=bottom]:border-t data-[side=bottom]:border-l data-[side=left]:-right-1.5 data-[side=left]:border-t data-[side=left]:border-r data-[side=right]:-left-1.5 data-[side=right]:border-b data-[side=right]:border-l data-[side=top]:-bottom-1.5 data-[side=top]:border-r data-[side=top]:border-b" />
+        </PreviewCardPrimitive.Popup>
       </PreviewCardPrimitive.Positioner>
     </PreviewCardPrimitive.Portal>
   )
