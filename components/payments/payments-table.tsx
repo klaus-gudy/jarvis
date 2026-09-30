@@ -47,6 +47,8 @@ export function PaymentsTable({
 
   const canRecord = useCan("payment:record");
   const canReverse = useCan("payment:reverse");
+  const canReadTenants = useCan("tenant:read");
+  const canReadProperties = useCan("property:read");
   const baseRowActions = React.useCallback(
     (payment: PaymentRow): RowAction[] => {
       const balance = payment.invoiceAmount - payment.invoicePaid;
@@ -85,8 +87,8 @@ export function PaymentsTable({
   );
 
   const columns = React.useMemo(
-    () => buildPaymentColumns({ rowActions }),
-    [rowActions]
+    () => buildPaymentColumns({ rowActions, canReadTenants, canReadProperties }),
+    [rowActions, canReadTenants, canReadProperties]
   );
 
   async function handleDelete() {
