@@ -23,7 +23,8 @@ export function ProfileField({
 }: {
   label: string;
   value: string | null | undefined;
-  icon: LucideIcon;
+  /** Optional: the tenant portal's cards show plain values. */
+  icon?: LucideIcon;
   required?: boolean;
   className?: string;
 }) {
@@ -42,7 +43,7 @@ export function ProfileField({
         )}
       </dt>
       <dd className="flex h-8 w-full min-w-0 items-center gap-2 rounded-lg border border-input bg-muted/40 px-2 text-sm dark:bg-input/30">
-        <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
         <span
           className={cn("truncate", !value && "italic text-muted-foreground/60")}
         >
