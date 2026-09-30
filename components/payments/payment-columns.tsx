@@ -2,6 +2,9 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
+import { PropertyHoverCard } from "@/components/hover-cards/property-hover-card";
+import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
+import { UnitHoverCard } from "@/components/hover-cards/unit-hover-card";
 import { PersonCell } from "@/components/person-cell";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,9 +28,14 @@ import type { PaymentRow } from "@/lib/payments";
 export function buildPaymentColumns({
   rowActions,
   showTenant = true,
+  canReadTenants,
+  canReadProperties,
 }: {
   rowActions: (payment: PaymentRow) => RowAction[];
   showTenant?: boolean;
+  /** Each name previews and links only when its page would open. */
+  canReadTenants: boolean;
+  canReadProperties: boolean;
 }): ColumnDef<PaymentRow>[] {
   return [
     ...(showTenant
@@ -48,7 +56,22 @@ export function buildPaymentColumns({
               <PersonCell
                 name={row.original.tenantName}
                 photoId={row.original.photoId}
-              />
+              >
+                <TenantHoverCard
+                  tenant={{
+                    name: row.original.tenantName,
+                    phone: row.original.tenantPhone,
+                    email: row.original.tenantEmail,
+                    photoId: row.original.photoId,
+                    context: `Unit ${row.original.unitLabel} · ${row.original.propertyName}`,
+                  }}
+                  href={
+                    canReadTenants ? `/members/${row.original.membershipId}` : null
+                  }
+                  className="hover:underline"
+                  align="start"
+                />
+              </PersonCell>
             ),
           } satisfies ColumnDef<PaymentRow>,
         ]
@@ -65,8 +88,23 @@ export function buildPaymentColumns({
       ),
       cell: ({ row }) => (
         <span className="whitespace-nowrap">
-          {row.original.propertyName}
-          <span className="text-muted-foreground"> / {row.original.unitLabel}</span>
+          <PropertyHoverCard
+            property={row.original.property}
+            href={canReadProperties ? `/properties/${row.original.propertyId}` : null}
+            className="hover:underline"
+          />
+          <span className="text-muted-foreground">
+            {" / "}
+            <UnitHoverCard
+              unit={row.original.unit}
+              href={
+                canReadProperties
+                  ? `/properties/${row.original.propertyId}/units/${row.original.unitId}`
+                  : null
+              }
+              className="hover:text-foreground hover:underline"
+            />
+          </span>
         </span>
       ),
       filterFn: facetFilterFn,
