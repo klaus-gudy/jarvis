@@ -1,3 +1,5 @@
+import type { PropertyPreview } from "@/components/hover-cards/property-hover-card";
+import type { UnitPreview } from "@/components/hover-cards/unit-hover-card";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import {
@@ -86,6 +88,14 @@ export type PaymentRow = {
    */
   propertyName: string;
   unitLabel: string;
+  /** For the tenant, property and unit hover cards. */
+  membershipId: string;
+  tenantPhone: string | null;
+  tenantEmail: string | null;
+  propertyId: string;
+  unitId: string;
+  property: PropertyPreview;
+  unit: UnitPreview;
 };
 
 /**
@@ -121,8 +131,22 @@ export async function getPayments(
                 },
                 unit: {
                   select: {
+                    id: true,
                     label: true,
-                    property: { select: { name: true } },
+                    unitType: true,
+                    sizeSqm: true,
+                    rentAmount: true,
+                    floor: true,
+                    block: true,
+                    property: {
+                      select: {
+                        id: true,
+                        name: true,
+                        address: true,
+                        category: true,
+                        type: true,
+                      },
+                    },
                   },
                 },
               },
@@ -159,6 +183,26 @@ export async function getPayments(
       photoId: photoIds.get(invoice.lease.membershipId) ?? null,
       propertyName: invoice.lease.unit.property.name,
       unitLabel: invoice.lease.unit.label,
+      membershipId: invoice.lease.membershipId,
+      tenantPhone: invoice.lease.membership.user.phone,
+      tenantEmail: invoice.lease.membership.user.email,
+      propertyId: invoice.lease.unit.property.id,
+      unitId: invoice.lease.unit.id,
+      property: {
+        name: invoice.lease.unit.property.name,
+        address: invoice.lease.unit.property.address,
+        category: invoice.lease.unit.property.category,
+        type: invoice.lease.unit.property.type,
+      },
+      unit: {
+        label: invoice.lease.unit.label,
+        propertyName: invoice.lease.unit.property.name,
+        unitType: invoice.lease.unit.unitType,
+        sizeSqm: invoice.lease.unit.sizeSqm,
+        rentAmount: invoice.lease.unit.rentAmount,
+        floor: invoice.lease.unit.floor,
+        block: invoice.lease.unit.block,
+      },
     };
   });
 }
