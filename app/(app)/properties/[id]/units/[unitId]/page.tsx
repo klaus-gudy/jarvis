@@ -406,13 +406,6 @@ function StatusPill({ occupied }: { occupied: boolean }) {
           : "bg-muted text-muted-foreground"
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "size-1.5 rounded-full",
-          occupied ? "bg-emerald-500" : "bg-muted-foreground"
-        )}
-      />
       {occupied ? "Occupied" : "Vacant"}
     </span>
   );
