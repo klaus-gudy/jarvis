@@ -5,6 +5,7 @@ import { EyeIcon } from "lucide-react";
 
 import { PaymentCard } from "@/components/payments/payment-card";
 import { buildPaymentColumns } from "@/components/payments/payment-columns";
+import { useCan } from "@/components/permissions-provider";
 import { DataTable, type RowAction } from "@/components/ui/data-table";
 import { INVOICE_STATUSES } from "@/lib/invoice-types";
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment-options";
@@ -45,9 +46,18 @@ export function MemberPaymentsTab({
     []
   );
 
+  // No tenant column here — the page is the tenant — but the property and
+  // unit still preview on hover.
+  const canReadProperties = useCan("property:read");
   const columns = React.useMemo(
-    () => buildPaymentColumns({ rowActions, showTenant: false }),
-    [rowActions]
+    () =>
+      buildPaymentColumns({
+        rowActions,
+        showTenant: false,
+        canReadTenants: false,
+        canReadProperties,
+      }),
+    [rowActions, canReadProperties]
   );
 
   return (
