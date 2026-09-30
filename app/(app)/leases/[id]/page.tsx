@@ -32,13 +32,6 @@ const STATUS_TONE: Record<LeaseStatus, string> = {
   Renewed: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
 };
 
-const STATUS_DOT: Record<LeaseStatus, string> = {
-  Active: "bg-emerald-500",
-  Upcoming: "bg-amber-500",
-  Ended: "bg-muted-foreground",
-  Renewed: "bg-sky-500",
-};
-
 /** Tabs a link may open on, e.g. the dashboard's "Confirm payment" → billing. */
 const TABS = ["overview", "billing", "contract", "documents"] as const;
 
@@ -154,10 +147,6 @@ export default async function LeaseDetailPage({
                   STATUS_TONE[lease.status]
                 )}
               >
-                <span
-                  aria-hidden
-                  className={cn("size-1.5 rounded-full", STATUS_DOT[lease.status])}
-                />
                 {lease.status}
               </span>
             </div>
