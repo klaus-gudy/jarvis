@@ -12,21 +12,11 @@ const STATUS_TONE: Record<LeaseStatus, string> = {
   Renewed: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
 }
 
-const STATUS_DOT: Record<LeaseStatus, string> = {
-  Active: "bg-emerald-500",
-  Upcoming: "bg-amber-500",
-  Ended: "bg-muted-foreground",
-  Renewed: "bg-sky-500",
-}
-
 export function LeaseStatusPill({
   status,
-  dot = true,
   className,
 }: {
   status: LeaseStatus
-  /** The leading coloured dot; off where a plain label reads cleaner. */
-  dot?: boolean
   className?: string
 }) {
   return (
@@ -37,16 +27,15 @@ export function LeaseStatusPill({
         className
       )}
     >
-      {dot && <span aria-hidden className={cn("size-1.5 rounded-full", STATUS_DOT[status])} />}
       {status}
     </span>
   )
 }
 
-const INVOICE_TONE: Record<InvoiceStatus, { pill: string; dot: string }> = {
-  Paid: { pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
-  Partial: { pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
-  Unpaid: { pill: "bg-rose-500/10 text-rose-700 dark:text-rose-400", dot: "bg-rose-500" },
+const INVOICE_TONE: Record<InvoiceStatus, string> = {
+  Paid: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  Partial: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  Unpaid: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
 }
 
 /** The invoice counterpart of `LeaseStatusPill`, same shape. */
@@ -61,11 +50,10 @@ export function InvoiceStatusPill({
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-        INVOICE_TONE[status].pill,
+        INVOICE_TONE[status],
         className
       )}
     >
-      <span aria-hidden className={cn("size-1.5 rounded-full", INVOICE_TONE[status].dot)} />
       {status}
     </span>
   )
