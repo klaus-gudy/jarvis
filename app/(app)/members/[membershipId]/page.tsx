@@ -30,13 +30,6 @@ const STATUS_TONE: Record<TenantStatus, string> = {
   Vacated: "bg-muted text-muted-foreground",
 };
 
-const STATUS_DOT: Record<TenantStatus, string> = {
-  Active: "bg-emerald-500",
-  Upcoming: "bg-sky-500",
-  Prospect: "bg-amber-500",
-  Vacated: "bg-muted-foreground",
-};
-
 /**
  * Detail view for any member of the organization, not just tenants — it is
  * reached from both the Tenants and the Users table. The route is deliberately
@@ -133,13 +126,6 @@ export default async function MemberDetailPage({
                     STATUS_TONE[member.status]
                   )}
                 >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      STATUS_DOT[member.status]
-                    )}
-                  />
                   {member.status}
                 </span>
               )}
