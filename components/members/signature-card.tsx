@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PenLineIcon, SignatureIcon, Trash2Icon } from "lucide-react";
+import { PenLineIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -67,8 +67,7 @@ export function SignatureCard({
   return (
     <Card>
       <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <SignatureIcon className="size-4 text-muted-foreground" aria-hidden />
+        <CardTitle className="text-base">
           Signature
         </CardTitle>
         {isSelf && (
