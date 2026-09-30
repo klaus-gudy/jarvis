@@ -97,7 +97,7 @@ export function LeaseDocumentsTable({ rows }: { rows: LeaseDocumentRow[] }) {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <span className="truncate">{row.lease}</span>
-                  <LeaseStatusPill status={row.leaseStatus} dot={false} />
+                  <LeaseStatusPill status={row.leaseStatus} />
                 </div>
                 <p className="text-xs text-muted-foreground tabular-nums">{term(row)}</p>
               </button>
