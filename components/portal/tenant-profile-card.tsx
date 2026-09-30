@@ -2,20 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import {
-  BriefcaseIcon,
-  Building2Icon,
-  ContactIcon,
-  FlagIcon,
-  HeartHandshakeIcon,
-  IdCardIcon,
-  MailIcon,
-  PencilIcon,
-  PhoneCallIcon,
-  PhoneIcon,
-  UserRoundIcon,
-  UsersIcon,
-} from "lucide-react"
+import { PencilIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { ProfileCardHeader } from "@/components/profile/profile-card-header"
@@ -106,13 +93,13 @@ export function TenantProfileCard({
         />
         <CardContent className="space-y-4">
           <dl className="grid gap-4 sm:grid-cols-2">
-            <ProfileField label="Full name" value={details.name} icon={UserRoundIcon} />
-            <ProfileField label="Phone number" value={phone} icon={PhoneIcon} />
-            <ProfileField label="Email address" value={email} icon={MailIcon} />
-            <ProfileField label="NIDA number" value={nidaNumber} icon={IdCardIcon} />
-            <ProfileField label="Occupation" value={details.occupation} icon={BriefcaseIcon} />
-            <ProfileField label="Employer" value={details.employer} icon={Building2Icon} />
-            <ProfileField label="Nationality" value={details.nationality} icon={FlagIcon} />
+            <ProfileField label="Full name" value={details.name} />
+            <ProfileField label="Phone number" value={phone} />
+            <ProfileField label="Email address" value={email} />
+            <ProfileField label="NIDA number" value={nidaNumber} />
+            <ProfileField label="Occupation" value={details.occupation} />
+            <ProfileField label="Employer" value={details.employer} />
+            <ProfileField label="Nationality" value={details.nationality} />
           </dl>
           <p className="text-sm text-muted-foreground">
             To change your phone number, email or NIDA number, ask your landlord.
@@ -148,7 +135,6 @@ export function EmergencyContactCard({ details }: { details: TenantEditable }) {
       <Card>
         <ProfileCardHeader
           title="Emergency contact"
-          icon={HeartHandshakeIcon}
           action={
             <Button size="sm" variant={missing ? "default" : "outline"} onClick={() => setEditing(true)}>
               <PencilIcon />
@@ -167,18 +153,15 @@ export function EmergencyContactCard({ details }: { details: TenantEditable }) {
               <ProfileField
                 label="Name"
                 value={details.emergencyContactName}
-                icon={ContactIcon}
                 className="sm:col-span-2"
               />
               <ProfileField
                 label="Phone"
                 value={details.emergencyContactPhone}
-                icon={PhoneCallIcon}
               />
               <ProfileField
                 label="Relation"
                 value={details.emergencyContactRelation}
-                icon={UsersIcon}
               />
             </dl>
           )}
