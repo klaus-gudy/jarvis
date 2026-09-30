@@ -191,13 +191,6 @@ export default async function PropertyDetailPage({
                             : "bg-muted text-muted-foreground"
                         )}
                       >
-                        <span
-                          aria-hidden
-                          className={cn(
-                            "size-1.5 rounded-full",
-                            isActive ? "bg-emerald-500" : "bg-muted-foreground"
-                          )}
-                        />
                         {isActive ? "Active" : "Inactive"}
                       </span>
                     }
