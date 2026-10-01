@@ -474,9 +474,9 @@ export async function getDashboardPanels(
   const activity: ActivityRow[] = recentActivity.items.map((item) => ({
     id: item.id,
     title: item.title,
-    subtitle: [item.actor, ...item.context.map((link) => link.label)].join(" · "),
+    subtitle: [item.actor, item.entity?.label].filter(Boolean).join(" · "),
     createdAt: new Date(item.at),
-    href: item.context.find((link) => link.href)?.href ?? undefined,
+    href: item.entity?.href ?? undefined,
   }));
 
   // Ranked in JS because `daysVacant` is derived, not a column — so the whole
