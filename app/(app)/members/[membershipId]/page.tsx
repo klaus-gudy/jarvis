@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
+import { RecordStamps } from "@/components/record-stamps";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
@@ -14,6 +15,7 @@ import { ProfileEditDialog } from "@/components/tenants/profile-edit-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
 import { listAssetTypes } from "@/lib/asset-types";
@@ -50,6 +52,7 @@ export default async function MemberDetailPage({
   const { membershipId } = await params;
   const member = await getTenantDetail(user.activeOrgId, membershipId);
   if (!member) notFound();
+  const stamps = await getRecordStamps(user.activeOrgId, "Membership", member.membershipId);
 
   const { profile } = member;
 
@@ -134,6 +137,7 @@ export default async function MemberDetailPage({
             <p className="truncate text-sm text-muted-foreground">
               {member.roleName} · Joined {formatDate(member.joinedAt)}
             </p>
+            <RecordStamps stamps={stamps} />
           </div>
           <ProfileEditDialog membershipId={member.membershipId} profile={profile} />
         </CardContent>
