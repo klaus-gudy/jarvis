@@ -1,3 +1,4 @@
+import { audit, diff } from "@/lib/audit";
 import type { AuthContext } from "@/lib/authz";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contract-constants";
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
@@ -373,14 +374,31 @@ export async function updateOwnTenantProfile(
   }
 ) {
   const { name, ...profile } = input;
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: ctx.userId }, data: { name } }),
-    prisma.memberProfile.upsert({
+  const before = await prisma.membership.findUniqueOrThrow({
+    where: { id: ctx.membershipId },
+    select: { user: { select: { name: true } }, profile: true },
+  });
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: ctx.userId }, data: { name } });
+    const saved = await tx.memberProfile.upsert({
       where: { membershipId: ctx.membershipId },
-      create: { membershipId: ctx.membershipId, ...profile },
-      update: profile,
-    }),
-  ]);
+      create: {
+        membershipId: ctx.membershipId,
+        ...profile,
+        createdById: ctx.membershipId,
+        updatedById: ctx.membershipId,
+      },
+      update: { ...profile, updatedById: ctx.membershipId },
+    });
+    await audit(tx, {
+      organizationId: ctx.organizationId,
+      actor: ctx,
+      action: "member_profile.updated",
+      entityType: "MemberProfile",
+      entityId: saved.id,
+      changes: { ...diff(before.user, { name }), ...diff(before.profile ?? {}, profile) },
+    });
+  });
 }
 
 /**
