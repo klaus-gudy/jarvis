@@ -1,3 +1,4 @@
+import { audit, createdBy, diff, snapshot, updatedBy } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import type { PaymentAccountTypeValue } from "@/lib/payment-account-options";
 import type { PaymentAccountInput } from "@/lib/payment-accounts-schemas";
@@ -16,9 +17,10 @@ export type PaymentAccountRow = {
  * `{ userId, organizationId }` rather than the account id alone — an id from
  * another member (or another org) must not resolve.
  */
-type Scope = { userId: string; organizationId: string };
+/** The caller's `AuthContext` fits; `membershipId` is also who gets stamped. */
+type Scope = { userId: string; organizationId: string; membershipId: string | null };
 
-async function findMembershipId(scope: Scope) {
+async function findMembershipId(scope: Pick<Scope, "userId" | "organizationId">) {
   const membership = await prisma.membership.findUnique({
     where: {
       userId_organizationId: {
@@ -32,7 +34,7 @@ async function findMembershipId(scope: Scope) {
 }
 
 export async function getPaymentAccounts(
-  scope: Scope
+  scope: Pick<Scope, "userId" | "organizationId">
 ): Promise<PaymentAccountRow[]> {
   const membershipId = await findMembershipId(scope);
   if (!membershipId) return [];
@@ -108,10 +110,18 @@ export async function createPaymentAccount(
 
     if (isDefault) await clearOtherDefaults(tx, membershipId);
 
-    return tx.paymentAccount.create({
-      data: { ...input, isDefault, membershipId },
-      select: { id: true },
+    const created = await tx.paymentAccount.create({
+      data: { ...input, isDefault, membershipId, ...createdBy(scope) },
     });
+    await audit(tx, {
+      organizationId: scope.organizationId,
+      actor: scope,
+      action: "payment_account.created",
+      entityType: "PaymentAccount",
+      entityId: created.id,
+      changes: snapshot(created),
+    });
+    return { id: created.id };
   });
 
   return { account };
@@ -132,7 +142,6 @@ export async function updatePaymentAccount(
     // between the request arriving and this transaction starting.
     const existing = await tx.paymentAccount.findFirst({
       where: { id: accountId, membershipId },
-      select: { id: true, isDefault: true },
     });
     if (!existing) return false;
 
@@ -143,7 +152,15 @@ export async function updatePaymentAccount(
 
     await tx.paymentAccount.update({
       where: { id: accountId },
-      data: { ...input, isDefault },
+      data: { ...input, isDefault, ...updatedBy(scope) },
+    });
+    await audit(tx, {
+      organizationId: scope.organizationId,
+      actor: scope,
+      action: "payment_account.updated",
+      entityType: "PaymentAccount",
+      entityId: accountId,
+      changes: diff(existing, { ...input, isDefault }),
     });
     return true;
   });
@@ -161,12 +178,19 @@ export async function deletePaymentAccount(scope: Scope, accountId: string) {
 
     const existing = await tx.paymentAccount.findFirst({
       where: { id: accountId, membershipId },
-      select: { id: true, isDefault: true },
     });
     // Already gone — two deletes of the same row raced, and the first won.
     if (!existing) return false;
 
     await tx.paymentAccount.delete({ where: { id: accountId } });
+    await audit(tx, {
+      organizationId: scope.organizationId,
+      actor: scope,
+      action: "payment_account.deleted",
+      entityType: "PaymentAccount",
+      entityId: accountId,
+      changes: snapshot(existing),
+    });
 
     // Deleting the default promotes the next-oldest, so the member never ends
     // up with accounts but no default.
@@ -179,7 +203,7 @@ export async function deletePaymentAccount(scope: Scope, accountId: string) {
       if (next) {
         await tx.paymentAccount.update({
           where: { id: next.id },
-          data: { isDefault: true },
+          data: { isDefault: true, ...updatedBy(scope) },
         });
       }
     }
