@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar";
@@ -172,6 +173,9 @@ export default async function MemberDetailPage({
           <TabsTrigger value="sms" className="flex-none px-3">
             SMS alerts
           </TabsTrigger>
+          <TabsTrigger value="activity" className="flex-none px-3">
+            Activity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5 pt-5">
@@ -316,6 +320,9 @@ export default async function MemberDetailPage({
             membershipId={member.membershipId}
             phone={member.phone}
           />
+        </TabsContent>
+        <TabsContent value="activity" className="pt-5">
+          <ActivityTimeline subject={`Membership:${member.membershipId}`} emptyMessage="No activity for this member yet." />
         </TabsContent>
       </Tabs>
     </div>
