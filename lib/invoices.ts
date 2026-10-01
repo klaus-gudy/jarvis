@@ -1,3 +1,4 @@
+import { audit, snapshot, type Actor } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import type { RecordPaymentInput } from "@/lib/invoices-schemas";
 import {
@@ -89,7 +90,8 @@ export async function getInvoiceForLease(
 export async function recordPayment(
   organizationId: string,
   invoiceId: string,
-  input: RecordPaymentInput
+  input: RecordPaymentInput,
+  actor: Actor
 ) {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, ...orgInvoiceFilter(organizationId) },
@@ -114,14 +116,26 @@ export async function recordPayment(
     return { error: "overpayment" as const, balance };
   }
 
-  const payment = await prisma.payment.create({
-    data: {
-      invoiceId: invoice.id,
-      amount: input.amount,
-      paidAt: input.paidAt,
-      method: input.method ?? null,
-      notes: input.notes ?? null,
-    },
+  const payment = await prisma.$transaction(async (tx) => {
+    const created = await tx.payment.create({
+      data: {
+        invoiceId: invoice.id,
+        amount: input.amount,
+        paidAt: input.paidAt,
+        method: input.method ?? null,
+        notes: input.notes ?? null,
+        createdById: actor.membershipId,
+      },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "payment.recorded",
+      entityType: "Payment",
+      entityId: created.id,
+      changes: snapshot(created),
+    });
+    return created;
   });
 
   // The *crossing*, not the state: `balance` above is what was owed before
@@ -179,7 +193,8 @@ export async function announceInvoiceSettled(
 export async function deletePayment(
   organizationId: string,
   invoiceId: string,
-  paymentId: string
+  paymentId: string,
+  actor: Actor
 ) {
   const payment = await prisma.payment.findFirst({
     where: {
@@ -187,10 +202,19 @@ export async function deletePayment(
       invoiceId,
       invoice: orgInvoiceFilter(organizationId),
     },
-    select: { id: true },
   });
   if (!payment) return { error: "not-found" as const };
 
-  await prisma.payment.delete({ where: { id: payment.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.delete({ where: { id: payment.id } });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "payment.deleted",
+      entityType: "Payment",
+      entityId: payment.id,
+      changes: snapshot(payment),
+    });
+  });
   return { ok: true as const };
 }
