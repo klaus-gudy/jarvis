@@ -1,3 +1,4 @@
+import { audit, createdBy, diff, snapshot, updatedBy, type Actor } from "@/lib/audit";
 import type { PropertyStatus, PropertyType } from "@/lib/generated/prisma/enums";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { leaseExpiry, leaseReference } from "@/lib/leases";
@@ -227,11 +228,22 @@ export async function getProperty(organizationId: string, propertyId: string) {
 
 export async function createProperty(
   organizationId: string,
-  input: CreatePropertyInput
+  input: CreatePropertyInput,
+  actor: Actor
 ) {
-  return prisma.property.create({
-    data: { ...input, organizationId },
-    select: { id: true },
+  return prisma.$transaction(async (tx) => {
+    const property = await tx.property.create({
+      data: { ...input, organizationId, ...createdBy(actor) },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "property.created",
+      entityType: "Property",
+      entityId: property.id,
+      changes: snapshot(property),
+    });
+    return { id: property.id };
   });
 }
 
@@ -242,29 +254,53 @@ export async function createProperty(
 export async function updateProperty(
   organizationId: string,
   propertyId: string,
-  input: UpdatePropertyInput
+  input: UpdatePropertyInput,
+  actor: Actor
 ) {
   const existing = await prisma.property.findFirst({
     where: { id: propertyId, organizationId },
-    select: { id: true },
   });
   if (!existing) return null;
 
-  return prisma.property.update({
-    where: { id: existing.id },
-    data: input,
-    select: { id: true },
+  return prisma.$transaction(async (tx) => {
+    const property = await tx.property.update({
+      where: { id: existing.id },
+      data: { ...input, ...updatedBy(actor) },
+      select: { id: true },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "property.updated",
+      entityType: "Property",
+      entityId: existing.id,
+      changes: diff(existing, input),
+    });
+    return property;
   });
 }
 
-export async function deleteProperty(organizationId: string, propertyId: string) {
+export async function deleteProperty(
+  organizationId: string,
+  propertyId: string,
+  actor: Actor
+) {
   const existing = await prisma.property.findFirst({
     where: { id: propertyId, organizationId },
-    select: { id: true },
   });
   if (!existing) return null;
 
   // Units and their leases cascade via the schema's onDelete rules.
-  await prisma.property.delete({ where: { id: existing.id } });
-  return existing;
+  await prisma.$transaction(async (tx) => {
+    await tx.property.delete({ where: { id: existing.id } });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "property.deleted",
+      entityType: "Property",
+      entityId: existing.id,
+      changes: snapshot(existing),
+    });
+  });
+  return { id: existing.id };
 }
