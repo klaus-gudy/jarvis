@@ -12,6 +12,7 @@
     "studio:prod": "npm run studio:prod:confirm",
     "studio:prod:confirm": "dotenv -e .env.production -- prisma studio --port 5599",
     "backfill:contracts": "tsx worker/backfill-contracts.ts",
+    "activity:backfill": "tsx worker/backfill-activity.ts",
     "templates:add-signatures": "tsx worker/add-signature-placeholders.ts",
     "templates:sanitize": "tsx worker/sanitize-templates.ts",
     "check:authz": "node scripts/check-route-authz.mjs"
