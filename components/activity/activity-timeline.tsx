@@ -162,48 +162,36 @@ export function ActivityTimeline({
   );
 }
 
+/**
+ * Three lines: what happened and when; a short summary; who did it and to
+ * what. Anything longer belongs on the record's own page, one click away.
+ */
 function ActivityRow({ item }: { item: ActivityItem }) {
   return (
-    <li className="space-y-1">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+    <li className="space-y-0.5">
+      <div className="flex flex-wrap items-baseline gap-x-2">
         <p className="text-sm font-medium">{item.title}</p>
         <time dateTime={item.at} className="text-xs text-muted-foreground tabular-nums">
           {timeLabel.format(new Date(item.at))}
         </time>
       </div>
-      {item.detail && <p className="text-sm text-muted-foreground">{item.detail}</p>}
-      {item.changes.length > 0 && (
-        <ul className="space-y-0.5 text-sm">
-          {item.changes.map((change) => (
-            <li key={change.label} className="text-muted-foreground">
-              <span className="text-foreground">{change.label}</span>{" "}
-              {change.before !== null && (
-                <>
-                  <span className="line-through decoration-muted-foreground/50">
-                    {change.before}
-                  </span>{" "}
-                  →{" "}
-                </>
-              )}
-              {change.after}
-            </li>
-          ))}
-        </ul>
-      )}
+      {item.detail && <p className="truncate text-sm text-muted-foreground">{item.detail}</p>}
       <p className="text-xs text-muted-foreground">
         {item.actor}
-        {item.context.map((link) => (
-          <React.Fragment key={link.label}>
+        {item.entity && (
+          <>
             {" · "}
-            {link.href ? (
-              <Link href={link.href} className="text-primary hover:underline">
-                {link.label}
+            {item.entity.href ? (
+              // The gold of the active sidebar item, in both themes —
+              // `text-primary` is navy in light mode.
+              <Link href={item.entity.href} className="text-stat-accent hover:underline">
+                {item.entity.label}
               </Link>
             ) : (
-              link.label
+              item.entity.label
             )}
-          </React.Fragment>
-        ))}
+          </>
+        )}
       </p>
     </li>
   );
