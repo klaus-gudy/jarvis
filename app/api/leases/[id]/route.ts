@@ -28,7 +28,7 @@ export async function PATCH(
   }
 
   const { id } = await ctx.params;
-  const result = await updateLease(auth.context.organizationId, id, parsed.data);
+  const result = await updateLease(auth.context.organizationId, id, parsed.data, auth.context);
 
   if (result.error === "not-found") {
     return Response.json({ error: "Lease not found" }, { status: 404 });
@@ -90,7 +90,7 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
-  const result = await deleteLease(auth.context.organizationId, id);
+  const result = await deleteLease(auth.context.organizationId, id, auth.context);
 
   if (result.error === "not-found") {
     return Response.json({ error: "Lease not found" }, { status: 404 });
