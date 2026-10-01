@@ -27,7 +27,7 @@ export async function POST(
   }
 
   const { id } = await ctx.params;
-  const result = await createUnit(auth.context.organizationId, id, parsed.data);
+  const result = await createUnit(auth.context.organizationId, id, parsed.data, auth.context);
 
   if (result.error === "not-found") {
     return Response.json({ error: "Property not found" }, { status: 404 });
