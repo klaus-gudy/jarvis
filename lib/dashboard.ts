@@ -1,3 +1,4 @@
+import { getActivity } from "@/lib/activity";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
@@ -321,12 +322,13 @@ export type NeedsInviteRow = {
   roleName: string;
 };
 
+/** The newest audit-log entries, for the panel; `/activity` has the rest. */
 export type ActivityRow = {
   id: string;
-  kind: "lease" | "tenant";
   title: string;
   subtitle: string;
   createdAt: Date;
+  href?: string;
 };
 
 /**
@@ -414,8 +416,7 @@ export async function getDashboardPanels(
     vacantUnits,
     needsInvite,
     needsInviteTotal,
-    recentLeases,
-    recentTenants,
+    recentActivity,
   ] = await Promise.all([
       prisma.lease.findMany({
         where: renewalFilter,
@@ -467,47 +468,16 @@ export async function getDashboardPanels(
         },
       }),
       prisma.membership.count({ where: needsInviteFilter }),
-      prisma.lease.findMany({
-        where: orgLease,
-        orderBy: { createdAt: "desc" },
-        take: PANEL_ROWS,
-        select: { id: true, createdAt: true, ...tenantTitle },
-      }),
-      prisma.membership.findMany({
-        where: {
-          organizationId,
-          role: { kind: "TENANT" as const },
-        },
-        orderBy: { createdAt: "desc" },
-        take: PANEL_ROWS,
-        select: {
-          id: true,
-          createdAt: true,
-          user: { select: { name: true, email: true, phone: true } },
-        },
-      }),
+      getActivity(organizationId, {}, { limit: PANEL_ROWS }),
     ]);
 
-  const activity: ActivityRow[] = [
-    ...recentLeases.map((lease) => ({
-      id: `lease-${lease.id}`,
-      kind: "lease" as const,
-      title: displayName(lease.membership.user),
-      subtitle: `Lease signed · ${lease.unit.property.name} / ${lease.unit.label}`,
-      createdAt: lease.createdAt,
-    })),
-    ...recentTenants.map((membership) => ({
-      id: `tenant-${membership.id}`,
-      kind: "tenant" as const,
-      title: displayName(membership.user),
-      subtitle: "Tenant added",
-      createdAt: membership.createdAt,
-    })),
-  ]
-    // Merged after the fact rather than in SQL: one capped query per source
-    // plus a sort is cheaper than a union across unrelated tables.
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, PANEL_ROWS);
+  const activity: ActivityRow[] = recentActivity.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    subtitle: [item.actor, ...item.context.map((link) => link.label)].join(" · "),
+    createdAt: new Date(item.at),
+    href: item.context.find((link) => link.href)?.href ?? undefined,
+  }));
 
   // Ranked in JS because `daysVacant` is derived, not a column — so the whole
   // vacant set has to come back before it can be ordered. `total` is taken
