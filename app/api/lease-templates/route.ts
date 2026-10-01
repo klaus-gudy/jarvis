@@ -33,7 +33,8 @@ export async function POST(request: Request) {
 
   const result = await createLeaseTemplate(
     auth.context.organizationId,
-    parsed.data
+    parsed.data,
+    auth.context,
   );
   if ("error" in result) {
     return Response.json(
