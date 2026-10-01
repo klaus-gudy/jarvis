@@ -47,7 +47,8 @@ export async function PATCH(
   const property = await updateProperty(
     auth.context.organizationId,
     id,
-    parsed.data
+    parsed.data,
+    auth.context,
   );
   if (!property) {
     return Response.json({ error: "Property not found" }, { status: 404 });
@@ -67,7 +68,7 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
-  const deleted = await deleteProperty(auth.context.organizationId, id);
+  const deleted = await deleteProperty(auth.context.organizationId, id, auth.context);
   if (!deleted) {
     return Response.json({ error: "Property not found" }, { status: 404 });
   }
