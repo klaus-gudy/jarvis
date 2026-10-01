@@ -195,7 +195,7 @@ export default async function DashboardPage() {
         {/* <VacantUnitsPanel units={panels.vacantUnits} /> */}
         <MoveInsPanel moveIns={panels.moveIns} />
         <NeedsInvitePanel members={panels.needsInvite} />
-        {/* <ActivityPanel activity={panels.activity} /> */}
+        <ActivityPanel activity={panels.activity} />
       </div>
     </div>
   )
