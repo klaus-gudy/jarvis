@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon } from "lucide-react";
 
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { DetailRow } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { PhotoGallery } from "@/components/documents/photo-gallery";
@@ -19,7 +20,7 @@ import { getProperty } from "@/lib/properties";
 import { cn } from "@/lib/utils";
 
 /** Tabs a link may open on, e.g. a unit page's back link → units. */
-const TABS = ["overview", "units", "images", "documents"] as const;
+const TABS = ["overview", "units", "images", "documents", "activity"] as const;
 
 export default async function PropertyDetailPage({
   params,
@@ -163,6 +164,9 @@ export default async function PropertyDetailPage({
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="activity" className="flex-none px-3">
+            Activity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5 pt-5">
@@ -288,6 +292,9 @@ export default async function PropertyDetailPage({
             documents={papers}
             emptyMessage="No documents yet. Upload the title deed or a permit to keep it on file."
           />
+        </TabsContent>
+        <TabsContent value="activity" className="pt-5">
+          <ActivityTimeline subject={`Property:${property.id}`} emptyMessage="No activity on this property yet." />
         </TabsContent>
       </Tabs>
     </div>
