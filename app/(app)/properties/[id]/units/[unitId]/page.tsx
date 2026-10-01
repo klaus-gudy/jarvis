@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon, DoorOpenIcon } from "lucide-react";
 
+import { RecordStamps } from "@/components/record-stamps";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
@@ -15,6 +16,7 @@ import { UnitLeasesTab } from "@/components/properties/unit-leases-tab";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
 import { listAssetTypes } from "@/lib/asset-types";
@@ -45,6 +47,7 @@ export default async function UnitDetailPage({
   const { id, unitId } = await params;
   const unit = await getUnit(user.activeOrgId, id, unitId);
   if (!unit) notFound();
+  const stamps = await getRecordStamps(user.activeOrgId, "Unit", unit.id);
 
   // Links only where the destination would open, as on the lease page.
   const canReadLeases = Boolean(access && can(access, "lease:read"));
@@ -125,6 +128,7 @@ export default async function UnitDetailPage({
                   </Fragment>
                 ))}
               </p>
+              <RecordStamps stamps={stamps} />
             </div>
           </div>
           <UnitActions
