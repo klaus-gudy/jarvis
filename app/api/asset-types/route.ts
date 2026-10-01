@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await createAssetType(auth.context.organizationId, parsed.data);
+  const result = await createAssetType(auth.context.organizationId, parsed.data, auth.context);
 
   if (result.error === "invalid-label") {
     return Response.json(
