@@ -1,6 +1,6 @@
-import { subjectKey } from "@/lib/audit";
-import { describeActivity, describeChanges, type ActivityChange } from "@/lib/activity-format";
+import { describeActivity, summariseChanges } from "@/lib/activity-format";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { invoiceReference } from "@/lib/invoice-types";
 import { leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
 import { displayName } from "@/lib/user-display";
@@ -26,12 +26,12 @@ export type ActivityItem = {
   id: string;
   at: string;
   title: string;
+  /** One short line: the amount and method, the dates, or what an edit changed. */
   detail?: string;
-  changes: ActivityChange[];
-  /** "Amina Juma", "System · automatifier", or "Recorded from existing data". */
+  /** Who did it, or "System" when no member did (automation, or history from before the log). */
   actor: string;
-  /** The records it belongs to, minus the one whose timeline this is. */
-  context: ActivityLink[];
+  /** The record it happened to — a payment's invoice, a file's lease — or null when none is left. */
+  entity: ActivityLink | null;
 };
 
 export type ActivityPage = { items: ActivityItem[]; nextCursor: string | null };
@@ -103,8 +103,9 @@ export async function getActivity(
   const memberName = new Map(memberships.map((m) => [m.id, displayName(m.user)]));
   const actorName = new Map(actors.map((u) => [u.id, displayName(u)]));
 
-  // A record that no longer exists has no page to link to.
-  function link(key: string): ActivityLink | null {
+  // A record that no longer exists has no page to link to. `leaseId` is where
+  // an invoice or payment lives, as neither has a page of its own.
+  function link(key: string, leaseId: string | null): ActivityLink | null {
     const { type, id } = parseKey(key);
     switch (type) {
       case "Property": {
@@ -119,6 +120,13 @@ export async function getActivity(
       }
       case "Lease":
         return { label: `Lease ${leaseReference(id)}`, href: `/leases/${id}` };
+      case "Invoice":
+        return {
+          label: invoiceReference(id),
+          href: leaseId ? `/leases/${leaseId}?tab=billing` : null,
+        };
+      case "Payment":
+        return { label: "Payment", href: leaseId ? `/leases/${leaseId}?tab=billing` : null };
       case "Membership": {
         const name = memberName.get(id);
         return name ? { label: name, href: `/members/${id}` } : null;
@@ -133,29 +141,22 @@ export async function getActivity(
       entityId: row.entityId,
       changes: row.changes,
     });
+    // The nearest record above it (`subjects` runs self, parent, grandparent…);
+    // a record with no parent names itself, unless it's the thing deleted.
+    const leaseKey = row.subjects.find((key) => key.startsWith("Lease:"));
+    const leaseId = leaseKey ? parseKey(leaseKey).id : null;
     const deleted = row.action.endsWith(".deleted") || row.action.endsWith(".removed");
-    const own = subjectKey(row.entityType as Prisma.ModelName, row.entityId);
-    const context = row.subjects
-      .filter((key) => key !== scope.subject && !(deleted && key === own))
-      .map(link)
-      .filter((value): value is ActivityLink => value !== null);
-
-    const actor = row.actorUserId
-      ? (actorName.get(row.actorUserId) ?? "Former member")
-      : row.source === "backfill"
-        ? "Recorded from existing data"
-        : row.source
-          ? `System · ${row.source}`
-          : "System";
+    const candidates = [...row.subjects.slice(1), ...(deleted ? [] : row.subjects.slice(0, 1))];
+    const entity =
+      candidates.map((key) => link(key, leaseId)).find((value) => value !== null) ?? null;
 
     return {
       id: row.id,
       at: row.createdAt.toISOString(),
       title,
-      detail,
-      changes: describeChanges(row.changes),
-      actor,
-      context,
+      detail: detail ?? summariseChanges(row.changes),
+      actor: row.actorUserId ? (actorName.get(row.actorUserId) ?? "Former member") : "System",
+      entity,
     };
   });
 
