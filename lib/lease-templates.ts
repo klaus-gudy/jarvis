@@ -1,3 +1,4 @@
+import { audit, createdBy, diff, snapshot, systemActor, updatedBy, type Actor } from "@/lib/audit";
 import { leaseReference } from "@/lib/leases";
 import {
   renderLeaseTemplate,
@@ -126,7 +127,8 @@ export function countLeaseTemplates(organizationId: string) {
 
 export async function createLeaseTemplate(
   organizationId: string,
-  input: CreateLeaseTemplateInput
+  input: CreateLeaseTemplateInput,
+  actor: Actor
 ): Promise<WriteResult> {
   const duplicate = await prisma.leaseTemplate.findFirst({
     where: { organizationId, name: { equals: input.name, mode: "insensitive" } },
@@ -146,7 +148,7 @@ export async function createLeaseTemplate(
       });
     }
 
-    return tx.leaseTemplate.create({
+    const created = await tx.leaseTemplate.create({
       data: {
         organizationId,
         name: input.name,
@@ -155,22 +157,40 @@ export async function createLeaseTemplate(
         // Stored clean, so no reader has to remember to sanitise it.
         body: sanitizeTemplateHtml(input.body),
         isDefault,
+        ...createdBy(actor),
       },
       select: ROW_SELECT,
     });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "lease_template.created",
+      entityType: "LeaseTemplate",
+      entityId: created.id,
+      changes: withoutBody(snapshot(created)),
+    });
+    return created;
   });
 
   return { template: { ...toRow(template), body: template.body } };
 }
 
+/**
+ * A template body is a whole HTML document; repeating it in every log entry
+ * would make the log mostly contract wording. The entry says *that* it changed.
+ */
+function withoutBody(changes: Record<string, unknown>) {
+  return "body" in changes ? { ...changes, body: "(changed)" } : changes;
+}
+
 export async function updateLeaseTemplate(
   organizationId: string,
   templateId: string,
-  input: UpdateLeaseTemplateInput
+  input: UpdateLeaseTemplateInput,
+  actor: Actor
 ): Promise<WriteResult> {
   const existing = await prisma.leaseTemplate.findFirst({
     where: { id: templateId, organizationId },
-    select: { id: true, isDefault: true },
   });
   if (!existing) return { error: "not-found" };
 
@@ -197,18 +217,28 @@ export async function updateLeaseTemplate(
       });
     }
 
-    return tx.leaseTemplate.update({
+    const changes = {
+      name: input.name,
+      description: input.description,
+      language: input.language,
+      // Stored clean, so no reader has to remember to sanitise it.
+      body: sanitizeTemplateHtml(input.body),
+      isDefault,
+    };
+    const updated = await tx.leaseTemplate.update({
       where: { id: templateId },
-      data: {
-        name: input.name,
-        description: input.description,
-        language: input.language,
-        // Stored clean, so no reader has to remember to sanitise it.
-        body: sanitizeTemplateHtml(input.body),
-        isDefault,
-      },
+      data: { ...changes, ...updatedBy(actor) },
       select: ROW_SELECT,
     });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "lease_template.updated",
+      entityType: "LeaseTemplate",
+      entityId: templateId,
+      changes: withoutBody(diff(existing, changes)),
+    });
+    return updated;
   });
 
   return { template: { ...toRow(template), body: template.body } };
@@ -216,16 +246,25 @@ export async function updateLeaseTemplate(
 
 export async function deleteLeaseTemplate(
   organizationId: string,
-  templateId: string
+  templateId: string,
+  actor: Actor
 ) {
   const existing = await prisma.leaseTemplate.findFirst({
     where: { id: templateId, organizationId },
-    select: { id: true, isDefault: true },
   });
   if (!existing) return { error: "not-found" as const };
 
   await prisma.$transaction(async (tx) => {
     await tx.leaseTemplate.delete({ where: { id: templateId } });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "lease_template.deleted",
+      entityType: "LeaseTemplate",
+      entityId: templateId,
+      // Kept whole on delete: this is the last copy of the wording anywhere.
+      changes: snapshot(existing),
+    });
 
     // Deleting the default would otherwise leave an organization whose
     // contracts have no starting point, so the oldest survivor takes over.
@@ -238,7 +277,7 @@ export async function deleteLeaseTemplate(
       if (successor) {
         await tx.leaseTemplate.update({
           where: { id: successor.id },
-          data: { isDefault: true },
+          data: { isDefault: true, ...updatedBy(actor) },
         });
       }
     }
@@ -400,13 +439,17 @@ export async function ensureDefaultLeaseTemplate(
     return { created: false, templateId: oldest.id };
   }
 
-  const result = await createLeaseTemplate(organizationId, {
-    name: DEFAULT_TEMPLATE_NAME,
-    description: DEFAULT_TEMPLATE_DESCRIPTION,
-    language: "en",
-    body: starterBody("en"),
-    isDefault: true,
-  });
+  const result = await createLeaseTemplate(
+    organizationId,
+    {
+      name: DEFAULT_TEMPLATE_NAME,
+      description: DEFAULT_TEMPLATE_DESCRIPTION,
+      language: "en",
+      body: starterBody("en"),
+      isDefault: true,
+    },
+    systemActor("default-template")
+  );
 
   if ("error" in result) {
     /*
