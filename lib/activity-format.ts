@@ -1,4 +1,4 @@
-import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { formatCurrencyFull, formatDate, formatDayMonth } from "@/lib/format";
 import { leaseReference } from "@/lib/leases";
 
 /**
@@ -70,6 +70,20 @@ const isDiff = (changes: Changes) =>
   Object.values(changes).length > 0 &&
   Object.values(changes).every((value) => Array.isArray(value) && value.length === 2);
 
+/**
+ * One line for an edit: the first two changes, then how many more —
+ * "Rent TZS 450,000 → TZS 500,000 · Auto-renew Off · +1 more".
+ */
+export function summariseChanges(changes: unknown): string | undefined {
+  const all = describeChanges(changes);
+  if (all.length === 0) return undefined;
+  const shown = all
+    .slice(0, 2)
+    .map((c) => (c.before !== null ? `${c.label} ${c.before} → ${c.after}` : `${c.label} ${c.after}`));
+  if (all.length > 2) shown.push(`+${all.length - 2} more`);
+  return shown.join(" · ");
+}
+
 /** The fields an update touched, readable. Ids and long text say only that they changed. */
 export function describeChanges(changes: unknown): ActivityChange[] {
   if (!changes || typeof changes !== "object" || !isDiff(changes as Changes)) return [];
@@ -92,8 +106,9 @@ function humanise(text: string) {
 
 const money = (value: unknown) =>
   typeof value === "number" ? formatCurrencyFull(value) : null;
+/** "1 Oct" — the summary line is meant to be glanced at. */
 const date = (value: unknown) =>
-  typeof value === "string" && ISO_DATE.test(value) ? formatDate(new Date(value)) : null;
+  typeof value === "string" && ISO_DATE.test(value) ? formatDayMonth(new Date(value)) : null;
 const join = (...parts: (string | null | undefined | false)[]) =>
   parts.filter(Boolean).join(" · ") || undefined;
 const after = (value: unknown) => (Array.isArray(value) ? value[1] : value);
@@ -133,7 +148,8 @@ export function describeActivity(entry: {
       return {
         title: entry.action === "lease.renewed" ? `Lease ${ref} created as a renewal` : `Lease ${ref} created`,
         detail: join(
-          date(c.startDate) && `${date(c.startDate)} – ${date(c.endDate)}`,
+          typeof c.durationMonths === "number" &&
+            `${c.durationMonths} month${c.durationMonths === 1 ? "" : "s"} from ${date(c.startDate)}`,
           money(c.monthlyRent) && `${money(c.monthlyRent)}/month`
         ),
       };
@@ -157,12 +173,12 @@ export function describeActivity(entry: {
     case "payment.recorded":
       return {
         title: join("Payment recorded", money(c.amount))!,
-        detail: join(c.method as string, date(c.paidAt) && `paid ${date(c.paidAt)}`),
+        detail: join(c.method as string, date(c.paidAt) && `paid on ${date(c.paidAt)}`),
       };
     case "payment.deleted":
       return {
         title: `Payment${money(c.amount) ? ` of ${money(c.amount)}` : ""} reversed`,
-        detail: join(date(c.paidAt) && `paid ${date(c.paidAt)}`),
+        detail: join(date(c.paidAt) && `paid on ${date(c.paidAt)}`),
       };
     case "payment_claim.submitted":
       return {
