@@ -5,6 +5,7 @@ import {
 } from "@/lib/mail/leases";
 import type { PropertyPreview } from "@/components/hover-cards/property-hover-card";
 import type { UnitPreview } from "@/components/hover-cards/unit-hover-card";
+import { audit, createdBy, diff, snapshot, updatedBy, type Actor } from "@/lib/audit";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { getOwnerRecipients } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
@@ -434,6 +435,8 @@ export async function getLeaseOptions(organizationId: string): Promise<LeaseOpti
  * renewal can never double-book a unit a person has already re-let by hand.
  */
 export async function insertLease(params: {
+  organizationId: string;
+  actor: Actor;
   unitId: string;
   membershipId: string;
   startDate: Date;
@@ -469,15 +472,31 @@ export async function insertLease(params: {
         monthlyRent: params.monthlyRent,
         leaseAmount: params.monthlyRent * params.durationMonths,
         renewedFromId: params.renewedFromId,
+        ...createdBy(params.actor),
       },
-      select: { id: true, leaseAmount: true, startDate: true },
+    });
+    await audit(tx, {
+      organizationId: params.organizationId,
+      actor: params.actor,
+      action: params.renewedFromId ? "lease.renewed" : "lease.created",
+      entityType: "Lease",
+      entityId: created.id,
+      changes: snapshot(created),
     });
     // The lease this one continues is now Renewed rather than merely Ended —
     // in the same transaction, so the two can't disagree.
     if (params.renewedFromId) {
       await tx.lease.update({
         where: { id: params.renewedFromId },
-        data: { status: "Renewed" },
+        data: { status: "Renewed", ...updatedBy(params.actor) },
+      });
+      await audit(tx, {
+        organizationId: params.organizationId,
+        actor: params.actor,
+        action: "lease.status_changed",
+        entityType: "Lease",
+        entityId: params.renewedFromId,
+        changes: { status: [null, "Renewed"], renewedToId: [null, created.id] },
       });
     }
     // Returned, not discarded: both the new-lease and the renewal email name
@@ -488,10 +507,25 @@ export async function insertLease(params: {
         leaseId: created.id,
         amount: created.leaseAmount,
         dueDate: created.startDate,
+        ...createdBy(params.actor),
       },
       select: { id: true, amount: true, dueDate: true },
     });
-    return { ...created, endDate, invoice };
+    await audit(tx, {
+      organizationId: params.organizationId,
+      actor: params.actor,
+      action: "invoice.created",
+      entityType: "Invoice",
+      entityId: invoice.id,
+      changes: { leaseId: created.id, ...snapshot(invoice) },
+    });
+    return {
+      id: created.id,
+      leaseAmount: created.leaseAmount,
+      startDate: created.startDate,
+      endDate,
+      invoice,
+    };
   });
 
   return { lease };
@@ -505,7 +539,11 @@ export async function insertLease(params: {
  * overlap an existing lease on that unit. Creating the lease also generates
  * its invoice, for the full lease value, in the same transaction.
  */
-export async function createLease(organizationId: string, input: CreateLeaseInput) {
+export async function createLease(
+  organizationId: string,
+  input: CreateLeaseInput,
+  actor: Actor
+) {
   const unit = await prisma.unit.findFirst({
     where: {
       id: input.unitId,
@@ -534,6 +572,8 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
   }
 
   return insertLease({
+    organizationId,
+    actor,
     unitId: unit.id,
     membershipId: membership.id,
     startDate: input.startDate,
@@ -560,7 +600,8 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
 export async function updateLease(
   organizationId: string,
   leaseId: string,
-  input: UpdateLeaseInput
+  input: UpdateLeaseInput,
+  actor: Actor
 ) {
   const existing = await prisma.lease.findFirst({
     where: {
@@ -568,10 +609,14 @@ export async function updateLease(
       membership: { organizationId },
       unit: { property: { organizationId } },
     },
-    select: {
-      id: true,
+    include: {
       invoice: {
-        select: { id: true, payments: { select: { amount: true } } },
+        select: {
+          id: true,
+          amount: true,
+          dueDate: true,
+          payments: { select: { amount: true } },
+        },
       },
     },
   });
@@ -628,27 +673,45 @@ export async function updateLease(
   }
 
   const lease = await prisma.$transaction(async (tx) => {
+    const changes = {
+      unitId: unit.id,
+      membershipId: membership.id,
+      startDate: input.startDate,
+      endDate,
+      status: leaseStatus(new Date(), input.startDate, endDate),
+      durationMonths: input.durationMonths,
+      monthlyRent,
+      leaseAmount,
+    };
     const updated = await tx.lease.update({
       where: { id: existing.id },
-      data: {
-        unitId: unit.id,
-        membershipId: membership.id,
-        startDate: input.startDate,
-        endDate,
-        status: leaseStatus(new Date(), input.startDate, endDate),
-        durationMonths: input.durationMonths,
-        monthlyRent,
-        leaseAmount,
-      },
+      data: { ...changes, ...updatedBy(actor) },
       select: { id: true },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "lease.updated",
+      entityType: "Lease",
+      entityId: existing.id,
+      changes: diff(existing, changes),
     });
 
     // Leases predating the billing migration have no invoice; there is simply
     // nothing to keep in step for those.
     if (existing.invoice) {
+      const invoiceChanges = { amount: leaseAmount, dueDate: input.startDate };
       await tx.invoice.update({
         where: { id: existing.invoice.id },
-        data: { amount: leaseAmount, dueDate: input.startDate },
+        data: { ...invoiceChanges, ...updatedBy(actor) },
+      });
+      await audit(tx, {
+        organizationId,
+        actor,
+        action: "invoice.updated",
+        entityType: "Invoice",
+        entityId: existing.invoice.id,
+        changes: diff(existing.invoice, invoiceChanges),
       });
     }
 
@@ -658,18 +721,31 @@ export async function updateLease(
   return { lease };
 }
 
-export async function deleteLease(organizationId: string, leaseId: string) {
+export async function deleteLease(
+  organizationId: string,
+  leaseId: string,
+  actor: Actor
+) {
   const lease = await prisma.lease.findFirst({
     where: {
       id: leaseId,
       membership: { organizationId },
       unit: { property: { organizationId } },
     },
-    select: { id: true },
   });
   if (!lease) return { error: "not-found" as const };
 
-  await prisma.lease.delete({ where: { id: lease.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.lease.delete({ where: { id: lease.id } });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "lease.deleted",
+      entityType: "Lease",
+      entityId: lease.id,
+      changes: snapshot(lease),
+    });
+  });
   return { ok: true as const };
 }
 
