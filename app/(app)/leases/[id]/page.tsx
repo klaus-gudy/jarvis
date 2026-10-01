@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
+import { RecordStamps } from "@/components/record-stamps";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { BillingTab } from "@/components/leases/billing-tab";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
@@ -16,6 +17,7 @@ import { LeaseTermsCard } from "@/components/leases/lease-terms-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
@@ -58,6 +60,7 @@ export default async function LeaseDetailPage({
     listAssetTypes(user.activeOrgId, "LEASE"),
   ]);
   if (!lease) notFound();
+  const stamps = await getRecordStamps(user.activeOrgId, "Lease", lease.id);
 
   /*
     Split the same way a property splits Images from Documents: the generated
@@ -177,6 +180,7 @@ export default async function LeaseDetailPage({
                 className="hover:text-foreground hover:underline"
               />
             </p>
+            <RecordStamps stamps={stamps} />
           </div>
         </CardContent>
       </Card>
