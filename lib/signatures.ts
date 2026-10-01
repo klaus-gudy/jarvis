@@ -1,3 +1,4 @@
+import { audit, type Actor } from "@/lib/audit";
 import { buildObjectKey, isObjectKeyInOrganization } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { deleteObject, getObjectStream, putObject } from "@/lib/storage";
@@ -44,7 +45,8 @@ export async function findSignatureSubject(
 export async function saveSignature(
   organizationId: string,
   membershipId: string,
-  bytes: Uint8Array
+  bytes: Uint8Array,
+  actor: Actor
 ) {
   const previous = await prisma.memberProfile.findUnique({
     where: { membershipId },
@@ -60,10 +62,25 @@ export async function saveSignature(
   await putObject(objectKey, bytes, "image/png");
 
   try {
-    await prisma.memberProfile.upsert({
-      where: { membershipId },
-      create: { membershipId, signatureKey: objectKey },
-      update: { signatureKey: objectKey },
+    await prisma.$transaction(async (tx) => {
+      const profile = await tx.memberProfile.upsert({
+        where: { membershipId },
+        create: {
+          membershipId,
+          signatureKey: objectKey,
+          createdById: actor.membershipId,
+          updatedById: actor.membershipId,
+        },
+        update: { signatureKey: objectKey, updatedById: actor.membershipId },
+      });
+      await audit(tx, {
+        organizationId,
+        actor,
+        action: previous?.signatureKey ? "signature.replaced" : "signature.added",
+        entityType: "MemberProfile",
+        entityId: profile.id,
+        changes: { signatureKey: [previous?.signatureKey ?? null, objectKey] },
+      });
     });
   } catch (cause) {
     // The row never pointed at it, so nothing can reference it.
@@ -75,16 +92,30 @@ export async function saveSignature(
   return objectKey;
 }
 
-export async function removeSignature(membershipId: string) {
+export async function removeSignature(
+  organizationId: string,
+  membershipId: string,
+  actor: Actor
+) {
   const profile = await prisma.memberProfile.findUnique({
     where: { membershipId },
-    select: { signatureKey: true },
+    select: { id: true, signatureKey: true },
   });
   if (!profile?.signatureKey) return;
 
-  await prisma.memberProfile.update({
-    where: { membershipId },
-    data: { signatureKey: null },
+  await prisma.$transaction(async (tx) => {
+    await tx.memberProfile.update({
+      where: { membershipId },
+      data: { signatureKey: null, updatedById: actor.membershipId },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "signature.removed",
+      entityType: "MemberProfile",
+      entityId: profile.id,
+      changes: { signatureKey: [profile.signatureKey, null] },
+    });
   });
   await discard(profile.signatureKey);
 }
