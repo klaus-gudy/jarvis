@@ -31,6 +31,43 @@ model Organization {
   fileAssets     FileAsset[]
   fileAssetTypes FileAssetType[]
   leaseTemplates LeaseTemplate[]
+  auditLogs      AuditLog[]
+}
+
+/// Append-only history of who changed what. Written in the same transaction as
+/// the change it describes (`lib/audit.ts`); the app never updates or deletes it.
+///
+/// Actor ids are plain strings, not foreign keys: removing a member must not
+/// erase or blank the record of what they did. `actorUserId` lasts longest (a
+/// user outlives their memberships) and is what resolves a name.
+model AuditLog {
+  id String @id @default(cuid())
+
+  /// `property.created`, `lease.updated`, `payment.deleted`, `member.role_changed`, …
+  action     String
+  /// Prisma model name of the subject (`Property`, `Lease`, …).
+  entityType String
+  entityId   String
+
+  /// Null when the system acted — see `source`.
+  actorMembershipId String?
+  actorUserId       String?
+  /// Where a write without a member came from (`automatifier`, `contract-filing`).
+  /// Null for an ordinary signed-in request.
+  source            String?
+
+  /// `{ field: [before, after] }` for an update; the row's values for a create
+  /// or delete. JSON-safe — dates as ISO strings.
+  changes Json?
+
+  createdAt DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorMembershipId])
 }
 
 model NotificationLog {
@@ -65,6 +102,13 @@ model Role {
   /// One or two sentences shown on the Roles page. Null for the built-ins
   /// means "use the default wording in code" (`lib/roles.ts`).
   description String?
+
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("RoleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -160,6 +204,13 @@ model Invitation {
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("InvitationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("InvitationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -173,6 +224,13 @@ model Membership {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("MembershipCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("MembershipUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -190,6 +248,32 @@ model Membership {
 
   fileAssets         FileAsset[] @relation("FileAssetSubject")
   uploadedFileAssets FileAsset[] @relation("FileAssetUploader")
+
+  // Actor back-relations for the stamps above. Prisma requires them; nothing
+  // reads from this side.
+  createdProperties      Property[]       @relation("PropertyCreatedBy")
+  updatedProperties      Property[]       @relation("PropertyUpdatedBy")
+  createdUnits           Unit[]           @relation("UnitCreatedBy")
+  updatedUnits           Unit[]           @relation("UnitUpdatedBy")
+  createdLeases          Lease[]          @relation("LeaseCreatedBy")
+  updatedLeases          Lease[]          @relation("LeaseUpdatedBy")
+  createdInvoices        Invoice[]        @relation("InvoiceCreatedBy")
+  updatedInvoices        Invoice[]        @relation("InvoiceUpdatedBy")
+  createdLeaseTemplates  LeaseTemplate[]  @relation("LeaseTemplateCreatedBy")
+  updatedLeaseTemplates  LeaseTemplate[]  @relation("LeaseTemplateUpdatedBy")
+  createdRoles           Role[]           @relation("RoleCreatedBy")
+  updatedRoles           Role[]           @relation("RoleUpdatedBy")
+  createdPaymentAccounts PaymentAccount[] @relation("PaymentAccountCreatedBy")
+  updatedPaymentAccounts PaymentAccount[] @relation("PaymentAccountUpdatedBy")
+  createdMemberProfiles  MemberProfile[]  @relation("MemberProfileCreatedBy")
+  updatedMemberProfiles  MemberProfile[]  @relation("MemberProfileUpdatedBy")
+  createdMemberships     Membership[]     @relation("MembershipCreatedBy")
+  updatedMemberships     Membership[]     @relation("MembershipUpdatedBy")
+  createdInvitations     Invitation[]     @relation("InvitationCreatedBy")
+  updatedInvitations     Invitation[]     @relation("InvitationUpdatedBy")
+  createdPayments        Payment[]        @relation("PaymentCreatedBy")
+  createdFileAssetTypes  FileAssetType[]  @relation("FileAssetTypeCreatedBy")
+  reviewedPaymentClaims  PaymentClaim[]   @relation("PaymentClaimReviewedBy")
 
   @@unique([userId, organizationId])
 }
@@ -210,6 +294,13 @@ model PaymentAccount {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("PaymentAccountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("PaymentAccountUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   membershipId String
   membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
@@ -228,6 +319,13 @@ model MemberProfile {
   signatureKey             String?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
+
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("MemberProfileCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("MemberProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   membershipId String     @unique
   membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
@@ -255,6 +353,13 @@ model Property {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("PropertyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("PropertyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -280,6 +385,13 @@ model Unit {
   amenities       String[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("UnitCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("UnitUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -313,6 +425,13 @@ model Lease {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("LeaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("LeaseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   unitId String
   unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
@@ -336,6 +455,13 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   leaseId String @unique
   lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
 
@@ -351,6 +477,11 @@ model Payment {
   method    String?
   notes     String?
   createdAt DateTime @default(now())
+
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -378,6 +509,10 @@ model PaymentClaim {
   status     PaymentClaimStatus @default(PENDING)
   createdAt  DateTime           @default(now())
   reviewedAt DateTime?
+
+  /// The staff member who confirmed or rejected it.
+  reviewedById String?
+  reviewedBy   Membership? @relation("PaymentClaimReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -442,6 +577,11 @@ model FileAssetType {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("FileAssetTypeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   /**
    * Null for the seeded system types; set for one an organization added. A
@@ -559,6 +699,13 @@ model LeaseTemplate {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Who created / last changed this row. Null for rows from before 2026-10-01,
+  /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
+  createdById String?
+  createdBy   Membership? @relation("LeaseTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Membership? @relation("LeaseTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
