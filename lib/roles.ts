@@ -1,3 +1,4 @@
+import { audit, createdBy, diff, snapshot, updatedBy } from "@/lib/audit";
 import type { AuthContext } from "@/lib/authz";
 import {
   parsePermissions,
@@ -119,15 +120,26 @@ export async function createRole(
     return { error: "duplicate" as const };
   }
 
-  const role = await prisma.role.create({
-    data: {
+  const role = await prisma.$transaction(async (tx) => {
+    const created = await tx.role.create({
+      data: {
+        organizationId: ctx.organizationId,
+        name: input.name,
+        description: input.description ?? null,
+        kind: "STAFF",
+        permissions,
+        ...createdBy(ctx),
+      },
+    });
+    await audit(tx, {
       organizationId: ctx.organizationId,
-      name: input.name,
-      description: input.description ?? null,
-      kind: "STAFF",
-      permissions,
-    },
-    select: { id: true, name: true },
+      actor: ctx,
+      action: "role.created",
+      entityType: "Role",
+      entityId: created.id,
+      changes: snapshot(created),
+    });
+    return { id: created.id, name: created.name };
   });
   return { role };
 }
@@ -144,7 +156,6 @@ export async function updateRole(
 ) {
   const role = await prisma.role.findFirst({
     where: { id: roleId, organizationId: ctx.organizationId },
-    select: { id: true, kind: true, permissions: true },
   });
   if (!role) return { error: "not-found" as const };
   if (role.kind === "OWNER" && ctx.kind !== "OWNER") return { error: "forbidden" as const };
@@ -166,14 +177,26 @@ export async function updateRole(
     return { error: "duplicate" as const };
   }
 
-  const updated = await prisma.role.update({
-    where: { id: role.id },
-    data: {
-      ...(input.name ? { name: input.name } : {}),
-      ...(input.description !== undefined ? { description: input.description } : {}),
-      ...(permissions ? { permissions } : {}),
-    },
-    select: { id: true, name: true },
+  const changes = {
+    ...(input.name ? { name: input.name } : {}),
+    ...(input.description !== undefined ? { description: input.description } : {}),
+    ...(permissions ? { permissions } : {}),
+  };
+  const updated = await prisma.$transaction(async (tx) => {
+    const saved = await tx.role.update({
+      where: { id: role.id },
+      data: { ...changes, ...updatedBy(ctx) },
+      select: { id: true, name: true },
+    });
+    await audit(tx, {
+      organizationId: ctx.organizationId,
+      actor: ctx,
+      action: "role.updated",
+      entityType: "Role",
+      entityId: role.id,
+      changes: diff(role, changes),
+    });
+    return saved;
   });
   return { role: updated };
 }
@@ -182,10 +205,7 @@ export async function updateRole(
 export async function deleteRole(ctx: AuthContext, roleId: string) {
   const role = await prisma.role.findFirst({
     where: { id: roleId, organizationId: ctx.organizationId },
-    select: {
-      id: true,
-      kind: true,
-      permissions: true,
+    include: {
       _count: {
         select: {
           memberships: true,
@@ -205,10 +225,18 @@ export async function deleteRole(ctx: AuthContext, roleId: string) {
 
   // Accepted/revoked invitations still point at the role (RESTRICT), and say
   // nothing about its current use, so they go with it.
-  await prisma.$transaction([
-    prisma.invitation.deleteMany({ where: { roleId: role.id } }),
-    prisma.role.delete({ where: { id: role.id } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.invitation.deleteMany({ where: { roleId: role.id } });
+    await tx.role.delete({ where: { id: role.id } });
+    await audit(tx, {
+      organizationId: ctx.organizationId,
+      actor: ctx,
+      action: "role.deleted",
+      entityType: "Role",
+      entityId: role.id,
+      changes: snapshot(role),
+    });
+  });
   return { ok: true as const };
 }
 
