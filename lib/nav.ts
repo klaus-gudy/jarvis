@@ -168,13 +168,14 @@ export function firstAllowedPath(viewer: Viewer): string | null {
 }
 
 /**
- * Pages reachable from somewhere other than the sidebar — the user menu, for
- * now. They are not `navItems` (nothing should highlight in the sidebar when
+ * Pages reachable from somewhere other than the sidebar — the user menu, and
+ * the dashboard's Recent activity panel. They are not `navItems` (nothing should highlight in the sidebar when
  * you are on one), but the header still needs a title for them, which would
  * otherwise fall back to the bare app name.
  */
 const secondaryPageTitles: Record<string, string> = {
   "/profile": "Profile",
+  "/activity": "Activity",
 };
 
 function matchesPath(url: string, pathname: string) {
