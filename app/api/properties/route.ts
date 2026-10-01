@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const property = await createProperty(auth.context.organizationId, parsed.data);
+  const property = await createProperty(auth.context.organizationId, parsed.data, auth.context);
   revalidatePath("/properties");
 
   return Response.json({ property }, { status: 201 });
