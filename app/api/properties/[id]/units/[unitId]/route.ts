@@ -31,7 +31,8 @@ export async function PATCH(
     auth.context.organizationId,
     id,
     unitId,
-    parsed.data
+    parsed.data,
+    auth.context,
   );
 
   if (result.error === "not-found") {
@@ -58,7 +59,7 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id, unitId } = await ctx.params;
-  const result = await deleteUnit(auth.context.organizationId, id, unitId);
+  const result = await deleteUnit(auth.context.organizationId, id, unitId, auth.context);
 
   if (result.error === "not-found") {
     return Response.json({ error: "Unit not found" }, { status: 404 });
