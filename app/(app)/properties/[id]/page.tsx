@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon } from "lucide-react";
 
+import { RecordStamps } from "@/components/record-stamps";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { DetailRow } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
@@ -12,6 +13,7 @@ import { UnitsTable } from "@/components/properties/units-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
 import { listAssetTypes } from "@/lib/asset-types";
@@ -39,6 +41,7 @@ export default async function PropertyDetailPage({
   const initialTab = TABS.find((tab) => tab === requestedTab) ?? "overview";
   const property = await getProperty(user.activeOrgId, id);
   if (!property) notFound();
+  const stamps = await getRecordStamps(user.activeOrgId, "Property", property.id);
 
   const isActive = property.status === "ACTIVE";
 
@@ -113,6 +116,7 @@ export default async function PropertyDetailPage({
               <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
                 {property.address} · {property.category} · Owner: {property.ownerName}
               </p>
+              <RecordStamps stamps={stamps} />
             </div>
           </div>
           <PropertyActions
