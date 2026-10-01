@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { BillingTab } from "@/components/leases/billing-tab";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ContractTab } from "@/components/leases/contract-tab";
@@ -33,7 +34,7 @@ const STATUS_TONE: Record<LeaseStatus, string> = {
 };
 
 /** Tabs a link may open on, e.g. the dashboard's "Confirm payment" → billing. */
-const TABS = ["overview", "billing", "contract", "documents"] as const;
+const TABS = ["overview", "billing", "contract", "documents", "activity"] as const;
 
 export default async function LeaseDetailPage({
   params,
@@ -212,6 +213,9 @@ export default async function LeaseDetailPage({
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="activity" className="flex-none px-3">
+            Activity
+          </TabsTrigger>
         </TabsList>
 
         {/*
@@ -367,6 +371,9 @@ export default async function LeaseDetailPage({
             documents={papers}
             emptyMessage="No documents yet. Upload the signed agreement, an amendment or a termination notice to keep it on file."
           />
+        </TabsContent>
+        <TabsContent value="activity" className="pt-5">
+          <ActivityTimeline subject={`Lease:${lease.id}`} emptyMessage="No activity on this lease yet." />
         </TabsContent>
       </Tabs>
     </div>
