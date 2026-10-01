@@ -1,8 +1,12 @@
+import { audit, systemActor, updatedBy } from "@/lib/audit";
 import { buildContractPlan } from "@/lib/contracts";
 import { publishEvent } from "@/lib/events/publisher";
 import { announceLeaseRenewals, insertLease, type RenewalAnnouncement } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
 
+
+/** The actor behind every write here: the event, not a person. */
+const AUTOMATIFIER = systemActor("automatifier");
 /**
  * What jarvis does when `automatifier` says a lease's term is up.
  *
@@ -119,6 +123,8 @@ export async function handleLeaseRenewal(leaseId: string): Promise<LifecycleOutc
   const startDate = new Date(lease.endDate.getTime() + DAY_MS);
 
   const result = await insertLease({
+    organizationId,
+    actor: AUTOMATIFIER,
     unitId: lease.unitId,
     membershipId: lease.membershipId,
     startDate,
@@ -134,7 +140,7 @@ export async function handleLeaseRenewal(leaseId: string): Promise<LifecycleOutc
    * honest record, and it stops the same event arriving forever.
    */
   if (result.error) {
-    await endLease(lease.id);
+    await endLease(organizationId, lease.id);
     return {
       action: "done",
       detail: `lease ${leaseId} could not renew — unit already re-let; marked Ended`,
@@ -167,12 +173,24 @@ export async function handleLeaseRenewal(leaseId: string): Promise<LifecycleOutc
  * rows *is* the idempotency, where a read-then-write would leave a window two
  * deliveries could both pass through.
  */
-async function endLease(leaseId: string) {
-  const { count } = await prisma.lease.updateMany({
-    where: { id: leaseId, status: { in: ["Upcoming", "Active"] } },
-    data: { status: "Ended" },
+async function endLease(organizationId: string, leaseId: string) {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.lease.updateMany({
+      where: { id: leaseId, status: { in: ["Upcoming", "Active"] } },
+      data: { status: "Ended", ...updatedBy(AUTOMATIFIER) },
+    });
+    if (count) {
+      await audit(tx, {
+        organizationId,
+        actor: AUTOMATIFIER,
+        action: "lease.ended",
+        entityType: "Lease",
+        entityId: leaseId,
+        changes: { status: [null, "Ended"] },
+      });
+    }
+    return count;
   });
-  return count;
 }
 
 export async function handleLeaseVacating(leaseId: string): Promise<LifecycleOutcome> {
@@ -181,7 +199,8 @@ export async function handleLeaseVacating(leaseId: string): Promise<LifecycleOut
     return { action: "drop", detail: `lease ${leaseId} no longer exists` };
   }
 
-  if (!organizationOf(lease)) {
+  const organizationId = organizationOf(lease);
+  if (!organizationId) {
     return {
       action: "drop",
       detail: `lease ${leaseId} spans two organizations — refusing to act on it`,
@@ -201,7 +220,7 @@ export async function handleLeaseVacating(leaseId: string): Promise<LifecycleOut
     };
   }
 
-  const count = await endLease(lease.id);
+  const count = await endLease(organizationId, lease.id);
 
   return {
     action: "done",
@@ -224,6 +243,10 @@ export async function handleLeaseVacating(leaseId: string): Promise<LifecycleOut
  * scoped to one, and the condition is a date rather than anything org-specific.
  * Idempotent — the `Upcoming` guard is what makes a second run in the same
  * hour match nothing.
+ *
+ * Neither stamped nor audited: the dates already say when this happened, and
+ * nobody decided it — overwriting `updatedById` would hide the last person who
+ * actually edited the lease.
  */
 export async function syncLeaseStatuses(now = new Date()) {
   const { count } = await prisma.lease.updateMany({
