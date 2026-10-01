@@ -97,7 +97,12 @@ async function ownMembership(ctx: Context) {
       ),
     };
   }
-  return { ok: true as const, organizationId: auth.context.organizationId, membershipId };
+  return {
+    ok: true as const,
+    organizationId: auth.context.organizationId,
+    membershipId,
+    actor: auth.context,
+  };
 }
 
 function revalidate(membershipId: string) {
@@ -136,7 +141,7 @@ export async function PUT(request: Request, ctx: Context) {
   }
 
   try {
-    await saveSignature(own.organizationId, own.membershipId, bytes);
+    await saveSignature(own.organizationId, own.membershipId, bytes, own.actor);
   } catch (cause) {
     if (cause instanceof StorageNotConfiguredError) {
       console.error(cause.message);
@@ -153,7 +158,7 @@ export async function DELETE(_request: Request, ctx: Context) {
   const own = await ownMembership(ctx);
   if (!own.ok) return own.response;
 
-  await removeSignature(own.membershipId);
+  await removeSignature(own.organizationId, own.membershipId, own.actor);
   revalidate(own.membershipId);
   return Response.json({ ok: true });
 }
