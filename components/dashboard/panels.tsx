@@ -1,7 +1,6 @@
 import {
   ClockIcon,
   DoorOpenIcon,
-  FileTextIcon,
   HistoryIcon,
   MailPlusIcon,
   PieChartIcon,
@@ -216,22 +215,14 @@ export function ActivityPanel({ activity }: { activity: ActivityRow[] }) {
     <DashboardPanel
       title="Recent activity"
       icon={HistoryIcon}
-      href="/leases"
-      linkLabel="All leases"
+      href="/activity"
+      linkLabel="All activity"
       empty="Nothing has happened yet."
     >
       {activity.map((entry) => (
         <PanelRow
           key={entry.id}
-          leading={
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              {entry.kind === "lease" ? (
-                <FileTextIcon className="size-4" aria-hidden />
-              ) : (
-                <MailPlusIcon className="size-4" aria-hidden />
-              )}
-            </span>
-          }
+          href={entry.href}
           title={entry.title}
           subtitle={entry.subtitle}
           trailing={formatRelativeTime(entry.createdAt)}
