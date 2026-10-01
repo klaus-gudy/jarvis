@@ -29,13 +29,13 @@ export async function PATCH(
   const orgId = auth.context.organizationId;
 
   if (parsed.data.action === "reject") {
-    const result = await rejectPaymentClaim(orgId, id, claimId);
+    const result = await rejectPaymentClaim(orgId, id, claimId, auth.context);
     if (result.error) return Response.json({ error: "Claim not found" }, { status: 404 });
     revalidatePath("/leases");
     return Response.json({ ok: true });
   }
 
-  const result = await confirmPaymentClaim(orgId, id, claimId);
+  const result = await confirmPaymentClaim(orgId, id, claimId, auth.context);
   if (result.error === "not-found") {
     return Response.json({ error: "Claim not found" }, { status: 404 });
   }
