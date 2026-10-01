@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon, DoorOpenIcon } from "lucide-react";
 
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { DetailRow, orDash } from "@/components/detail-row";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { LeaseHoverCard } from "@/components/hover-cards/lease-hover-card";
@@ -23,7 +24,7 @@ import { getUnit } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
 /** Tabs a link may open on, e.g. `?tab=photos`. */
-const TABS = ["overview", "leases", "photos", "documents"] as const;
+const TABS = ["overview", "leases", "photos", "documents", "activity"] as const;
 
 /**
  * A unit's own page, laid out like the property page it belongs to: identity
@@ -177,6 +178,9 @@ export default async function UnitDetailPage({
                 {papers.length}
               </span>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex-none px-3">
+            Activity
           </TabsTrigger>
         </TabsList>
 
@@ -389,6 +393,9 @@ export default async function UnitDetailPage({
             documents={papers}
             emptyMessage="No documents yet. Upload a floor plan or an inspection report to keep it on file."
           />
+        </TabsContent>
+        <TabsContent value="activity" className="pt-5">
+          <ActivityTimeline subject={`Unit:${unit.id}`} emptyMessage="No activity on this unit yet." />
         </TabsContent>
       </Tabs>
     </div>
