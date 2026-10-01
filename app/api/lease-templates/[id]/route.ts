@@ -51,7 +51,8 @@ export async function PATCH(
   const result = await updateLeaseTemplate(
     auth.context.organizationId,
     id,
-    parsed.data
+    parsed.data,
+    auth.context,
   );
 
   if ("error" in result) {
@@ -76,7 +77,7 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
-  const result = await deleteLeaseTemplate(auth.context.organizationId, id);
+  const result = await deleteLeaseTemplate(auth.context.organizationId, id, auth.context);
   if ("error" in result) {
     return Response.json({ error: "Template not found" }, { status: 404 });
   }
