@@ -1,3 +1,4 @@
+import { audit, createdBy, snapshot, updatedBy, type Actor } from "@/lib/audit";
 import { createHash, randomBytes } from "node:crypto";
 
 import { hashPassword } from "@/lib/auth/hash";
@@ -85,17 +86,28 @@ export async function createInvitation(
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-  const invitation = await prisma.invitation.create({
-    data: {
-      tokenHash: hashToken(token),
-      name: input.name ?? null,
-      email: input.email ?? null,
-      phone: input.phone ?? null,
-      roleId: role.id,
+  const invitation = await prisma.$transaction(async (tx) => {
+    const created = await tx.invitation.create({
+      data: {
+        tokenHash: hashToken(token),
+        name: input.name ?? null,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        roleId: role.id,
+        organizationId,
+        expiresAt,
+        ...createdBy(ctx),
+      },
+    });
+    await audit(tx, {
       organizationId,
-      expiresAt,
-    },
-    select: { id: true },
+      actor: ctx,
+      action: "invitation.created",
+      entityType: "Invitation",
+      entityId: created.id,
+      changes: snapshot(created),
+    });
+    return { id: created.id };
   });
 
   // The raw token is returned exactly once, for the link the inviter shares
@@ -110,16 +122,30 @@ export async function createInvitation(
   };
 }
 
-export async function revokeInvitation(organizationId: string, id: string) {
+export async function revokeInvitation(
+  organizationId: string,
+  id: string,
+  actor: Actor
+) {
   const invitation = await prisma.invitation.findFirst({
     where: { id, organizationId, status: "PENDING" },
     select: { id: true },
   });
   if (!invitation) return { error: "not-found" as const };
 
-  await prisma.invitation.update({
-    where: { id: invitation.id },
-    data: { status: "REVOKED" },
+  await prisma.$transaction(async (tx) => {
+    await tx.invitation.update({
+      where: { id: invitation.id },
+      data: { status: "REVOKED", ...updatedBy(actor) },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "invitation.revoked",
+      entityType: "Invitation",
+      entityId: invitation.id,
+      changes: { status: ["PENDING", "REVOKED"] },
+    });
   });
   return { ok: true as const };
 }
@@ -185,6 +211,7 @@ export async function acceptInvitation(
       roleId: true,
       role: { select: { name: true, kind: true } },
       organizationId: true,
+      createdById: true,
     },
   });
 
@@ -223,11 +250,12 @@ export async function acceptInvitation(
       })
     : null;
 
-  const markAccepted = (tx: Prisma.TransactionClient) =>
-    tx.invitation.update({
-      where: { id: invitation.id },
-      data: { status: "ACCEPTED", acceptedAt: new Date() },
-    });
+  // The acceptor is the actor: by now they hold the membership in question.
+  const markAccepted = (tx: Prisma.TransactionClient, actor: Actor) =>
+    acceptedBy(tx, invitation, actor);
+
+  // Whoever sent the invitation is who brought the new member in.
+  const joinedBy = { createdById: invitation.createdById, updatedById: invitation.createdById };
 
   // --- Signed in: join as yourself, or not at all. ---
   if ("signedInUserId" in input) {
@@ -235,18 +263,21 @@ export async function acceptInvitation(
       return { error: "wrong-account" as const };
     }
     if (alreadyMember) {
-      await markAccepted(prisma);
+      await prisma.$transaction((tx) =>
+        markAccepted(tx, { membershipId: alreadyMember.id, userId: existingUser.id })
+      );
       return { error: "already-member" as const };
     }
     const joined = await prisma.$transaction(async (tx) => {
-      await tx.membership.create({
+      const membership = await tx.membership.create({
         data: {
           userId: existingUser.id,
           organizationId: invitation.organizationId,
           roleId: invitation.roleId,
+          ...joinedBy,
         },
       });
-      await markAccepted(tx);
+      await markAccepted(tx, { membershipId: membership.id, userId: existingUser.id });
       return { userId: existingUser.id, organizationId: invitation.organizationId };
     });
     return { accepted: joined };
@@ -264,7 +295,9 @@ export async function acceptInvitation(
 
   if (existingUser && alreadyMember) {
     if (existingUser.passwordHash) {
-      await markAccepted(prisma);
+      await prisma.$transaction((tx) =>
+        markAccepted(tx, { membershipId: alreadyMember.id, userId: existingUser.id })
+      );
       return { error: "already-member" as const };
     }
     return activatePasswordlessMember(invitation, existingUser.id, alreadyMember, input);
@@ -300,14 +333,15 @@ export async function acceptInvitation(
       data: { name: input.name, email, phone, passwordHash, emailVerifiedAt: verifiedAt },
       select: { id: true },
     });
-    await tx.membership.create({
+    const membership = await tx.membership.create({
       data: {
         userId: user.id,
         organizationId: invitation.organizationId,
         roleId: invitation.roleId,
+        ...joinedBy,
       },
     });
-    await markAccepted(tx);
+    await markAccepted(tx, { membershipId: membership.id, userId: user.id });
     return { userId: user.id, organizationId: invitation.organizationId };
   });
 
@@ -356,6 +390,7 @@ async function activatePasswordlessMember(
 
   const passwordHash = await hashPassword(input.password);
 
+  const actor: Actor = { membershipId: membership.id, userId };
   const activated = await prisma.$transaction(async (tx) => {
     // Sign-in identifiers are left as the landlord recorded them — the
     // acceptor proves nothing about any other address.
@@ -371,16 +406,41 @@ async function activatePasswordlessMember(
     if (membership.roleId !== invitation.roleId && !wouldDemoteLastOwner) {
       await tx.membership.update({
         where: { id: membership.id },
-        data: { roleId: invitation.roleId },
+        data: { roleId: invitation.roleId, ...updatedBy(actor) },
+      });
+      await audit(tx, {
+        organizationId: invitation.organizationId,
+        actor,
+        action: "member.role_changed",
+        entityType: "Membership",
+        entityId: membership.id,
+        changes: { roleId: [membership.roleId, invitation.roleId], invitationId: invitation.id },
       });
     }
 
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: { status: "ACCEPTED", acceptedAt: new Date() },
-    });
+    await acceptedBy(tx, invitation, actor);
     return { userId, organizationId: invitation.organizationId };
   });
 
   return { accepted: activated };
+}
+
+/** Marks an invitation accepted and logs who accepted it. */
+async function acceptedBy(
+  tx: Prisma.TransactionClient,
+  invitation: { id: string; organizationId: string },
+  actor: Actor
+) {
+  await tx.invitation.update({
+    where: { id: invitation.id },
+    data: { status: "ACCEPTED", acceptedAt: new Date(), ...updatedBy(actor) },
+  });
+  await audit(tx, {
+    organizationId: invitation.organizationId,
+    actor,
+    action: "invitation.accepted",
+    entityType: "Invitation",
+    entityId: invitation.id,
+    changes: { status: ["PENDING", "ACCEPTED"], membershipId: actor.membershipId },
+  });
 }
