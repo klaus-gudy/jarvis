@@ -1,3 +1,4 @@
+import { audit, diff, snapshot, updatedBy, type Actor } from "@/lib/audit";
 import { can, type AuthContext } from "@/lib/authz";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { parsePermissions } from "@/lib/permissions";
@@ -70,11 +71,16 @@ export async function getMembers(organizationId: string): Promise<MemberRow[]> {
 export async function removeMember(
   organizationId: string,
   membershipId: string,
-  currentUserId: string
+  currentUserId: string,
+  actor: Actor
 ) {
   const membership = await prisma.membership.findFirst({
     where: { id: membershipId, organizationId },
-    include: { role: { select: { kind: true } }, _count: { select: { leases: true } } },
+    include: {
+      role: { select: { kind: true } },
+      user: { select: { name: true, email: true, phone: true } },
+      _count: { select: { leases: true } },
+    },
   });
   if (!membership) return { error: "not-found" as const };
 
@@ -87,7 +93,7 @@ export async function removeMember(
     if (ownerCount <= 1) return { error: "last-owner" as const };
   }
 
-  await prisma.membership.delete({ where: { id: membership.id } });
+  await removeMembership(organizationId, membership, actor, "member.removed");
   return { removedLeases: membership._count.leases };
 }
 
@@ -148,7 +154,8 @@ export async function updateMember(
   organizationId: string,
   membershipId: string,
   actorUserId: string,
-  input: UpdateMemberInput
+  input: UpdateMemberInput,
+  actor: Actor
 ) {
   const allowed = await checkIdentifierEdit(organizationId, membershipId, actorUserId, input);
   if ("error" in allowed) return allowed;
@@ -172,16 +179,33 @@ export async function updateMember(
   }
 
   const email = input.email ?? null;
-  await prisma.user.update({
+  const changes = { name: input.name, phone: input.phone, email };
+  const before = await prisma.user.findUniqueOrThrow({
     where: { id: user.id },
-    data: {
-      name: input.name,
-      phone: input.phone,
-      // Clearing the field stores null rather than an empty string.
-      email,
-      // A new address has proved nothing yet.
-      ...(email !== user.email ? { emailVerifiedAt: null } : {}),
-    },
+    select: { name: true, phone: true, email: true },
+  });
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        ...changes,
+        // A new address has proved nothing yet.
+        ...(email !== user.email ? { emailVerifiedAt: null } : {}),
+      },
+    });
+    // `User` is global, so the stamp goes on this org's membership instead.
+    await tx.membership.update({
+      where: { id: membershipId },
+      data: updatedBy(actor),
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "member.updated",
+      entityType: "Membership",
+      entityId: membershipId,
+      changes: diff(before, changes),
+    });
   });
 
   return { ok: true as const };
@@ -230,7 +254,56 @@ export async function changeMemberRole(
       if (owners <= 1) return { error: "last-owner" as const };
     }
 
-    await tx.membership.update({ where: { id: target.id }, data: { roleId: role.id } });
+    const before = await tx.membership.findUniqueOrThrow({
+      where: { id: target.id },
+      select: { roleId: true },
+    });
+    await tx.membership.update({
+      where: { id: target.id },
+      data: { roleId: role.id, ...updatedBy(ctx) },
+    });
+    await audit(tx, {
+      organizationId: ctx.organizationId,
+      actor: ctx,
+      action: "member.role_changed",
+      entityType: "Membership",
+      entityId: target.id,
+      changes: diff(before, { roleId: role.id }),
+    });
     return { ok: true as const };
+  });
+}
+
+/**
+ * Deletes a membership (its leases cascade) and logs it. The entry keeps who
+ * the person was, because after this nothing else in the organization does.
+ */
+export async function removeMembership(
+  organizationId: string,
+  membership: {
+    id: string;
+    userId: string;
+    roleId: string;
+    user: { name: string | null; email: string | null; phone: string | null };
+    _count: { leases: number };
+  },
+  actor: Actor,
+  action: "member.removed" | "tenant.removed"
+) {
+  await prisma.$transaction(async (tx) => {
+    await tx.membership.delete({ where: { id: membership.id } });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action,
+      entityType: "Membership",
+      entityId: membership.id,
+      changes: {
+        ...snapshot(membership.user),
+        userId: membership.userId,
+        roleId: membership.roleId,
+        removedLeases: membership._count.leases,
+      },
+    });
   });
 }
