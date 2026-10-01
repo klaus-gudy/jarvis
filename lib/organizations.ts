@@ -1,3 +1,4 @@
+import { audit } from "@/lib/audit";
 import { cache } from "react";
 
 import { seedDefaultLeaseTemplate } from "@/lib/lease-template-starters";
@@ -128,8 +129,16 @@ export async function createOrganizationForUser(userId: string, name: string) {
         organizationId: organization.id,
       },
     });
-    await tx.membership.create({
+    const membership = await tx.membership.create({
       data: { userId, organizationId: organization.id, roleId: ownerRole.id },
+    });
+    await audit(tx, {
+      organizationId: organization.id,
+      actor: { membershipId: membership.id, userId },
+      action: "organization.created",
+      entityType: "Organization",
+      entityId: organization.id,
+      changes: { name },
     });
     // Seeded here so no organization ever exists without one. A lease signed
     // an hour from now has wording to be contracted from, and Settings →
