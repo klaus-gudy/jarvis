@@ -1,3 +1,4 @@
+import { audit, createdBy, type Actor } from "@/lib/audit";
 import { leaseStatus } from "@/lib/leases";
 import ExcelJS from "exceljs";
 
@@ -525,8 +526,12 @@ async function mayReuseUser(
 export async function importOrganizationBackup(
   organizationId: string,
   data: ParsedBackup,
-  { actorUserId }: { actorUserId: string }
+  { actor }: { actor: Actor & { userId: string } }
 ): Promise<ImportSummary> {
+  const actorUserId = actor.userId;
+  // Every restored row is stamped with whoever ran the restore: the backup
+  // doesn't say who made the originals, and the restore is the act on record.
+  const stamp = createdBy(actor);
   return prisma.$transaction(
     async (tx) => {
       const propertyMap = new Map<string, string>();
@@ -543,6 +548,7 @@ export async function importOrganizationBackup(
             amenities: property.amenities,
             ...(property.createdAt ? { createdAt: property.createdAt } : {}),
             ...(property.updatedAt ? { updatedAt: property.updatedAt } : {}),
+            ...stamp,
           },
           select: { id: true },
         });
@@ -566,6 +572,7 @@ export async function importOrganizationBackup(
             amenities: unit.amenities,
             ...(unit.createdAt ? { createdAt: unit.createdAt } : {}),
             ...(unit.updatedAt ? { updatedAt: unit.updatedAt } : {}),
+            ...stamp,
           },
           select: { id: true },
         });
@@ -649,6 +656,7 @@ export async function importOrganizationBackup(
                     membership.roleKind === "OWNER" && membership.rolePermissions.length === 0
                       ? [...PERMISSIONS]
                       : parsePermissions(membership.rolePermissions),
+                  ...stamp,
                 },
                 select: { id: true },
               }));
@@ -663,6 +671,7 @@ export async function importOrganizationBackup(
               roleId,
               ...(membership.createdAt ? { createdAt: membership.createdAt } : {}),
               ...(membership.updatedAt ? { updatedAt: membership.updatedAt } : {}),
+              ...stamp,
             },
             select: { id: true },
           });
@@ -682,8 +691,8 @@ export async function importOrganizationBackup(
         if (Object.values(profileFields).some((value) => value)) {
           await tx.memberProfile.upsert({
             where: { membershipId },
-            create: { membershipId, ...profileFields },
-            update: profileFields,
+            create: { membershipId, ...profileFields, ...stamp },
+            update: { ...profileFields, updatedById: stamp.updatedById },
           });
         }
       }
@@ -708,6 +717,7 @@ export async function importOrganizationBackup(
             leaseAmount: lease.leaseAmount,
             ...(lease.createdAt ? { createdAt: lease.createdAt } : {}),
             ...(lease.updatedAt ? { updatedAt: lease.updatedAt } : {}),
+            ...stamp,
           },
           select: { id: true },
         });
@@ -718,6 +728,7 @@ export async function importOrganizationBackup(
             leaseId: created.id,
             amount: lease.leaseAmount,
             dueDate: lease.startDate,
+            ...stamp,
           },
           select: { id: true },
         });
@@ -751,18 +762,31 @@ export async function importOrganizationBackup(
             method: payment.method,
             notes: payment.notes,
             ...(payment.createdAt ? { createdAt: payment.createdAt } : {}),
+            createdById: stamp.createdById,
           },
         });
         paymentsCreated++;
       }
 
-      return {
+      const summary = {
         properties: data.properties.length,
         units: data.units.length,
         memberships: data.memberships.length,
         leases: data.leases.length,
         payments: paymentsCreated,
       };
+      // One entry for the restore rather than one per row: thousands of
+      // "created" lines would bury everything else, and every row it wrote
+      // carries the stamp anyway.
+      await audit(tx, {
+        organizationId,
+        actor,
+        action: "organization.imported",
+        entityType: "Organization",
+        entityId: organizationId,
+        changes: summary,
+      });
+      return summary;
     },
     // Generous on purpose: this is an infrequent, admin-triggered restore
     // that can touch thousands of rows across five tables, each a separate
