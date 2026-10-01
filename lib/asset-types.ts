@@ -1,3 +1,4 @@
+import { audit, type Actor } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 
@@ -93,7 +94,8 @@ export async function createAssetType(
     subject: FileAssetSubject;
     isPhoto: boolean;
     allowsMultiple?: boolean;
-  }
+  },
+  actor: Actor
 ) {
   const label = input.label.trim();
   const key = toAssetTypeKey(label);
@@ -118,17 +120,29 @@ export async function createAssetType(
     return { error: "duplicate" as const, existing };
   }
 
-  const created = await prisma.fileAssetType.create({
-    data: {
-      key,
-      label,
-      subject: input.subject,
-      isPhoto: input.isPhoto,
-      allowsMultiple: input.allowsMultiple ?? false,
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.fileAssetType.create({
+      data: {
+        key,
+        label,
+        subject: input.subject,
+        isPhoto: input.isPhoto,
+        allowsMultiple: input.allowsMultiple ?? false,
+        organizationId,
+        isSystem: false,
+        createdById: actor.membershipId,
+      },
+      select: TYPE_SELECT,
+    });
+    await audit(tx, {
       organizationId,
-      isSystem: false,
-    },
-    select: TYPE_SELECT,
+      actor,
+      action: "file_type.created",
+      entityType: "FileAssetType",
+      entityId: row.id,
+      changes: { key, label, subject: input.subject, isPhoto: input.isPhoto },
+    });
+    return row;
   });
 
   return { assetType: created };
