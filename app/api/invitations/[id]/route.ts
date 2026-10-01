@@ -11,7 +11,7 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
-  const result = await revokeInvitation(auth.context.organizationId, id);
+  const result = await revokeInvitation(auth.context.organizationId, id, auth.context);
 
   if (result.error === "not-found") {
     return Response.json({ error: "Invitation not found" }, { status: 404 });
