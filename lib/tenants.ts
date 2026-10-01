@@ -1,3 +1,4 @@
+import { audit, createdBy, diff, snapshot, updatedBy, type Actor } from "@/lib/audit";
 import { getProfilePhotoIds } from "@/lib/documents";
 import {
   leaseExpiry,
@@ -9,6 +10,7 @@ import type { PropertyPreview } from "@/components/hover-cards/property-hover-ca
 import type { UnitPreview } from "@/components/hover-cards/unit-hover-card";
 import type { UpdateMemberProfileInput } from "@/lib/member-profile-schemas";
 import { prisma } from "@/lib/prisma";
+import { removeMembership } from "@/lib/members";
 import { ensureTenantRole } from "@/lib/roles";
 import type { CreateTenantInput } from "@/lib/tenants-schemas";
 
@@ -309,18 +311,29 @@ export async function getTenantDetail(
 export async function updateMemberProfile(
   organizationId: string,
   membershipId: string,
-  input: UpdateMemberProfileInput
+  input: UpdateMemberProfileInput,
+  actor: Actor
 ) {
   const membership = await prisma.membership.findFirst({
     where: { id: membershipId, organizationId },
-    select: { id: true },
+    select: { id: true, profile: true },
   });
   if (!membership) return { error: "not-found" as const };
 
-  await prisma.memberProfile.upsert({
-    where: { membershipId: membership.id },
-    create: { membershipId: membership.id, ...input },
-    update: input,
+  await prisma.$transaction(async (tx) => {
+    const profile = await tx.memberProfile.upsert({
+      where: { membershipId: membership.id },
+      create: { membershipId: membership.id, ...input, ...createdBy(actor) },
+      update: { ...input, ...updatedBy(actor) },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "member_profile.updated",
+      entityType: "MemberProfile",
+      entityId: profile.id,
+      changes: diff(membership.profile ?? {}, input),
+    });
   });
 
   return { ok: true as const };
@@ -340,7 +353,8 @@ export async function updateMemberProfile(
  */
 export async function createTenant(
   organizationId: string,
-  input: CreateTenantInput
+  input: CreateTenantInput,
+  actor: Actor
 ) {
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -377,26 +391,45 @@ export async function createTenant(
       select: { id: true },
     });
 
-    return tx.membership.create({
-      data: { userId: user.id, organizationId, roleId: role.id },
+    const created = await tx.membership.create({
+      data: { userId: user.id, organizationId, roleId: role.id, ...createdBy(actor) },
       select: { id: true },
     });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "tenant.created",
+      entityType: "Membership",
+      entityId: created.id,
+      changes: { ...snapshot(input), userId: user.id, roleId: role.id },
+    });
+    return created;
   });
 
   return { membership };
 }
 
-export async function removeTenant(organizationId: string, membershipId: string) {
+export async function removeTenant(
+  organizationId: string,
+  membershipId: string,
+  actor: Actor
+) {
   const membership = await prisma.membership.findFirst({
     // Tenants only: this route needs `tenant:write`, which must not reach a
     // staff member or an Owner through a guessed id.
     where: { id: membershipId, organizationId, role: { kind: "TENANT" } },
-    select: { id: true, _count: { select: { leases: true } } },
+    select: {
+      id: true,
+      userId: true,
+      roleId: true,
+      user: { select: { name: true, email: true, phone: true } },
+      _count: { select: { leases: true } },
+    },
   });
   if (!membership) return { error: "not-found" as const };
 
   // Leases cascade with the membership, so say so rather than silently
   // deleting lease history.
-  await prisma.membership.delete({ where: { id: membership.id } });
+  await removeMembership(organizationId, membership, actor, "tenant.removed");
   return { removedLeases: membership._count.leases };
 }
