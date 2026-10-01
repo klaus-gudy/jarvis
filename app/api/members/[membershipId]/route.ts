@@ -79,7 +79,8 @@ export async function PATCH(
     auth.context.organizationId,
     membershipId,
     auth.context.userId,
-    details
+    details,
+    auth.context,
   );
 
   if (result.error === "not-found") {
@@ -122,7 +123,8 @@ export async function DELETE(
   const result = await removeMember(
     auth.context.organizationId,
     membershipId,
-    auth.context.userId
+    auth.context.userId,
+    auth.context,
   );
 
   if (result.error === "not-found") {
