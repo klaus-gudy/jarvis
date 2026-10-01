@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await createLease(auth.context.organizationId, parsed.data);
+  const result = await createLease(auth.context.organizationId, parsed.data, auth.context);
 
   if (result.error === "unit-not-found") {
     return Response.json({ error: "Unit not found" }, { status: 404 });
