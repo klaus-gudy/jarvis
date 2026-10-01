@@ -60,6 +60,12 @@ model AuditLog {
   /// or delete. JSON-safe — dates as ISO strings.
   changes Json?
 
+  /// Every record this entry belongs to, as `Type:id` keys — the entity itself
+  /// plus its parents (`Payment:…`, `Invoice:…`, `Lease:…`, `Unit:…`,
+  /// `Property:…`, `Membership:…`). What an Activity timeline filters on, so a
+  /// unit's history finds its payments, even ones since deleted.
+  subjects String[] @default([])
+
   createdAt DateTime @default(now())
 
   organizationId String
@@ -68,6 +74,7 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([entityType, entityId])
   @@index([actorMembershipId])
+  @@index([subjects], type: Gin)
 }
 
 model NotificationLog {
