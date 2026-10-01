@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   let summary;
   try {
     summary = await importOrganizationBackup(auth.context.organizationId, parsed.data, {
-      actorUserId: auth.context.userId,
+      actor: auth.context,
     });
   } catch (cause) {
     if (cause instanceof ForeignAccountError) {
