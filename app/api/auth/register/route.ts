@@ -1,3 +1,4 @@
+import { audit } from "@/lib/audit";
 import { after } from "next/server";
 
 import { Prisma } from "@/lib/generated/prisma/client";
@@ -92,6 +93,14 @@ export async function POST(request: Request) {
           roleId: ownerRole.id,
         },
         include: { role: true },
+      });
+      await audit(tx, {
+        organizationId: organization.id,
+        actor: { membershipId: membership.id, userId: user.id },
+        action: "organization.created",
+        entityType: "Organization",
+        entityId: organization.id,
+        changes: { name: organizationName },
       });
       // Same reasoning as the Tenant role above: a thing every organization
       // needs, created once here rather than conjured later by whichever code
