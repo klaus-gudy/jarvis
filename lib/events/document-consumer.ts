@@ -1,3 +1,4 @@
+import { systemActor } from "@/lib/audit";
 import { connect } from "amqplib";
 
 import {
@@ -19,6 +20,9 @@ import {
 import { leaseReference } from "@/lib/leases";
 import { declareEventTopology } from "@/lib/events/publisher";
 import { prisma } from "@/lib/prisma";
+
+/** The actor behind this consumer's writes: the render pipeline, not a person. */
+const CONTRACT_FILING = systemActor("contract-filing");
 
 /**
  * Files the contract that `document-worker` has just rendered.
@@ -242,7 +246,7 @@ async function attach(): Promise<StopConsumer> {
         },
         select: { id: true },
       });
-      if (previous) await deleteDocument(organizationId, previous.id);
+      if (previous) await deleteDocument(organizationId, previous.id, CONTRACT_FILING);
 
       const result = await recordDocument(
         organizationId,
