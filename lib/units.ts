@@ -1,3 +1,4 @@
+import { audit, createdBy, diff, snapshot, updatedBy, type Actor } from "@/lib/audit";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { leaseExpiry, leaseReference } from "@/lib/leases";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,8 @@ async function assertPropertyInOrg(organizationId: string, propertyId: string) {
 export async function createUnit(
   organizationId: string,
   propertyId: string,
-  input: CreateUnitInput
+  input: CreateUnitInput,
+  actor: Actor
 ) {
   const property = await assertPropertyInOrg(organizationId, propertyId);
   if (!property) return { error: "not-found" as const };
@@ -30,9 +32,19 @@ export async function createUnit(
   });
   if (clash) return { error: "duplicate-label" as const };
 
-  const unit = await prisma.unit.create({
-    data: { ...input, propertyId },
-    select: { id: true },
+  const unit = await prisma.$transaction(async (tx) => {
+    const created = await tx.unit.create({
+      data: { ...input, propertyId, ...createdBy(actor) },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "unit.created",
+      entityType: "Unit",
+      entityId: created.id,
+      changes: snapshot(created),
+    });
+    return { id: created.id };
   });
   return { unit };
 }
@@ -41,14 +53,14 @@ export async function updateUnit(
   organizationId: string,
   propertyId: string,
   unitId: string,
-  input: UpdateUnitInput
+  input: UpdateUnitInput,
+  actor: Actor
 ) {
   const property = await assertPropertyInOrg(organizationId, propertyId);
   if (!property) return { error: "not-found" as const };
 
   const existing = await prisma.unit.findFirst({
     where: { id: unitId, propertyId },
-    select: { id: true },
   });
   if (!existing) return { error: "not-found" as const };
 
@@ -60,10 +72,21 @@ export async function updateUnit(
     if (clash) return { error: "duplicate-label" as const };
   }
 
-  const unit = await prisma.unit.update({
-    where: { id: existing.id },
-    data: input,
-    select: { id: true },
+  const unit = await prisma.$transaction(async (tx) => {
+    const updated = await tx.unit.update({
+      where: { id: existing.id },
+      data: { ...input, ...updatedBy(actor) },
+      select: { id: true },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "unit.updated",
+      entityType: "Unit",
+      entityId: existing.id,
+      changes: diff(existing, input),
+    });
+    return updated;
   });
   return { unit };
 }
@@ -71,20 +94,30 @@ export async function updateUnit(
 export async function deleteUnit(
   organizationId: string,
   propertyId: string,
-  unitId: string
+  unitId: string,
+  actor: Actor
 ) {
   const property = await assertPropertyInOrg(organizationId, propertyId);
   if (!property) return { error: "not-found" as const };
 
   const existing = await prisma.unit.findFirst({
     where: { id: unitId, propertyId },
-    select: { id: true },
   });
   if (!existing) return { error: "not-found" as const };
 
   // Leases on this unit cascade via the schema's onDelete rule.
-  await prisma.unit.delete({ where: { id: existing.id } });
-  return { unit: existing };
+  await prisma.$transaction(async (tx) => {
+    await tx.unit.delete({ where: { id: existing.id } });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "unit.deleted",
+      entityType: "Unit",
+      entityId: existing.id,
+      changes: snapshot(existing),
+    });
+  });
+  return { unit: { id: existing.id } };
 }
 
 /**
