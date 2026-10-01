@@ -103,7 +103,7 @@ export async function DELETE(
   }
 
   try {
-    const result = await deleteDocument(auth.context.organizationId, id);
+    const result = await deleteDocument(auth.context.organizationId, id, auth.context);
     if (result.error === "not-found") {
       return Response.json({ error: "Document not found" }, { status: 404 });
     }
