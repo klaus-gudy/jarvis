@@ -1,3 +1,4 @@
+import { audit, snapshot, systemActor, type Actor } from "@/lib/audit";
 import { randomUUID } from "node:crypto";
 
 import { resolveAssetType } from "@/lib/asset-types";
@@ -341,21 +342,36 @@ export async function createDocument(
 
   await putObject(objectKey, file.bytes, file.type);
 
+  const actor: Actor = userId
+    ? { membershipId: uploader?.id ?? null, userId }
+    : systemActor("system");
+
   try {
-    const created = await prisma.fileAsset.create({
-      data: {
-        objectKey,
-        fileName: file.name,
-        fileType: file.type,
-        sizeBytes: file.bytes.byteLength,
-        assetTypeId: assetType.id,
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.fileAsset.create({
+        data: {
+          objectKey,
+          fileName: file.name,
+          fileType: file.type,
+          sizeBytes: file.bytes.byteLength,
+          assetTypeId: assetType.id,
+          organizationId,
+          uploadedById: uploader?.id ?? null,
+          ...(input.subjectId
+            ? { [SUBJECT_COLUMN[input.subjectType as keyof typeof SUBJECT_COLUMN]]: input.subjectId }
+            : {}),
+        },
+        select: ROW_SELECT,
+      });
+      await audit(tx, {
         organizationId,
-        uploadedById: uploader?.id ?? null,
-        ...(input.subjectId
-          ? { [SUBJECT_COLUMN[input.subjectType as keyof typeof SUBJECT_COLUMN]]: input.subjectId }
-          : {}),
-      },
-      select: ROW_SELECT,
+        actor,
+        action: "document.uploaded",
+        entityType: "FileAsset",
+        entityId: row.id,
+        changes: documentFacts(row.fileName, assetType.id, input),
+      });
+      return row;
     });
 
     return { document: toRow(created) };
@@ -437,21 +453,32 @@ export async function recordDocument(
     }
   }
 
-  const created = await prisma.fileAsset.create({
-    data: {
-      objectKey: file.objectKey,
-      fileName: file.name,
-      fileType: file.type,
-      sizeBytes: file.sizeBytes,
-      assetTypeId: assetType.id,
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.fileAsset.create({
+      data: {
+        objectKey: file.objectKey,
+        fileName: file.name,
+        fileType: file.type,
+        sizeBytes: file.sizeBytes,
+        assetTypeId: assetType.id,
+        organizationId,
+        // Null, always: nothing that reaches this function was filed by a person.
+        uploadedById: null,
+        ...(input.subjectId
+          ? { [SUBJECT_COLUMN[input.subjectType as keyof typeof SUBJECT_COLUMN]]: input.subjectId }
+          : {}),
+      },
+      select: ROW_SELECT,
+    });
+    await audit(tx, {
       organizationId,
-      // Null, always: nothing that reaches this function was filed by a person.
-      uploadedById: null,
-      ...(input.subjectId
-        ? { [SUBJECT_COLUMN[input.subjectType as keyof typeof SUBJECT_COLUMN]]: input.subjectId }
-        : {}),
-    },
-    select: ROW_SELECT,
+      actor: systemActor("contract-filing"),
+      action: "document.filed",
+      entityType: "FileAsset",
+      entityId: row.id,
+      changes: documentFacts(row.fileName, assetType.id, input),
+    });
+    return row;
   });
 
   return { document: toRow(created), duplicate: false as const };
@@ -550,12 +577,36 @@ export async function getProfilePhotoIds(
  * the two has to happen when the second call fails, the invisible one is the
  * better failure.
  */
-export async function deleteDocument(organizationId: string, id: string) {
+export async function deleteDocument(
+  organizationId: string,
+  id: string,
+  actor: Actor
+) {
   const document = await getDocument(organizationId, id);
   if (!document) return { error: "not-found" as const };
 
-  await prisma.fileAsset.delete({ where: { id: document.id } });
+  await prisma.$transaction(async (tx) => {
+    const row = await tx.fileAsset.delete({ where: { id: document.id } });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: "document.deleted",
+      entityType: "FileAsset",
+      entityId: row.id,
+      changes: snapshot(row),
+    });
+  });
   await deleteObject(document.objectKey);
 
   return { ok: true as const };
+}
+
+/** What a document log entry records: the file and what it was filed under. */
+function documentFacts(fileName: string, assetTypeId: string, input: UploadDocumentInput) {
+  return {
+    fileName,
+    assetTypeId,
+    subjectType: input.subjectType,
+    subjectId: input.subjectId ?? null,
+  };
 }
