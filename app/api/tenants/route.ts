@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await createTenant(auth.context.organizationId, parsed.data);
+  const result = await createTenant(auth.context.organizationId, parsed.data, auth.context);
   if (result.error === "account-exists") {
     return Response.json(
       {
