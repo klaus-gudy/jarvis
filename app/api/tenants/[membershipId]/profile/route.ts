@@ -36,7 +36,8 @@ export async function PATCH(
   const result = await updateMemberProfile(
     auth.context.organizationId,
     membershipId,
-    parsed.data
+    parsed.data,
+    auth.context,
   );
 
   if (result.error === "not-found") {
