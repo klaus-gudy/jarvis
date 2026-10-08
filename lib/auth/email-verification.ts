@@ -48,6 +48,10 @@ export type IssuedVerification = {
  * Issues a code for a user who is already signed in, so unlike a password
  * reset there is nothing to hide: the caller knows exactly whose account this
  * is. Returns null only when there is genuinely nothing to verify.
+ *
+ * Open to every unverified address, not just the ones the gate holds: a
+ * tenant verifies by choice to start receiving lease and payment mail
+ * (`getTenantRecipient`), and nobody is blocked on it.
  */
 export async function issueEmailVerification(
   userId: string
@@ -58,11 +62,10 @@ export async function issueEmailVerification(
       email: true,
       name: true,
       emailVerifiedAt: true,
-      emailVerificationRequired: true,
     },
   });
   if (!user?.email) return null;
-  if (!needsEmailVerification(user)) return null;
+  if (user.emailVerifiedAt !== null) return null;
 
   const code = generateCode();
   const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MINUTES * 60_000);
