@@ -311,6 +311,37 @@ export const DEFAULT_TEMPLATE_DESCRIPTION =
   "starter — review the wording and edit it to match what this organization " +
   "actually agrees with its tenants.";
 
+/** The Swahili starter, seeded beside the English default (never the default). */
+export const SWAHILI_TEMPLATE_NAME = "Mkataba wa kawaida wa upangaji";
+
+export const SWAHILI_TEMPLATE_DESCRIPTION =
+  "The standard starter in Swahili. Make it the default under Settings → " +
+  "Lease templates if your contracts are signed in Swahili, and edit the " +
+  "wording to match what this organization agrees with its tenants.";
+
+/**
+ * Adds the Swahili starter to an organization. Used at creation (below) and by
+ * `npm run templates:add-swahili` for organizations created before it existed.
+ * Takes a transaction client for the same reason `seedDefaultLeaseTemplate`
+ * does; outside one, pass `prisma`.
+ */
+export async function seedSwahiliLeaseTemplate(
+  tx: Prisma.TransactionClient,
+  organizationId: string
+) {
+  return tx.leaseTemplate.create({
+    data: {
+      organizationId,
+      name: SWAHILI_TEMPLATE_NAME,
+      description: SWAHILI_TEMPLATE_DESCRIPTION,
+      language: "sw",
+      body: starterBody("sw"),
+      isDefault: false,
+    },
+    select: { id: true },
+  });
+}
+
 /**
  * Writes the starter template for a brand-new organization, **inside the
  * transaction that is creating it**.
@@ -337,7 +368,7 @@ export async function seedDefaultLeaseTemplate(
   tx: Prisma.TransactionClient,
   organizationId: string
 ) {
-  return tx.leaseTemplate.create({
+  const english = await tx.leaseTemplate.create({
     data: {
       organizationId,
       name: DEFAULT_TEMPLATE_NAME,
@@ -348,4 +379,8 @@ export async function seedDefaultLeaseTemplate(
     },
     select: { id: true },
   });
+  // Alongside, not instead: many landlords sign in Swahili, and switching the
+  // default is one click once the wording is already there.
+  await seedSwahiliLeaseTemplate(tx, organizationId);
+  return english;
 }
