@@ -6,21 +6,21 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { AuthHeader } from "@/components/auth/auth-header"
+import { CarryNextLink } from "@/components/auth/carry-next-link"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { SITE_NAME } from "@/lib/site"
+import { safeNextPath, SITE_NAME } from "@/lib/site"
 
 /**
- * Where to land after signing in. Only an invitation link is honoured — it is
- * the one flow that sends people here to come back — and only in its exact
- * shape, so `?next=` can never become an open redirect.
+ * Where to land after signing in: an invitation link or `/subscribe` for a
+ * plan, each only in its exact shape (`safeNextPath`), so `?next=` can never
+ * become an open redirect.
  */
 function nextPath() {
-  const next = new URLSearchParams(window.location.search).get("next")
-  return next && /^\/invite\/[A-Za-z0-9_-]+$/.test(next) ? next : "/"
+  return safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? "/"
 }
 
 export default function LoginPage() {
@@ -44,7 +44,14 @@ export default function LoginPage() {
     })
 
     if (response.ok) {
-      router.push(nextPath())
+      const next = nextPath()
+      // `/subscribe` answers with a redirect off-site, which only a full
+      // navigation follows.
+      if (next.startsWith("/subscribe")) {
+        window.location.assign(next)
+        return
+      }
+      router.push(next)
       router.refresh()
       return
     }
@@ -110,12 +117,12 @@ export default function LoginPage() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         New to {SITE_NAME}?{" "}
-        <Link
+        <CarryNextLink
           href="/register"
           className="font-medium text-primary hover:underline"
         >
           Create an account
-        </Link>
+        </CarryNextLink>
       </p>
     </>
   )
