@@ -5,7 +5,7 @@ import Link from "next/link";
 import { MenuIcon } from "lucide-react";
 import { m, useMotionValueEvent, useScroll, useSpring } from "motion/react";
 
-import { RentopsLogo } from "@/components/logo";
+import { BrandLogo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,7 +120,7 @@ export function LandingNav() {
           href="/"
           className="flex items-center gap-2.5 rounded-lg text-lg font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <RentopsLogo className="size-8" />
+          <BrandLogo className="size-8" />
           <span className="font-heading">Rentoo</span>
         </Link>
 
@@ -191,7 +191,7 @@ export function LandingNav() {
             <SheetContent side="right" className="w-72">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2.5">
-                  <RentopsLogo className="size-7" />
+                  <BrandLogo className="size-7" />
                   Rentoo
                 </SheetTitle>
               </SheetHeader>
