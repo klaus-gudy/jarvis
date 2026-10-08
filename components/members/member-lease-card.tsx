@@ -7,6 +7,7 @@ import {
 } from "@/components/members/member-lease-columns";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { lastDayOf } from "@/lib/dates";
 
 /**
  * A lease as one card, for the mobile list on a member's Leases tab.
@@ -37,7 +38,7 @@ export function MemberLeaseCard({ lease }: { lease: MemberLeaseRow }) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span>
           {formatDate(new Date(lease.startDate))} →{" "}
-          {formatDate(new Date(lease.endDate))}
+          {formatDate(lastDayOf(lease.endDate))}
         </span>
         <ExpiryTag expiry={lease.expiry} />
       </div>
