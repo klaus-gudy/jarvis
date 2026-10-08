@@ -10,10 +10,9 @@ Working list. Architecture and standing rules are in `plan.md`.
 
 ## Open items
 
-### Product gaps — decided 2026-10-08, build next
-- [ ] **Subscriptions** (with the snippe phase below): a pay link clicked without an org sends the visitor to register first, then on to checkout with the org id in `meta`. Webhook creates a `Subscription` (plan, period, paid-until) only when `amount` matches the plan price; shown in Settings. No plan limits yet.
+### Product gaps
 
-**Not chosen (2026-10-08):** cover photo/reorder, per-file upload retry, remove profile photo, custom file-type management, member-docs pagination; revoke notice and per-org invite-email override; undo/redo + table controls; FileAsset in backup; `DocumentJob` render status; org-wide Invoices page; "Issue invoice" for pre-billing leases; tenant pay-online; making `User.phone` required (stays nullable). Also still open: an org whose owners all lack an email logs a notice as sent and never retries.
+The 2026-10-08 build list has shipped (see *Shipped*). **Not chosen (2026-10-08):** cover photo/reorder, per-file upload retry, remove profile photo, custom file-type management, member-docs pagination; revoke notice and per-org invite-email override; undo/redo + table controls; FileAsset in backup; `DocumentJob` render status; org-wide Invoices page; "Issue invoice" for pre-billing leases; tenant pay-online; making `User.phone` required (stays nullable). Also still open: an org whose owners all lack an email logs a notice as sent and never retries.
 
 - [ ] **Activity follow-ups:** the tenant portal has no activity view; there's no filter by person or action on `/activity`. **After deploy:** run `npm run activity:backfill -- --dry-run`, then run it for real against prod.
 
@@ -63,6 +62,7 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 | 2026-10-08 | Per-lease auto-renew (unit is the default); end dates shown as the last day everywhere incl. `automatifier`; renewals start with no gap; contract versions kept, signed ones undeletable |
 | 2026-10-08 | Tenant email at verified addresses (lease, payment, claim, contract) + opt-in verification; claim rejection reasons, receipts, owner alert; invitation resend + accepted notice; reset copy for phone-only users |
 | 2026-10-08 | Swahili starter template seeded (+ script for existing orgs); real-lease template preview; tenant nationality on create/import + backfill script; image thumbnails via `?w=` |
+| 2026-10-08 | Subscriptions: `/subscribe` gate (register / verify / create org first), org in checkout `meta`, webhook grants on exact price match, Settings → Billing |
 | Production Docker image | Multi-stage Node 24 build, Next.js standalone server, non-root runtime, migrations on startup, runtime secrets excluded from build context |
 
 ## Phase — snippe webhook
@@ -76,4 +76,4 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 ### Not done
 - [ ] Set `SNIPPE_WEBHOOK_SECRET` on Railway (jarvis → production) **before** submitting the webhook URL to snippe
 - [ ] Confirm `?meta=` survives on the `/pay/rentoo` page link with one real payment — documented for payment links, unproven on this one
-- [ ] Attribution + entitlement: see **Subscriptions** under Product gaps
+- [ ] Plan limits: nothing reads `Subscription` to restrict anything yet (decided 2026-10-08: record first, limit later)
