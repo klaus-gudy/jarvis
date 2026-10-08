@@ -20,12 +20,13 @@ import { formatCurrency, formatDayMonth, formatRelativeTime } from "@/lib/format
 import type { PropertySummary } from "@/lib/properties";
 import { initials } from "@/lib/user-display";
 import { lastDayOf } from "@/lib/dates";
+import { documentImageSrc } from "@/lib/document-options";
 
 /** Matches the tables' person cells, so the same tenant looks the same anywhere. */
 function PersonAvatar({ name, photoId }: { name: string; photoId: string | null }) {
   return (
     <Avatar className="size-8 shrink-0">
-      {photoId && <AvatarImage src={`/api/documents/${photoId}`} alt={name} />}
+      {photoId && <AvatarImage src={documentImageSrc(photoId, 96)} alt={name} />}
       <AvatarFallback className="text-xs">{initials(name)}</AvatarFallback>
     </Avatar>
   );
