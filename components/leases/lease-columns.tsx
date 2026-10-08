@@ -18,6 +18,7 @@ import {
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import type { InvoiceStatus } from "@/lib/invoices";
 import type { LeaseRow } from "@/lib/leases";
+import { lastDayOf } from "@/lib/dates";
 
 const STATUS_VARIANT: Record<
   LeaseRow["status"],
@@ -150,7 +151,7 @@ export function buildLeaseColumns({
       header: "End date",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {formatDate(new Date(row.original.endDate))}
+          {formatDate(lastDayOf(row.original.endDate))}
           <ExpiryTag expiry={row.original.expiry} />
         </div>
       ),
