@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeftIcon, CheckIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { AuthHeader } from "@/components/auth/auth-header"
+import { CarryNextLink } from "@/components/auth/carry-next-link"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { usePhoneError } from "@/hooks/use-phone-error"
+import { safeNextPath } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
 type FieldErrors = Partial<
@@ -113,6 +114,13 @@ export default function RegisterPage() {
     })
 
     if (response.ok) {
+      // Chose a plan before signing up: straight on to checkout (via
+      // `/subscribe`, which may stop at email verification first).
+      const next = safeNextPath(new URLSearchParams(window.location.search).get("next"))
+      if (next) {
+        window.location.assign(next)
+        return
+      }
       router.push("/")
       router.refresh()
       return
@@ -285,9 +293,9 @@ export default function RegisterPage() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-primary hover:underline">
+        <CarryNextLink href="/login" className="font-medium text-primary hover:underline">
           Sign in
-        </Link>
+        </CarryNextLink>
       </p>
     </>
   )
