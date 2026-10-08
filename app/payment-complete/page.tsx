@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { CHECKOUT_URL } from "@/lib/site";
-import { RentopsWordmark } from "@/components/logo";
+import { BrandWordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   firstParam,
@@ -93,7 +93,7 @@ export default async function PaymentCompletePage({
       </div>
 
       <div className="flex w-full max-w-sm flex-col items-center text-center">
-        <RentopsWordmark className="mb-10" />
+        <BrandWordmark className="mb-10" />
 
         {/* The slot 404 gives its status code. A reference is the one thing a
             payer may need to read back to us, and monospace is how a string
