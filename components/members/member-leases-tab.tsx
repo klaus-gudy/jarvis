@@ -58,6 +58,7 @@ export function MemberLeasesTab({
       <DataTable
         columns={columns}
         data={leases}
+        stateKey={`member-leases:${membershipId}`}
         searchPlaceholder="Search leases…"
         facetFilters={[
           {
