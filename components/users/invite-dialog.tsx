@@ -68,7 +68,6 @@ export function InviteDialog({
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
   const [inviteLink, setInviteLink] = React.useState<string | null>(null);
-  const [copied, setCopied] = React.useState(false);
 
   /*
    * `prefill` is only passed by the Users table's Invite button, which means
@@ -137,58 +136,15 @@ export function InviteDialog({
     setPending(false);
   }
 
-  async function copyLink() {
-    if (!inviteLink) return;
-    await navigator.clipboard.writeText(inviteLink);
-    setCopied(true);
-  }
-
   if (inviteLink) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Invitation ready</DialogTitle>
-            <DialogDescription>
-              {emailedTo ? (
-                <>
-                  We&apos;ve emailed the link to{" "}
-                  <span className="font-medium text-foreground">{emailedTo}</span>.
-                  Here it is as well, in case it doesn&apos;t arrive — it expires
-                  in 14 days, can only be used once, and won&apos;t be shown again.
-                </>
-              ) : suppressedRole ? (
-                <>
-                  <span className="font-medium text-foreground">
-                    {suppressedRole}
-                  </span>{" "}
-                  invitations aren&apos;t emailed, so share this link yourself.
-                  It expires in 14 days and can only be used once — copy it now,
-                  it won&apos;t be shown again.
-                </>
-              ) : (
-                <>
-                  Share this link with the person you invited. It expires in 14
-                  days and can only be used once — copy it now, it won&apos;t be
-                  shown again.
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex items-center gap-2 py-4">
-            <Input readOnly value={inviteLink} className="font-mono text-xs" />
-            <Button type="button" variant="outline" onClick={copyLink}>
-              {copied ? <CheckIcon /> : <CopyIcon />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </div>
-
-          <DialogFooter>
-            <Button onClick={() => onOpenChange(false)}>Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InviteLinkDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        link={inviteLink}
+        emailedTo={emailedTo}
+        suppressedRole={suppressedRole}
+      />
     );
   }
 
@@ -300,6 +256,82 @@ export function InviteDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The link, once — after creating an invitation or resending one. Says whether
+ * it was emailed, or why not, because the token can't be shown again.
+ */
+export function InviteLinkDialog({
+  open,
+  onOpenChange,
+  link,
+  emailedTo,
+  suppressedRole,
+  resent = false,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  link: string;
+  emailedTo: string | null;
+  suppressedRole: string | null;
+  /** Worded for a resend: the previous link has just stopped working. */
+  resent?: boolean;
+}) {
+  const [copied, setCopied] = React.useState(false);
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(link);
+    setCopied(true);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{resent ? "New invitation link" : "Invitation ready"}</DialogTitle>
+          <DialogDescription>
+            {resent && <>The previous link no longer works. </>}
+            {emailedTo ? (
+              <>
+                We&apos;ve emailed the link to{" "}
+                <span className="font-medium text-foreground">{emailedTo}</span>.
+                Here it is as well, in case it doesn&apos;t arrive — it expires
+                in 14 days, can only be used once, and won&apos;t be shown again.
+              </>
+            ) : suppressedRole ? (
+              <>
+                <span className="font-medium text-foreground">
+                  {suppressedRole}
+                </span>{" "}
+                invitations aren&apos;t emailed, so share this link yourself.
+                It expires in 14 days and can only be used once — copy it now,
+                it won&apos;t be shown again.
+              </>
+            ) : (
+              <>
+                Share this link with the person you invited. It expires in 14
+                days and can only be used once — copy it now, it won&apos;t be
+                shown again.
+              </>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center gap-2 py-4">
+          <Input readOnly value={link} className="font-mono text-xs" />
+          <Button type="button" variant="outline" onClick={copyLink}>
+            {copied ? <CheckIcon /> : <CopyIcon />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Done</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
