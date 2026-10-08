@@ -11,6 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { AmountInput } from "@/components/payments/amount-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -36,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { evaluateAmount } from "@/lib/amount-expression";
 import { CURRENCY, formatMoneyFull } from "@/lib/format";
 import { UNIT_AMENITY_OPTIONS, UNIT_TYPE_OPTIONS } from "@/lib/unit-options";
 
@@ -84,7 +86,7 @@ export function unitFormValues(unit: {
 }): UnitFormValues {
   return {
     label: unit.label,
-    rentAmount: String(unit.rentAmount),
+    rentAmount: formatMoneyFull(unit.rentAmount),
     minTenureMonths:
       unit.minTenureMonths == null ? "" : String(unit.minTenureMonths),
     autoRenew: unit.autoRenew,
@@ -176,13 +178,22 @@ export function UnitFormDialog({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setFormError(null);
     setFieldErrors({});
 
+    // The field accepts sums ("450,000+50,000"); only a worked-out figure is sent.
+    const rent = evaluateAmount(values.rentAmount);
+    if (rent.status !== "ok") {
+      setFieldErrors({
+        rentAmount: [rent.status === "invalid" ? rent.message : "Enter the monthly rate"],
+      });
+      return;
+    }
+    setPending(true);
+
     const payload = {
       label: values.label,
-      rentAmount: Number(values.rentAmount),
+      rentAmount: rent.value,
       minTenureMonths: values.minTenureMonths.trim()
         ? Number(values.minTenureMonths)
         : null,
@@ -272,18 +283,10 @@ export function UnitFormDialog({
 
               <Field>
                 <FieldLabel htmlFor="unit-rent" required>Monthly rate ({CURRENCY})</FieldLabel>
-                <Input
+                <AmountInput
                   id="unit-rent"
-                  type="text"
-                  inputMode="numeric"
-                  value={
-                    values.rentAmount
-                      ? formatMoneyFull(Number(values.rentAmount))
-                      : ""
-                  }
-                  onChange={(event) =>
-                    set("rentAmount", event.target.value.replace(/[^0-9]/g, ""))
-                  }
+                  value={values.rentAmount}
+                  onValueChange={(next) => set("rentAmount", next)}
                   placeholder="500,000"
                   required
                 />
