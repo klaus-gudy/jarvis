@@ -31,6 +31,7 @@ export function AddPaymentButton({
         onOpenChange={setOpen}
         invoice={invoice}
         endpoint={`/api/portal/invoices/${invoice.id}/claims`}
+        receiptEndpoint={(claimId) => `/api/portal/claims/${claimId}/receipt`}
         copy={{
           title: "Add payment",
           description:
