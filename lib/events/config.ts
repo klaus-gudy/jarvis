@@ -166,6 +166,8 @@ export type LeaseContractMeta = {
   fileName: string;
   /** Known tokens the template used that had nothing behind them. */
   missing: string[];
+  /** Signature tokens drawn into this copy. Absent on messages from before 2026-10-08. */
+  signedBy?: string[];
 };
 
 /**
