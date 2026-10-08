@@ -114,6 +114,7 @@ export type PaymentClaimExportRow = {
   notes: string | null;
   status: string;
   reviewedAt: Date | null;
+  rejectionReason: string | null;
   /** The Payments sheet row a confirmed claim became. */
   paymentId: string | null;
   createdAt: Date;
@@ -244,6 +245,7 @@ export async function getOrganizationExportData(
       notes: claim.notes,
       status: claim.status,
       reviewedAt: claim.reviewedAt,
+      rejectionReason: claim.rejectionReason,
       paymentId: claim.paymentId,
       createdAt: claim.createdAt,
     })),
