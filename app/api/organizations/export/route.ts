@@ -92,6 +92,7 @@ const LEASE_COLUMNS: ExportColumn<LeaseExportRow>[] = [
   { header: "durationMonths", width: 16, value: (l) => l.durationMonths },
   { header: "monthlyRent", width: 16, format: "#,##0", value: (l) => l.monthlyRent },
   { header: "leaseAmount", width: 16, format: "#,##0", value: (l) => l.leaseAmount },
+  { header: "autoRenew", width: 12, value: (l) => (l.autoRenew ? "TRUE" : "FALSE") },
   // Self-references another row's `id` on this same sheet, when this lease
   // was created by auto-renewing an earlier one.
   { header: "renewedFromId", width: 26, value: (l) => l.renewedFromId ?? "" },
