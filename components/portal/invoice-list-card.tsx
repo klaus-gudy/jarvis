@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLease } from "@/lib/portal"
 import { cn } from "@/lib/utils"
+import { lastDayOf } from "@/lib/dates"
 
 type Invoiced = PortalLease & { invoice: NonNullable<PortalLease["invoice"]> }
 
@@ -82,7 +83,7 @@ export function InvoiceListCard({ lease }: { lease: Invoiced }) {
                 <span className="mx-1.5">·</span>
                 {invoice.balance === 0
                   ? "Settled"
-                  : `Covered until ${formatDate(invoice.coverage.coveredUntil)}`}
+                  : `Covered until ${formatDate(lastDayOf(invoice.coverage.coveredUntil))}`}
               </>
             )}
           </p>
