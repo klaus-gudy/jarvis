@@ -1,4 +1,4 @@
-import { RentopsLogo } from "@/components/logo";
+import { BrandLogo } from "@/components/logo";
 
 /**
  * The wait every route shows while its data is in flight.
@@ -32,7 +32,7 @@ export function AppLoader({ label = "Loading" }: { label?: string }) {
             turning edge, not a full circle, so it reads as motion. */}
         <span className="absolute inset-2 animate-spin rounded-full border-2 border-transparent border-t-stat-accent animation-duration-[1.1s]" />
 
-        <RentopsLogo className="relative size-12 drop-shadow-sm" />
+        <BrandLogo className="relative size-12 drop-shadow-sm" />
       </div>
 
       <p className="app-loader-label font-heading text-sm font-medium tracking-wide">
