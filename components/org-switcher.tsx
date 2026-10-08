@@ -5,7 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react"
 
-import { RentopsLogo } from "@/components/logo"
+import { BrandLogo } from "@/components/logo"
+import { SITE_NAME } from "@/lib/site"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,10 +95,10 @@ export function OrgSwitcher({
     <>
       {/* size-8! beats the sidebar's `[&_svg]:size-4`, which would otherwise
           clamp the mark to icon size. */}
-      <RentopsLogo className="size-8!" />
+      <BrandLogo className="size-8!" />
       <div className="grid flex-1 text-left text-sm leading-tight">
         <span className="truncate font-medium">
-          {active?.name ?? "Rentops"}
+          {active?.name ?? SITE_NAME}
         </span>
         <span className="truncate text-xs text-muted-foreground">
           Property management
@@ -114,7 +115,7 @@ export function OrgSwitcher({
           <SidebarMenuButton
             size="lg"
             className="h-12 px-3"
-            tooltip={active?.name ?? "Rentops"}
+            tooltip={active?.name ?? SITE_NAME}
             onClick={() => {
               if (isMobile) setOpenMobile(false)
             }}
@@ -136,7 +137,7 @@ export function OrgSwitcher({
               <SidebarMenuButton
                 size="lg"
                 className="h-12 px-3 data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
-                tooltip={active?.name ?? "Rentops"}
+                tooltip={active?.name ?? SITE_NAME}
                 disabled={pending}
               >
                 {identity}
