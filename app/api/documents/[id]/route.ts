@@ -2,8 +2,10 @@ import { revalidatePath } from "next/cache";
 
 import { authorizeMember, can } from "@/lib/authz";
 import { documentRequirement, subjectOfRow } from "@/lib/document-access";
+import { THUMBNAIL_WIDTHS, type ThumbnailWidth } from "@/lib/document-options";
 import { deleteDocument, getDocument } from "@/lib/documents";
 import { getObjectStream, StorageNotConfiguredError } from "@/lib/storage";
+import { getThumbnail } from "@/lib/thumbnails";
 
 /**
  * Read and delete one document.
@@ -38,9 +40,20 @@ export async function GET(
     return Response.json({ error: "You don't have permission to do that" }, { status: 403 });
   }
 
-  let body: ReadableStream | null;
+  // `?w=96|192|1280` asks for a resized copy of an image (`lib/thumbnails.ts`).
+  // Anything else — no width, an unknown one, or a PDF — gets the original.
+  const width = Number(new URL(request.url).searchParams.get("w"));
+  const thumbnail =
+    document.fileType.startsWith("image/") &&
+    THUMBNAIL_WIDTHS.includes(width as ThumbnailWidth)
+      ? (width as ThumbnailWidth)
+      : null;
+
+  let body: ReadableStream | Uint8Array | null;
   try {
-    body = await getObjectStream(document.objectKey);
+    body = thumbnail
+      ? await getThumbnail(document.objectKey, thumbnail)
+      : await getObjectStream(document.objectKey);
   } catch (cause) {
     if (cause instanceof StorageNotConfiguredError) {
       console.error(cause.message);
@@ -64,7 +77,19 @@ export async function GET(
   const download = new URL(request.url).searchParams.has("download");
   const disposition = download ? "attachment" : "inline";
 
-  return new Response(body, {
+  if (thumbnail) {
+    return new Response(body as BodyInit, {
+      headers: {
+        "Content-Type": "image/webp",
+        // Unlike the original, safe to keep for a while: the object behind it
+        // is immutable (fresh uuid per upload), and it stays private.
+        "Cache-Control": "private, max-age=86400",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  return new Response(body as BodyInit, {
     headers: {
       "Content-Type": document.fileType,
       // The uploaded name is echoed back here, so it is quoted and stripped of
