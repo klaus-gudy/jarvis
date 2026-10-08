@@ -10,22 +10,22 @@ Working list. Architecture and standing rules are in `plan.md`.
 
 ## Open items
 
-### Product gaps
-- [ ] **Payment → subscription link** — `/payment-complete` reports and grants nothing; needs the provider's webhook and a subscription row.
-- [ ] ✔ **"Rentops" still shows** in `app/page.tsx`, `not-found.tsx`, `(auth)/layout`, `(auth)/login`, `payment-complete`, `app-loader`, `logo`, `org-switcher`, landing nav/sections (and `SITE_NAME` says Rentoo). Decide and sweep; the mail `service_name` is `"Jarvis"` on purpose.
-- [ ] **Auto-renew flag: `Unit` or `Lease`?** Still open (case is in the archived transcript).
-- [ ] ✔ **Invitations:** no resend (the token is only shown once, hashed after), revoking tells the holder nothing, `invitation.accepted` isn't wired. Emailing tenants is deployment-wide (`INVITE_EMAIL_OWNERS_ONLY`) — no per-org override.
-- [ ] **Tenants receive no email at all** — if that should change, it's a deliberate channel decision (SMS is the obvious one). An org whose owners all lack an email logs the notice as sent and never retries.
-- [ ] **A phone-only account can't reset its password** (delivery is email-only; the user sees the normal "check your messages" screen and nothing arrives). Needs SMS.
-- [ ] Lease day counts: a lease flips to Ended at 00:00 UTC on its end date, so the badge for the end day itself can never show "today". Decide whether the end date is the last day *of* the lease or the first day after.
-- [ ] **Templates:** no versioning (regeneration deletes the previous contract, so a signed contract's wording isn't recoverable); no "preview with a real lease"; the auto-created starter is English only; `tenant_nationality` is never backfilled; no undo/redo buttons, table row/column controls, or caret-aware font/size dropdowns; `execCommand` is deprecated (replace only when comments/revisions/collab arrive).
-- [ ] **Documents & photos:** no cover photo or reordering; photos are served full-size into thumbnails (needs derivatives or a resize route); no per-file retry in `PhotoUploadDialog`; file types can't be renamed/deleted; `allowsMultiple` is always true for custom types; no pagination on a member's documents; no "remove profile photo".
-- [ ] ✔ **Backup** doesn't include `PaymentAccount` or `FileAsset`.
-- [ ] **Unit page:** no "Create lease" on a vacant unit (the lease form has `lockedTenantId` but no locked unit).
-- [ ] Smaller: unit rent / lease rent inputs don't accept arithmetic; unit amenities aren't shown in the units table; there is no org-wide Invoices list page; `User.phone` is still nullable (11 legacy rows); leases created before billing may have no invoice and no "Issue invoice" action; per-entity tables (a property's units, a lease's payments) don't get sticky filters.
+### Product gaps — decided 2026-10-08, build next
+- [ ] **Branding:** "Rentoo" everywhere the user sees it, every string read from `SITE_NAME` (`app/page.tsx`, `not-found.tsx`, `(auth)/layout`, `(auth)/login`, `payment-complete`, `app-loader`, `logo`, `org-switcher`, landing). Mail `service_name` stays `"Jarvis"`.
+- [ ] **Auto-renew:** `Unit.autoRenew` stays as the default; `Lease.autoRenew` is copied from it at creation and editable per lease; renewal and expiry notices read the lease.
+- [ ] **End date = last day of the lease:** Ended from 00:00 the day *after* `endDate`; the badge can say "ends today". Check `leaseStatus()`, `syncLeaseStatuses`, overlap checks and renewal start dates.
+- [ ] **Tenant email:** tenants with a verified email get lease created/renewed/ending, payment confirmed, claim rejected (with reason) and contract-ready-to-sign. Ends the owners-only rule for these events only. Phone-only users on the reset screen are told to ask their landlord to add an email (landlord edits it on the member page); no SMS reset.
+- [ ] **Invitations:** "Resend" mints a new token (old one dies) and re-sends; wire `invitation.accepted` → email owners.
+- [ ] **Contracts keep every version:** regenerate adds a contract and marks the old one superseded; a signed contract can't be deleted.
+- [ ] **Template editor:** preview filled with a chosen real lease; a Swahili starter seeded beside the English one; backfill `tenant_nationality`.
+- [ ] **Photo thumbnails:** resized derivatives so lists stop loading full-size photos.
+- [ ] **Backup:** add `PaymentAccount` and `PaymentClaim` sheets (export + restore).
+- [ ] **Payment claims:** required rejection reason (portal + tenant email); email owners on a new claim; tenant can attach a receipt (image/PDF).
+- [ ] **Permissions:** grey out/hide write controls the API would refuse (lease detail, member page, documents panels); re-add the `roles` tour; seed the Tenant role in `createOrganizationForUser`.
+- [ ] **Units table polish:** arithmetic in unit/lease rent inputs, amenities column, sticky filters on per-entity tables.
+- [ ] **Subscriptions** (with the snippe phase below): a pay link clicked without an org sends the visitor to register first, then on to checkout with the org id in `meta`. Webhook creates a `Subscription` (plan, period, paid-until) only when `amount` matches the plan price; shown in Settings. No plan limits yet.
 
-- [ ] **Payment claims:** no email when a tenant reports a payment (it shows in the landlord dashboard's Quick actions and on the lease's Billing tab); rejecting sends the tenant no reason; `PaymentClaim` isn't in the org backup; a tenant can't attach a receipt.
-- [ ] **Permissions follow-ups:** tenant portal has no pay-online (profile self-edit landed 2026-09-27); the `roles` tour wasn't re-added to `lib/tours.ts`; lease detail / member page / documents panels still show some write controls that only fail on click (API refuses); `createOrganizationForUser` still seeds no Tenant role (created lazily by kind). Next step in the plan: route wrapper + passing `AuthContext` into domain functions.
+**Not chosen (2026-10-08):** cover photo/reorder, per-file upload retry, remove profile photo, custom file-type management, member-docs pagination; revoke notice and per-org invite-email override; undo/redo + table controls; FileAsset in backup; `DocumentJob` render status; org-wide Invoices page; "Issue invoice" for pre-billing leases; tenant pay-online; making `User.phone` required (stays nullable). Also still open: an org whose owners all lack an email logs a notice as sent and never retries.
 
 - [ ] **Activity follow-ups:** the tenant portal has no activity view; there's no filter by person or action on `/activity`. **After deploy:** run `npm run activity:backfill -- --dry-run`, then run it for real against prod.
 
@@ -82,5 +82,4 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 ### Not done
 - [ ] Set `SNIPPE_WEBHOOK_SECRET` on Railway (jarvis → production) **before** submitting the webhook URL to snippe
 - [ ] Confirm `?meta=` survives on the `/pay/rentoo` page link with one real payment — documented for payment links, unproven on this one
-- [ ] Attribution: a pricing-page payer has no organization yet — match on email/phone at signup, or an in-app upgrade link carrying the org id in `meta`
-- [ ] Entitlement: nothing reads `BillingEvent` yet. Any grant must check `amount` against the plan's price, since `url_metadata` is payer-editable
+- [ ] Attribution + entitlement: see **Subscriptions** under Product gaps
