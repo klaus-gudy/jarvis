@@ -1,9 +1,10 @@
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { authorizeTenant } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
 import { recordPaymentSchema } from "@/lib/invoices-schemas";
-import { createPaymentClaim } from "@/lib/payment-claims";
+import { announceClaimSubmitted, createPaymentClaim } from "@/lib/payment-claims";
 
 /**
  * A tenant reports a payment on their own invoice. Same body and validation as
@@ -47,6 +48,8 @@ export async function POST(request: Request, ctx: RouteContext<"/api/portal/invo
     );
   }
 
+  const claimId = result.claim.id;
+  after(() => announceClaimSubmitted(auth.context.organizationId, claimId));
   revalidatePath("/portal/payments");
   revalidatePath("/leases");
   return Response.json({ claim: result.claim }, { status: 201 });
