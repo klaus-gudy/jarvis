@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types"
 import type { PortalLease, PortalPayment } from "@/lib/portal"
+import { lastDayOf } from "@/lib/dates"
 
 /**
  * The pieces the portal's pages build their lease views from. Server
@@ -40,7 +41,7 @@ export function DaysLeftBadge({ lease }: { lease: PortalLease }) {
 export function LeasePeriod({ lease }: { lease: PortalLease }) {
   return (
     <>
-      {lease.reference} · {formatDate(lease.startDate)} – {formatDate(lease.endDate)} ·{" "}
+      {lease.reference} · {formatDate(lease.startDate)} – {formatDate(lastDayOf(lease.endDate))} ·{" "}
       {formatCurrencyFull(lease.monthlyRent)} a month
     </>
   )
