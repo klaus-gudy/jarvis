@@ -75,7 +75,7 @@ Multi-tenant property management (product name **Rentoo**, `SITE_NAME` in `lib/s
 
 ### Spreadsheets: import / export / backup
 - Importers go through `lib/xlsx-import.ts` + `components/import-dialog.tsx` (server parses, client creates row by row via the normal endpoint; leading-zero columns use text format). Exports are one generic builder returning the **full org dataset**, not the table view.
-- Org backup: five sheets, raw DB columns with real FKs (Payment carries `leaseId`; Invoice is rebuilt from the lease). Restore validates everything first, then writes in **one transaction**; it reuses `User` by email then phone, and the owner's existing membership. **`PaymentAccount` and `FileAsset` are not backed up.**
+- Org backup: seven sheets, raw DB columns with real FKs (Payment and PaymentClaim carry `leaseId`; Invoice is rebuilt from the lease). PaymentAccounts/PaymentClaims are optional on restore so older files still load; claims keep status and payment link but not reviewer. Restore validates everything first, then writes in **one transaction**; it reuses `User` by email then phone, and the owner's existing membership (an identical existing payment account is skipped). **`FileAsset` is not backed up.**
 
 ### Frontend conventions
 - **Import hygiene:** anything a client component imports must be free of Prisma/Playwright/exceljs (`lib/*-types.ts`, `*-options.ts`, `role-constants.ts`, `errors.ts`, `contract-steps.ts`, `search-types.ts` exist for this). Avoid import cycles between `lib/` modules.
