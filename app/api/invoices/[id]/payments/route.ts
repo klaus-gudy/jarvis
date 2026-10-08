@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { authorize } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
 import { recordPaymentSchema } from "@/lib/invoices-schemas";
-import { announceInvoiceSettled, recordPayment } from "@/lib/invoices";
+import { announceInvoiceSettled, announcePaymentRecorded, recordPayment } from "@/lib/invoices";
 
 export async function POST(
   request: Request,
@@ -57,6 +57,8 @@ export async function POST(
     const { facts } = result;
     after(() => announceInvoiceSettled(auth.context.organizationId, facts));
   }
+  const { receipt } = result;
+  after(() => announcePaymentRecorded(receipt, false));
 
   revalidatePath("/leases");
   revalidatePath("/payments");
