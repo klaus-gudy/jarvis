@@ -51,6 +51,7 @@ async function loadLease(leaseId: string) {
       endDate: true,
       durationMonths: true,
       monthlyRent: true,
+      autoRenew: true,
       unitId: true,
       membershipId: true,
       renewedTo: { select: { id: true } },
@@ -58,7 +59,6 @@ async function loadLease(leaseId: string) {
       unit: {
         select: {
           minTenureMonths: true,
-          autoRenew: true,
           property: { select: { organizationId: true } },
         },
       },
@@ -107,6 +107,12 @@ export async function handleLeaseRenewal(leaseId: string): Promise<LifecycleOutc
     return { action: "done", detail: `lease ${leaseId} already has a successor` };
   }
 
+  // Switched off since the scan: the row decides, not the message. The next
+  // scan sees it with auto-renew off and sends `lease.vacating` instead.
+  if (!lease.autoRenew) {
+    return { action: "done", detail: `lease ${leaseId} no longer auto-renews — not renewing` };
+  }
+
   /*
    * A unit's minimum tenure is the renewal term — but only when it is a real
    * one. It is nullable *and* holds 0 on plenty of live units, and a zero-month
@@ -129,6 +135,8 @@ export async function handleLeaseRenewal(leaseId: string): Promise<LifecycleOutc
     startDate,
     durationMonths,
     monthlyRent: lease.monthlyRent,
+    // Carried forward like the rent: the successor renews if this one did.
+    autoRenew: lease.autoRenew,
     renewedFromId: lease.id,
   });
 
@@ -208,7 +216,7 @@ export async function handleLeaseVacating(leaseId: string): Promise<LifecycleOut
 
   /*
    * A lease that was renewed is **not** vacated, whatever the event says: the
-   * two messages are published from one scan and the unit's `autoRenew` can be
+   * two messages are published from one scan and the lease's `autoRenew` can be
    * switched between them, so the row is the tiebreak. Overwriting `Renewed`
    * with `Ended` would erase a successor that exists.
    */
