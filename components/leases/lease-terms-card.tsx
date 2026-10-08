@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { DetailRow } from "@/components/detail-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { lastDayOf } from "@/lib/dates";
 
 export type LeaseTermsCardData = {
   startDate: Date;
@@ -57,7 +58,7 @@ export function LeaseTermsCard({
             <DetailRow label="Renewed as" value={renewal.renewedTo} />
           )}
           <DetailRow label="Start date" value={formatDate(lease.startDate)} />
-          <DetailRow label="End date" value={formatDate(lease.endDate)} />
+          <DetailRow label="End date" value={formatDate(lastDayOf(lease.endDate))} />
           <DetailRow label="Duration" value={months(lease.durationMonths)} />
           <DetailRow label="Payment frequency" value="Monthly" />
           <DetailRow
