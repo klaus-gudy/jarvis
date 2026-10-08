@@ -154,6 +154,7 @@ const PAYMENT_CLAIM_COLUMNS: ExportColumn<PaymentClaimExportRow>[] = [
   { header: "notes", width: 30, value: (c) => c.notes ?? "" },
   { header: "status", width: 12, value: (c) => c.status },
   { header: "reviewedAt", width: 14, format: DATE_FORMAT, value: (c) => c.reviewedAt ?? "" },
+  { header: "rejectionReason", width: 30, value: (c) => c.rejectionReason ?? "" },
   // References the Payments sheet's `id` column, for a confirmed claim.
   { header: "paymentId", width: 26, value: (c) => c.paymentId ?? "" },
   { header: "createdAt", width: 14, format: DATE_FORMAT, value: (c) => c.createdAt },
