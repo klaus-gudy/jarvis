@@ -29,6 +29,7 @@ import type { AssetTypeView } from "@/lib/asset-types";
 import type { DocumentView } from "@/lib/document-options";
 import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
+import { documentImageSrc } from "@/lib/document-options";
 
 /**
  * Photos for one subject, as a carousel with a thumbnail strip.
@@ -139,7 +140,7 @@ export function PhotoGallery({
                             nothing for the optimizer to pre-measure or cache. */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`/api/documents/${photo.id}`}
+                          src={documentImageSrc(photo.id, 1280)}
                           alt={photo.fileName}
                           // 16:9 with a ceiling: on a wide screen the ratio
                           // alone gives a slide over 500px tall, which pushes
@@ -212,7 +213,7 @@ export function PhotoGallery({
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`/api/documents/${photo.id}`}
+                          src={documentImageSrc(photo.id, 192)}
                           alt=""
                           className="size-full object-cover"
                         />
