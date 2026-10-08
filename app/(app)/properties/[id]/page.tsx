@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { requireStaffPage } from "@/lib/authz";
+import { canWriteDocuments } from "@/lib/document-access";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { getProperty } from "@/lib/properties";
@@ -31,7 +32,7 @@ export default async function PropertyDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
 }) {
-  await requireStaffPage("property:read");
+  const access = await requireStaffPage("property:read");
   const user = await getCurrentUser();
   if (!user) redirect(SESSION_EXPIRED_PATH);
   if (!user.activeOrgId) redirect("/properties");
@@ -62,6 +63,9 @@ export default async function PropertyDetailPage({
   // `isPhoto` is a column on the type now, so a photo type an organization
   // added of its own lands in the Images tab without anything here listing it.
   const photos = assets.filter((asset) => asset.assetType.isPhoto).map(serialise);
+  const canWriteFiles = Boolean(
+    access && canWriteDocuments(access, { subjectType: "PROPERTY", subjectId: property.id })
+  );
   const papers = assets.filter((asset) => !asset.assetType.isPhoto).map(serialise);
 
   const photoTypes = propertyTypes.filter((type) => type.isPhoto);
@@ -284,6 +288,7 @@ export default async function PropertyDetailPage({
             subjectId={property.id}
             assetTypes={photoTypes}
             photos={photos}
+            canWrite={canWriteFiles}
             emptyMessage="No photos yet. Add a few so this property is recognisable at a glance."
           />
         </TabsContent>
@@ -294,6 +299,7 @@ export default async function PropertyDetailPage({
             subjectId={property.id}
             assetTypes={documentTypes}
             documents={papers}
+            canWrite={canWriteFiles}
             emptyMessage="No documents yet. Upload the title deed or a permit to keep it on file."
           />
         </TabsContent>
