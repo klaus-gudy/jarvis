@@ -130,6 +130,7 @@ type ParsedPaymentClaim = {
   notes: string | null;
   status: PaymentClaimStatus;
   reviewedAt: Date | null;
+  rejectionReason: string | null;
   oldPaymentId: string | null;
   createdAt: Date | null;
 };
@@ -603,6 +604,7 @@ export async function parseOrganizationBackup(
         notes: strAt(row, index, "notes"),
         status: status as PaymentClaimStatus,
         reviewedAt: dateAt(row, index, "reviewedAt"),
+        rejectionReason: strAt(row, index, "rejectionReason"),
         oldPaymentId,
         createdAt: dateAt(row, index, "createdAt"),
       });
@@ -982,6 +984,7 @@ export async function importOrganizationBackup(
             notes: claim.notes,
             status: claim.status,
             reviewedAt: claim.reviewedAt,
+            rejectionReason: claim.rejectionReason,
             paymentId: claim.oldPaymentId ? paymentMap.get(claim.oldPaymentId) : null,
             ...(claim.createdAt ? { createdAt: claim.createdAt } : {}),
           },
