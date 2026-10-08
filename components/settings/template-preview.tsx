@@ -2,7 +2,15 @@
 
 import * as React from "react";
 
+import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CONTRACT_CSS } from "@/lib/lease-document-style";
 import { cn } from "@/lib/utils";
 import {
@@ -12,7 +20,16 @@ import {
   samplePlaceholderValues,
 } from "@/lib/lease-placeholders";
 
-export type PreviewMode = "sample" | "tokens";
+export type PreviewMode = "sample" | "tokens" | "lease";
+
+/** What each mode is called, wherever a switch offers it. */
+export const PREVIEW_MODE_LABEL: Record<PreviewMode, string> = {
+  tokens: "Placeholders",
+  sample: "Sample data",
+  lease: "Real lease",
+};
+
+type LeaseChoice = { id: string; label: string };
 type Mode = PreviewMode;
 
 /**
@@ -71,10 +88,61 @@ export function TemplatePreview({
 }) {
   const [internalMode, setInternalMode] = React.useState<Mode>("tokens");
   const mode = controlledMode ?? internalMode;
+  const canReadLeases = useCan("lease:read");
+
+  /*
+   * "Real lease": the leases to pick from are fetched the first time the mode
+   * is opened, and the chosen lease's values per pick. The body is rendered
+   * here, client-side, so the preview shows unsaved edits filled with real
+   * data — no save-then-generate round trip.
+   */
+  const [leases, setLeases] = React.useState<LeaseChoice[] | null>(null);
+  const [leaseId, setLeaseId] = React.useState<string | null>(null);
+  const [leaseValues, setLeaseValues] = React.useState<Record<string, string | null> | null>(null);
+  const [leaseError, setLeaseError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (mode !== "lease" || leases !== null || !canReadLeases) return;
+    let cancelled = false;
+    fetch("/api/leases")
+      .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+      .then((data: { leases: { id: string; reference: string; tenantName: string; unitLabel: string; propertyName: string }[] }) => {
+        if (cancelled) return;
+        setLeases(
+          data.leases.map((lease) => ({
+            id: lease.id,
+            label: `${lease.reference} · ${lease.tenantName} · ${lease.propertyName} ${lease.unitLabel}`,
+          }))
+        );
+      })
+      .catch(() => !cancelled && setLeaseError("Couldn't load leases"));
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, leases, canReadLeases]);
+
+  async function pickLease(id: string) {
+    setLeaseId(id);
+    setLeaseValues(null);
+    setLeaseError(null);
+    const response = await fetch(`/api/leases/${id}/placeholder-values`);
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.values) {
+      setLeaseError(data?.error ?? "Couldn't load that lease");
+      return;
+    }
+    setLeaseValues(data.values);
+  }
 
   const { srcDoc, unknown } = React.useMemo(() => {
+    const values =
+      mode === "sample"
+        ? samplePlaceholderValues()
+        : mode === "lease"
+          ? (leaseValues ?? TOKEN_VALUES)
+          : TOKEN_VALUES;
     const rendered = renderLeaseTemplate(body, {
-      values: mode === "sample" ? samplePlaceholderValues() : TOKEN_VALUES,
+      values,
       decorate: ({ html, known }) =>
         `<mark class="jarvis-ph" data-unknown="${!known}">${html}</mark>`,
     });
@@ -83,26 +151,57 @@ export function TemplatePreview({
       srcDoc: `<!doctype html><html><head><meta charset="utf-8"><style>${PREVIEW_STYLE}</style></head><body class="jarvis-doc">${rendered.html}</body></html>`,
       unknown: rendered.unknown,
     };
-  }, [body, mode]);
+  }, [body, mode, leaseValues]);
 
   return (
     <div className="space-y-3">
       {controlledMode === undefined && (
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-            <ModeButton
-              active={mode === "tokens"}
-              onClick={() => setInternalMode("tokens")}
-            >
-              Placeholders
-            </ModeButton>
-            <ModeButton
-              active={mode === "sample"}
-              onClick={() => setInternalMode("sample")}
-            >
-              Sample data
-            </ModeButton>
+            {(["tokens", "sample", "lease"] as const).map((value) => (
+              <ModeButton
+                key={value}
+                active={mode === value}
+                onClick={() => setInternalMode(value)}
+              >
+                {PREVIEW_MODE_LABEL[value]}
+              </ModeButton>
+            ))}
           </div>
+        </div>
+      )}
+
+      {mode === "lease" && (
+        <div className="flex flex-wrap items-center gap-2">
+          {!canReadLeases ? (
+            <p className="text-sm text-muted-foreground">
+              Your role can&apos;t read leases, so there is nothing to fill this with.
+            </p>
+          ) : leases && leases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No leases yet to preview with.</p>
+          ) : (
+            <Select value={leaseId} onValueChange={(next) => next && pickLease(next)}>
+              <SelectTrigger className="w-full sm:w-96" aria-label="Lease to preview with">
+                <SelectValue>
+                  {(value: string | null) =>
+                    leases?.find((lease) => lease.id === value)?.label ??
+                    (leases ? "Pick a lease" : "Loading leases…")
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(leases ?? []).map((lease) => (
+                  <SelectItem key={lease.id} value={lease.id}>
+                    {lease.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {leaseError && <p className="text-sm text-destructive">{leaseError}</p>}
+          {leaseId && !leaseValues && !leaseError && (
+            <p className="text-sm text-muted-foreground">Filling in…</p>
+          )}
         </div>
       )}
 
