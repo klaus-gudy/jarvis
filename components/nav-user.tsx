@@ -23,6 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { documentImageSrc } from "@/lib/document-options"
 
 function initials(value: string) {
   return value
@@ -71,7 +72,7 @@ export function NavUser({
                 <Avatar className="size-8 rounded-lg">
                   {user.photoId && (
                     <AvatarImage
-                      src={`/api/documents/${user.photoId}`}
+                      src={documentImageSrc(user.photoId, 96)}
                       alt={user.name}
                       className="rounded-lg"
                     />
