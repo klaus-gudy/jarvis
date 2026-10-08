@@ -90,18 +90,61 @@ export type PaymentExportRow = {
   createdAt: Date;
 };
 
+export type PaymentAccountExportRow = {
+  id: string;
+  membershipId: string;
+  type: string;
+  provider: string;
+  accountNumber: string;
+  accountName: string | null;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/** A tenant-reported payment; `leaseId` is resolved like `PaymentExportRow`'s. */
+export type PaymentClaimExportRow = {
+  id: string;
+  leaseId: string;
+  membershipId: string;
+  amount: number;
+  paidAt: Date;
+  method: string | null;
+  notes: string | null;
+  status: string;
+  reviewedAt: Date | null;
+  /** The Payments sheet row a confirmed claim became. */
+  paymentId: string | null;
+  createdAt: Date;
+};
+
 export type OrganizationExportData = {
   properties: PropertyExportRow[];
   units: UnitExportRow[];
   memberships: MembershipExportRow[];
   leases: LeaseExportRow[];
   payments: PaymentExportRow[];
+  paymentAccounts: PaymentAccountExportRow[];
+  paymentClaims: PaymentClaimExportRow[];
 };
 
 export async function getOrganizationExportData(
   organizationId: string
 ): Promise<OrganizationExportData> {
-  const [properties, units, memberships, leases, payments] = await Promise.all([
+  // Scoped the same way as payments: the lease must sit wholly in this org.
+  const leaseInOrg = {
+    membership: { organizationId },
+    unit: { property: { organizationId } },
+  };
+  const [
+    properties,
+    units,
+    memberships,
+    leases,
+    payments,
+    paymentAccounts,
+    paymentClaims,
+  ] = await Promise.all([
     prisma.property.findMany({
       where: { organizationId },
       orderBy: { createdAt: "asc" },
@@ -133,6 +176,15 @@ export async function getOrganizationExportData(
       },
       orderBy: { createdAt: "asc" },
       include: { invoice: { select: { leaseId: true, amount: true, dueDate: true } } },
+    }),
+    prisma.paymentAccount.findMany({
+      where: { membership: { organizationId } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.paymentClaim.findMany({
+      where: { invoice: { lease: leaseInOrg }, membership: { organizationId } },
+      orderBy: { createdAt: "asc" },
+      include: { invoice: { select: { leaseId: true } } },
     }),
   ]);
 
@@ -169,6 +221,30 @@ export async function getOrganizationExportData(
       method: payment.method,
       notes: payment.notes,
       createdAt: payment.createdAt,
+    })),
+    paymentAccounts: paymentAccounts.map((account) => ({
+      id: account.id,
+      membershipId: account.membershipId,
+      type: account.type,
+      provider: account.provider,
+      accountNumber: account.accountNumber,
+      accountName: account.accountName,
+      isDefault: account.isDefault,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+    })),
+    paymentClaims: paymentClaims.map((claim) => ({
+      id: claim.id,
+      leaseId: claim.invoice.leaseId,
+      membershipId: claim.membershipId,
+      amount: claim.amount,
+      paidAt: claim.paidAt,
+      method: claim.method,
+      notes: claim.notes,
+      status: claim.status,
+      reviewedAt: claim.reviewedAt,
+      paymentId: claim.paymentId,
+      createdAt: claim.createdAt,
     })),
   };
 }
