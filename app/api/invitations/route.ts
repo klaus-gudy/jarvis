@@ -3,11 +3,8 @@ import { after } from "next/server";
 import { z } from "zod";
 
 import { authorize } from "@/lib/authz";
-import { createInvitation, getInvitations } from "@/lib/invitations";
-import { mayEmailInvitation } from "@/lib/mail/config";
-import { sendInvitationEmail } from "@/lib/mail/invitations";
+import { createInvitation, getInvitations, invitationDelivery } from "@/lib/invitations";
 import { tzPhoneSchema } from "@/lib/phone";
-import { prisma } from "@/lib/prisma";
 
 // Phone is mandatory for every member — it is the identifier the business
 // actually reaches people on, so no member may be recorded without one.
@@ -64,45 +61,23 @@ export async function POST(request: Request) {
   }
 
   /*
-   * Email the link, if there is an address to email it to.
-   *
-   * Inside `after()` and never awaited: the invitation is already committed,
-   * and `publishMail` swallows its own failures, so a broker that is down means
-   * the invite has to be shared by hand — not that creating it fails. The
-   * dialog still shows the copyable link either way, which is what makes this
-   * safe to treat as best-effort rather than as part of the operation.
+   * Email the link, if there is an address and the role is one this
+   * deployment emails. Inside `after()` and never awaited: the invitation is
+   * committed, `publishMail` swallows its own failures, and the dialog shows
+   * the copyable link either way — so a broker that is down means sharing by
+   * hand, not a failed invitation.
    */
-  /*
-   * Two independent reasons not to email: there is no address, or the role is
-   * one this deployment never mails — `Tenant` by default. Decided here rather
-   * than inside the sender so the response can say which happened, and so the
-   * dialog can tell the inviter to share the link themselves instead of
-   * leaving them waiting for a message that is never coming.
-   */
-  const invitedEmail = parsed.data.email ?? null;
-  const roleMayBeEmailed = mayEmailInvitation(result.roleKind);
-  const willEmail = Boolean(invitedEmail) && roleMayBeEmailed;
-
-  after(async () => {
-    if (!willEmail) return;
-
-    // The inviter's name, for "X invited you". Read here rather than in the
-    // request because nothing in the response depends on it.
-    const inviter = await prisma.user.findUnique({
-      where: { id: auth.context.userId },
-      select: { name: true },
-    });
-
-    await sendInvitationEmail({
-      to: invitedEmail,
-      name: parsed.data.name ?? null,
-      organizationName: result.organizationName,
-      roleName: result.roleName,
-      invitedByName: inviter?.name ?? null,
-      token: result.token,
-      expiresInDays: result.expiresInDays,
-    });
+  const delivery = invitationDelivery({
+    inviterUserId: auth.context.userId,
+    email: parsed.data.email ?? null,
+    name: parsed.data.name ?? null,
+    roleName: result.roleName,
+    roleKind: result.roleKind,
+    organizationName: result.organizationName,
+    token: result.token,
+    expiresInDays: result.expiresInDays,
   });
+  after(delivery.send);
 
   revalidatePath("/users");
 
@@ -114,16 +89,14 @@ export async function POST(request: Request) {
       token: result.token,
       // Whether an email is on its way, so the dialog can say so rather than
       // leaving the inviter to guess. `true` means queued, not delivered.
-      emailed: willEmail,
+      emailed: delivery.emailed,
       /*
        * Set when an address was given but the role is not one this deployment
        * emails. Distinct from `emailed: false` with no address at all: one is
        * a policy, the other is a missing field, and the dialog says something
        * different for each.
        */
-      emailSuppressedForRole: Boolean(invitedEmail) && !roleMayBeEmailed
-        ? result.roleName
-        : null,
+      emailSuppressedForRole: delivery.emailSuppressedForRole,
     },
     { status: 201 }
   );
