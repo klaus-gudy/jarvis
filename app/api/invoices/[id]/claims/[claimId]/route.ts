@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { authorize } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
-import { announceInvoiceSettled } from "@/lib/invoices";
+import { announceInvoiceSettled, announcePaymentRecorded } from "@/lib/invoices";
 import { confirmPaymentClaim, rejectPaymentClaim } from "@/lib/payment-claims";
 
 const bodySchema = z.object({ action: z.enum(["confirm", "reject"]) });
@@ -55,6 +55,8 @@ export async function PATCH(
     const { facts } = result;
     after(() => announceInvoiceSettled(orgId, facts));
   }
+  const { receipt } = result;
+  after(() => announcePaymentRecorded(receipt, true));
   revalidatePath("/leases");
   revalidatePath("/payments");
   revalidatePath("/dashboard");
