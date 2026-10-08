@@ -1,7 +1,8 @@
 import { BuildingIcon, ReceiptIcon, WrenchIcon } from "lucide-react";
 
-import { RentopsLogo } from "@/components/logo";
+import { BrandLogo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -80,8 +81,8 @@ export default function AuthLayout({
             "delay-75"
           )}
         >
-          <RentopsLogo className="size-9" />
-          Rentops
+          <BrandLogo className="size-9" />
+          {SITE_NAME}
         </div>
 
         <div className="relative max-w-md space-y-10">
@@ -137,7 +138,7 @@ export default function AuthLayout({
         <p
           className={cn("relative text-xs text-white/50", REVEAL, "delay-800")}
         >
-          © {new Date().getFullYear()} Rentops · Dar es Salaam
+          © {new Date().getFullYear()} {SITE_NAME} · Dar es Salaam
         </p>
       </aside>
 
