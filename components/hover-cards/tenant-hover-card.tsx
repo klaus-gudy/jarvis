@@ -10,6 +10,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { initials } from "@/lib/user-display";
+import { documentImageSrc } from "@/lib/document-options";
 
 export type TenantPreview = {
   name: string;
@@ -53,7 +54,7 @@ export function TenantHoverCard({
         <div className="flex items-center gap-3">
           <Avatar className="size-10 shrink-0">
             {tenant.photoId && (
-              <AvatarImage src={`/api/documents/${tenant.photoId}`} alt={tenant.name} />
+              <AvatarImage src={documentImageSrc(tenant.photoId, 96)} alt={tenant.name} />
             )}
             <AvatarFallback>{initials(tenant.name)}</AvatarFallback>
           </Avatar>
