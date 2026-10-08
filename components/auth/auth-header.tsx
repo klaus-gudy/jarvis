@@ -1,4 +1,5 @@
-import { RentopsLogo } from "@/components/logo";
+import { BrandLogo } from "@/components/logo";
+import { SITE_NAME } from "@/lib/site";
 
 /**
  * Brand row + page heading shared by every (auth) page. The logo repeats here
@@ -15,8 +16,8 @@ export function AuthHeader({
   return (
     <div className="mb-8 space-y-6">
       <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-        <RentopsLogo className="size-9" />
-        Rentops
+        <BrandLogo className="size-9" />
+        {SITE_NAME}
       </div>
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
