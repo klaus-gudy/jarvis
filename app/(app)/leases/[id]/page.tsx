@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
+import { canWriteDocuments } from "@/lib/document-access";
 import { formatCurrencyFull } from "@/lib/format";
 import { listAssetTypes } from "@/lib/asset-types";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contracts";
@@ -373,6 +374,9 @@ export default async function LeaseDetailPage({
             subjectId={lease.id}
             assetTypes={paperTypes}
             documents={papers}
+            canWrite={Boolean(
+              access && canWriteDocuments(access, { subjectType: "LEASE", subjectId: lease.id })
+            )}
             emptyMessage="No documents yet. Upload the signed agreement, an amendment or a termination notice to keep it on file."
           />
         </TabsContent>
