@@ -63,7 +63,8 @@ Multi-tenant property management (product name **Rentoo**, `SITE_NAME` in `lib/s
 
 ### Messaging, mail, notifications
 - Mail leaves as a **fully rendered message** (`{ email, subject, content, service_name }`); the notifier templates nothing. `publishMail`/`publishEvent` **never fail the request** (they swallow errors) and callers wrap them in `after()`.
-- **Domain email goes to owners only** (`getOwnerRecipients`; no `tenantEmail` in the mail layer). Auth email follows credentials. The one exception is the invitation email, gated by `INVITE_EMAIL_OWNERS_ONLY` (default true; suppression is reported to the inviter as `emailSuppressedForRole`). The copyable link never goes away.
+- **Domain email goes to owners** (`getOwnerRecipients`), **plus the tenant's own copy when their email is verified** (`getTenantRecipient`, `lib/mail/tenants.ts`): lease created/renewed/ending, payment recorded, claim rejected, contract ready. An address is verified by the opt-in code on the portal profile, an invitation sent to it, or a used reset code (codes die when the email changes). Auth email follows credentials; no SMS. The invitation email is gated by `INVITE_EMAIL_OWNERS_ONLY` (default true; reported as `emailSuppressedForRole`); Resend mints a new token and the copyable link is shown again.
+- **Payment claims**: rejecting needs a reason (shown in the portal for 90 days and emailed); a tenant may attach one receipt to a pending claim via `POST /api/portal/claims/[id]/receipt`, filed on the invoice as `sys_CLAIM_RECEIPT`. Owners are emailed when a claim arrives.
 - Scheduled notices are claimed by a **unique-key insert into `NotificationLog` before sending** (`invoice.paid_in_full` fires on the crossing; lease-expiry skips auto-renewing units). The lockout email has its own rate limiter.
 - Build links with `appUrl`, never a browser origin.
 
@@ -99,6 +100,7 @@ The working list is `TASKS.md → Open items`. The ones that shape design:
 
 | Date | Decision | Why |
 |------|----------|-----|
+| 2026-10-08 | **Tenants are emailed only at a verified address, and tenants can now verify by choice** | Landlords type tenants' emails in, so an unproven address may be a stranger's; `issueEmailVerification` was opened to every unverified account so the rule doesn't silence nearly everyone. A phone-only tenant who forgot their password asks the landlord to add an email (no SMS reset). |
 | 2026-10-08 | **End dates stay stored exclusive; the displayed end date is `lastDayOf(endDate)`** | Changing the stored meaning would have touched ~20 comparisons across this app and `automatifier` plus a data migration, while display-only keeps every overlap/status check intact. Renewals now start on the stored end (they used to leave a one-day gap). |
 | 2026-10-08 | **`Lease.autoRenew` (migration `lease_auto_renew`, backfilled from the unit); `FileAsset.signedBy` (migration `file_asset_signed_by`)** | Auto-renew becomes a per-lease choice with the unit as default. Contracts are versioned instead of replaced; signers travel in the render `meta`, which `document-worker` echoes untouched. |
 | 2026-10-08 | **Product-gap decisions:** Rentoo everywhere; auto-renew defaults from `Unit` and is overridable per `Lease`; a lease's end date is its last day | The full build list is in `TASKS.md`. The end date is inclusive because that's how landlords read a contract. |
