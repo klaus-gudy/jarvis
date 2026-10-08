@@ -1,4 +1,5 @@
 import { authorize } from "@/lib/authz";
+import { lastDayOf } from "@/lib/dates";
 import { getLeases, leaseReference, type LeaseRow } from "@/lib/leases";
 import {
   buildExportWorkbook,
@@ -42,7 +43,7 @@ async function exportResponse(ids: string[] | null) {
         header: "End date",
         width: 14,
         format: "yyyy-mm-dd",
-        value: (l) => new Date(l.endDate),
+        value: (l) => lastDayOf(l.endDate),
       },
       { header: "Duration (months)", width: 16, value: (l) => l.durationMonths },
       {
