@@ -101,6 +101,8 @@ export type SnippeEvent = {
   customerPhone: string | null;
   plan: string | null;
   billing: BillingPeriod | null;
+  /** The organization the link named — a claim, like `plan`. */
+  organizationId: string | null;
   occurredAt: Date | null;
 };
 
@@ -186,12 +188,19 @@ export function parseSnippeEvent(body: unknown): SnippeEvent | null {
  * something is unlocked by it, the grant must also check that `amount` is
  * that plan's price, or a Mikumi payment with an edited link buys Serengeti.
  */
-function readPlan(urlMetadata: Json | null): { plan: string | null; billing: BillingPeriod | null } {
+function readPlan(urlMetadata: Json | null): {
+  plan: string | null;
+  billing: BillingPeriod | null;
+  organizationId: string | null;
+} {
   const slug = str(urlMetadata?.plan);
   const period = str(urlMetadata?.billing);
+  const org = str(urlMetadata?.org);
 
   return {
     plan: slug && PRICING_PLANS.some((candidate) => candidate.slug === slug) ? slug : null,
     billing: period === "monthly" || period === "yearly" ? period : null,
+    // A cuid's shape, nothing else — it is looked up before anything is granted.
+    organizationId: org && /^[a-z0-9]{20,40}$/.test(org) ? org : null,
   };
 }
