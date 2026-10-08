@@ -5,9 +5,24 @@ import { z } from "zod";
 import { authorize } from "@/lib/authz";
 import { formatCurrencyFull } from "@/lib/format";
 import { announceInvoiceSettled, announcePaymentRecorded } from "@/lib/invoices";
-import { confirmPaymentClaim, rejectPaymentClaim } from "@/lib/payment-claims";
+import {
+  announceClaimRejected,
+  confirmPaymentClaim,
+  rejectPaymentClaim,
+} from "@/lib/payment-claims";
 
-const bodySchema = z.object({ action: z.enum(["confirm", "reject"]) });
+/** A rejection must say why: the tenant reads it in the portal and by email. */
+const bodySchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("confirm") }),
+  z.object({
+    action: z.literal("reject"),
+    reason: z
+      .string({ error: "Say why it is being rejected" })
+      .trim()
+      .min(1, "Say why it is being rejected")
+      .max(500, "Keep the reason under 500 characters"),
+  }),
+]);
 
 /**
  * Confirm or reject a tenant's reported payment. Confirming records a payment,
@@ -22,16 +37,19 @@ export async function PATCH(
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return Response.json({ error: "Invalid action" }, { status: 400 });
+    const reason = parsed.error.issues.find((issue) => issue.path[0] === "reason");
+    return Response.json({ error: reason?.message ?? "Invalid action" }, { status: 400 });
   }
 
   const { id, claimId } = await ctx.params;
   const orgId = auth.context.organizationId;
 
   if (parsed.data.action === "reject") {
-    const result = await rejectPaymentClaim(orgId, id, claimId, auth.context);
+    const result = await rejectPaymentClaim(orgId, id, claimId, parsed.data.reason, auth.context);
     if (result.error) return Response.json({ error: "Claim not found" }, { status: 404 });
+    after(() => announceClaimRejected(claimId));
     revalidatePath("/leases");
+    revalidatePath("/portal/payments", "layout");
     return Response.json({ ok: true });
   }
 
