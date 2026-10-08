@@ -49,7 +49,7 @@ Multi-tenant property management (product name **Rentoo**, `SITE_NAME` in `lib/s
 - `insertLease` is the one overlap-checked write path (UI, import, renewal). It announces nothing; **callers** publish (`lease.created` to the document worker, mail events inside `after()`).
 - A lease stores its own agreed `monthlyRent`; `leaseAmount = monthlyRent × durationMonths`. Editing re-derives from the unit's current rent and is refused below what has been paid.
 - One `Invoice` per `Lease` for the full amount; `InvoiceStatus` (Unpaid/Partial/Paid) is **derived**. Balances come from one grouped aggregate, never nested includes. Billing totals live on the dashboard only; the invoice figures sit on the lease Overview.
-- **Auto-renew is on the `Unit`** (`autoRenew` default true, `minTenureMonths` default 6). `createLease` rejects terms shorter than the tenure. Moving the flag to `Lease` is an open decision.
+- **Auto-renew is on the `Unit`** (`autoRenew` default true, `minTenureMonths` default 6). `createLease` rejects terms shorter than the tenure. Decided 2026-10-08: the lease will copy it and may override (not built yet).
 - **Lease events:** `automatifier` says only "this term is up"; the handler re-reads the row and takes nothing but `lease.id` from the payload. Renewal reuses `insertLease`; `unit-occupied` closes the lease instead of retrying. Vacating is an `updateMany` guarded on status (zero rows = idempotent) and never overwrites `Renewed`. Both handlers are idempotent against at-least-once delivery. The lazy renewal-on-page-load sweep is **gone**.
 - Cross-organization leases are **not prevented by the schema** — every query must filter by both the membership's and the unit's org.
 - Day counts and expiry tags are computed server-side; tags escalate (outline <60d, destructive <30d).
@@ -92,15 +92,15 @@ Multi-tenant property management (product name **Rentoo**, `SITE_NAME` in `lib/s
 
 ## Open decisions & known gaps
 The working list is `TASKS.md → Open items`. The ones that shape design:
-- Auto-renew on `Unit` vs `Lease`.
 - A job-status row (`DocumentJob`) that both this repo and `document-worker` can write, so a failed render is visible. Deferred repeatedly; needs a cross-service decision.
-- Payment → subscription/entitlement (needs a provider webhook).
-- "Rentops" vs "Rentoo" in the signed-in app, auth pages and emails (the landing page and logo already say Rentoo).
 
 ## Decision log (new entries)
 
 | Date | Decision | Why |
 |------|----------|-----|
+| 2026-10-08 | **Product-gap decisions:** Rentoo everywhere; auto-renew defaults from `Unit` and is overridable per `Lease`; a lease's end date is its last day | The full build list is in `TASKS.md`. The end date is inclusive because that's how landlords read a contract. |
+| 2026-10-08 | **Tenants get key lease and payment notices by email; no SMS channel** | This ends owners-only domain mail for those events only. A phone-only user who forgot their password gets an email added by their landlord; there is no SMS reset. |
+| 2026-10-08 | **Paying requires an organization first; a `Subscription` is granted only when the amount matches the plan** | A visitor without an org registers, then goes to checkout carrying the org id in `meta`, so a payment never arrives unattributed. `url_metadata` is payer-editable, so the amount check is mandatory. |
 | 2026-10-01 | **Activity timelines on property, unit, lease, member, payments, dashboard and `/activity`**, from `AuditLog.subjects` (GIN-indexed `Type:id` keys, migration `audit_log_subjects`) | Rows named only their own entity, so a unit couldn't find its (possibly deleted) payments. Subjects are resolved inside `audit()`, so none of the ~46 call sites changed. History from before the log was rebuilt by `activity:backfill` (`source: "backfill"`, null actors, no edits or deletions). |
 | 2026-10-01 | **Actor stamps + `AuditLog` on all org data writes** (migration `actor_stamps_and_audit_log`) | Records captured data but not who wrote it. Columns answer "who created / last changed this" with no join; the log keeps full history (before/after per field), including deletes. Actors are passed explicitly rather than via AsyncLocalStorage or a Prisma extension, matching the plan to pass `AuthContext` into domain functions. |
 | 2026-09-29 | **Units get their own page, `/properties/[id]/units/[unitId]`, reached from the View dialog's "View more"** (`getUnit` in `lib/units.ts`) | The dialog stays as the quick look from the Units table; the page holds what it can't — lease history, the full gallery and `UNIT_DOCUMENT`s. Laid out like the property page (header card + Overview / Leases / Photos / Documents, `?tab=` honoured on both); the Leases tab hides without `lease:read`. |
