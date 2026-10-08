@@ -173,6 +173,7 @@ export function UnitsTable({
         viewRef={viewRef}
         columns={columns}
         data={units}
+        stateKey={`units:${propertyId}`}
         searchPlaceholder="Filter units…"
         facetFilters={[
           {
