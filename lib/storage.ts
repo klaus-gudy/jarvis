@@ -129,6 +129,25 @@ export async function getObjectStream(objectKey: string) {
   }
 }
 
+/** The whole object in memory, or null when the key is absent — for resizing. */
+export async function getObjectBytes(objectKey: string) {
+  const { bucket } = config();
+  try {
+    const result = await client().send(
+      new GetObjectCommand({ Bucket: bucket, Key: objectKey })
+    );
+    return result.Body ? await result.Body.transformToByteArray() : null;
+  } catch (cause) {
+    if (
+      cause instanceof Error &&
+      (cause.name === "NoSuchKey" || cause.name === "NotFound")
+    ) {
+      return null;
+    }
+    throw cause;
+  }
+}
+
 /**
  * Deleting a key that isn't there is a success in S3, which is what makes this
  * safe to call after the row has already gone.
