@@ -11,11 +11,8 @@ Working list. Architecture and standing rules are in `plan.md`.
 ## Open items
 
 ### Product gaps — decided 2026-10-08, build next
-- [ ] **Tenant email:** tenants with a verified email get lease created/renewed/ending, payment confirmed, claim rejected (with reason) and contract-ready-to-sign. Ends the owners-only rule for these events only. Phone-only users on the reset screen are told to ask their landlord to add an email (landlord edits it on the member page); no SMS reset.
-- [ ] **Invitations:** "Resend" mints a new token (old one dies) and re-sends; wire `invitation.accepted` → email owners.
 - [ ] **Template editor:** preview filled with a chosen real lease; a Swahili starter seeded beside the English one; backfill `tenant_nationality`.
 - [ ] **Photo thumbnails:** resized derivatives so lists stop loading full-size photos.
-- [ ] **Payment claims:** required rejection reason (portal + tenant email); email owners on a new claim; tenant can attach a receipt (image/PDF).
 - [ ] **Subscriptions** (with the snippe phase below): a pay link clicked without an org sends the visitor to register first, then on to checkout with the org id in `meta`. Webhook creates a `Subscription` (plan, period, paid-until) only when `amount` matches the plan price; shown in Settings. No plan limits yet.
 
 **Not chosen (2026-10-08):** cover photo/reorder, per-file upload retry, remove profile photo, custom file-type management, member-docs pagination; revoke notice and per-org invite-email override; undo/redo + table controls; FileAsset in backup; `DocumentJob` render status; org-wide Invoices page; "Issue invoice" for pre-billing leases; tenant pay-online; making `User.phone` required (stays nullable). Also still open: an org whose owners all lack an email logs a notice as sent and never retries.
@@ -36,7 +33,7 @@ Working list. Architecture and standing rules are in `plan.md`.
 - [ ] **Cross-org data isn't blocked by the DB** — a `Lease` can join a membership in one org to a unit in another (queries filter it; a CHECK or org column would stop it). `FileAsset` cross-org is a write-path rule only.
 - [ ] Uploads are buffered through the route handler at 10MB and trust the client's MIME type (no magic-byte check, no virus scan). A presigned upload fixes size; sniffing fixes type. `FileAsset.sizeBytes` is `Int` (2GB).
 - [ ] Sends are sequential per recipient; the in-memory rate limiters (`lib/rate-limit.ts`, lockout notice) are per process, so N instances means N budgets.
-- [ ] Only some catalogue emails are wired: `lease.amended`, `lease.cancelled`, `lease.renewal_failed`, `payment.recorded`, `payment.reversed`, `payment_account.changed` and the digests are not. `auth.login.new_device` was dropped (no device tracking).
+- [ ] Only some catalogue emails are wired: `lease.amended`, `lease.cancelled`, `lease.renewal_failed`, `payment.reversed`, `payment_account.changed` and the digests are not. `auth.login.new_device` was dropped (no device tracking).
 - [ ] Search is `contains`, not ranked full-text — move to `tsvector` + GIN when rows grow. Mobile "infinite scroll" reveals rows already in memory, so a table of thousands needs server pagination first.
 - [ ] ✔ **`.env.production` has no `STORAGE_*` block** — production R2 values aren't recorded there (confirm where they are set).
 - [ ] `notifier/.env.template` leaves `RABBITMQ_EMAIL_QUEUE=` blank; confirm the running notifier picked up `NOTIFIER_EMAIL_QUEUE` (0 consumers means mail accumulates).
@@ -65,6 +62,7 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 | Later (2026-09) | Stored `Lease.status`; consumers start inside the server; hourly cron; `automatifier`-driven renewal/vacating (lazy sweep removed); auto-renew defaults; tours stored per user; pricing packages; hosted checkout; `/payment-complete` |
 | 2026-10-08 | Rentoo branding sweep; write controls hidden by permission (documents, photos, member edit, create lease); roles tour; Tenant role seeded on org create; arithmetic rent inputs, amenities column, per-entity sticky filters; backup carries PaymentAccounts + PaymentClaims |
 | 2026-10-08 | Per-lease auto-renew (unit is the default); end dates shown as the last day everywhere incl. `automatifier`; renewals start with no gap; contract versions kept, signed ones undeletable |
+| 2026-10-08 | Tenant email at verified addresses (lease, payment, claim, contract) + opt-in verification; claim rejection reasons, receipts, owner alert; invitation resend + accepted notice; reset copy for phone-only users |
 | Production Docker image | Multi-stage Node 24 build, Next.js standalone server, non-root runtime, migrations on startup, runtime secrets excluded from build context |
 
 ## Phase — snippe webhook
