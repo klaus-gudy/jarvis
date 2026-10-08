@@ -9,7 +9,12 @@ import {
   sendLeaseExpiringToOwner,
   type ExpiringLease,
 } from "@/lib/mail/leases";
-import { getOwnerRecipients, type Recipient } from "@/lib/notifications/recipients";
+import { sendLeaseEndingToTenant } from "@/lib/mail/tenants";
+import {
+  getOwnerRecipients,
+  getTenantRecipient,
+  type Recipient,
+} from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
 import { displayName } from "@/lib/user-display";
 
@@ -92,6 +97,7 @@ async function sweepExpiringLeases(now: Date) {
       endDate: true,
       monthlyRent: true,
       autoRenew: true,
+      membershipId: true,
       unit: {
         select: {
           label: true,
@@ -127,6 +133,27 @@ async function sweepExpiringLeases(now: Date) {
     if (tier === undefined) continue;
 
     const organizationId = lease.membership.organizationId;
+
+    // The tenant's copy is claimed under its own key, so it goes out (once)
+    // whatever happened to the owners' — and a tenant who verifies their email
+    // mid-term starts at the tier they are in, not every tier they missed.
+    const tenant = await getTenantRecipient(lease.membershipId);
+    if (
+      tenant &&
+      (await claim(organizationId, "lease.expiring", `lease.expiring.tenant:${lease.id}:${tier}`))
+    ) {
+      await sendLeaseEndingToTenant(
+        {
+          reference: leaseReference(lease.id),
+          unitLabel: lease.unit.label,
+          propertyName: lease.unit.property.name,
+          endDate: lease.endDate,
+          daysLeft,
+        },
+        tenant
+      );
+    }
+
     if (!(await claim(organizationId, "lease.expiring", `lease.expiring:${lease.id}:${tier}`))) {
       skipped += 1;
       continue;
