@@ -384,6 +384,7 @@ model Unit {
   /// Defaults to 6 rather than null: it is what a renewal's length is read
   /// from, and a unit without one renews nothing.
   minTenureMonths Int?     @default(6)
+  /// The default for new leases on this unit; each `Lease` keeps its own copy.
   autoRenew       Boolean  @default(true)
   unitType        String?
   floor           String?
@@ -426,6 +427,10 @@ model Lease {
   endDate        DateTime
   durationMonths Int
   status         LeaseStatus @default(Active)
+  /// Whether this lease renews itself when its term is up. Copied from
+  /// `Unit.autoRenew` (the unit's default) when the lease is created, editable
+  /// per lease after that; a renewal inherits it from its predecessor.
+  autoRenew      Boolean     @default(true)
 
   monthlyRent Int
   leaseAmount Int
