@@ -395,6 +395,11 @@ export async function createTenant(
       data: { userId: user.id, organizationId, roleId: role.id, ...createdBy(actor) },
       select: { id: true },
     });
+    if (input.nationality) {
+      await tx.memberProfile.create({
+        data: { membershipId: created.id, nationality: input.nationality, ...createdBy(actor) },
+      });
+    }
     await audit(tx, {
       organizationId,
       actor,
