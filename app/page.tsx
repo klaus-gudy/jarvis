@@ -34,7 +34,7 @@ const TITLE = `${SITE_NAME} — Property management software for landlords in Ta
 
 export const metadata: Metadata = {
   /*
-   * `absolute` opts out of the root layout's `%s · Rentops` template, which
+   * `absolute` opts out of the root layout's `%s · ${SITE_NAME}` template, which
    * would otherwise append the brand to a title that already opens with it.
    */
   title: { absolute: TITLE },
