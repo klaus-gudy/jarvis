@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
+import { canWriteDocuments } from "@/lib/document-access";
+import { canManageMember } from "@/lib/member-access";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
@@ -68,6 +70,14 @@ export default async function MemberDetailPage({
   ) {
     notFound();
   }
+  // What the API would let this viewer change, so the page offers only that.
+  const canEditMember = Boolean(
+    access && canManageMember(access, { id: member.membershipId, kind: member.roleKind })
+  );
+  const canEditDocuments = Boolean(
+    access &&
+      canWriteDocuments(access, { subjectType: "MEMBERSHIP", subjectId: member.membershipId })
+  );
   const backHref = isTenant ? "/tenants" : "/users";
   const backLabel = isTenant ? "All tenants" : "All users";
 
@@ -115,6 +125,7 @@ export default async function MemberDetailPage({
             name={member.name}
             photoId={profilePhoto?.id ?? null}
             assetTypeId={profilePhotoTypeId}
+            canEdit={canEditDocuments}
           />
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -139,7 +150,9 @@ export default async function MemberDetailPage({
             </p>
             <RecordStamps stamps={stamps} />
           </div>
-          <ProfileEditDialog membershipId={member.membershipId} profile={profile} />
+          {canEditMember && (
+            <ProfileEditDialog membershipId={member.membershipId} profile={profile} />
+          )}
         </CardContent>
       </Card>
 
@@ -308,6 +321,7 @@ export default async function MemberDetailPage({
             subjectType="MEMBERSHIP"
             subjectId={member.membershipId}
             assetTypes={documentAssetTypes}
+            canWrite={canEditDocuments}
             emptyMessage="No documents yet. Upload a NIDA card, passport or employment letter to keep it on file."
             documents={documents.map((document) => ({
               ...document,
