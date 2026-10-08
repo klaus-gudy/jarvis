@@ -108,3 +108,26 @@ export async function sendInvitationEmail(input: {
     footnote: `The invitation expires in ${input.expiresInDays} days and can be used once. If you weren't expecting it, ignore this email — nothing is created until you accept.`,
   });
 }
+
+/* ------------------------------------------------------------------ *
+ * invitation.accepted — POST /api/invitations/accept, to the owners
+ * ------------------------------------------------------------------ */
+
+export async function sendInvitationAcceptedToOwner(
+  joined: { memberName: string; roleName: string; organizationName: string; membershipId: string },
+  owner: { email: string | null; name: string | null }
+) {
+  await deliver(
+    "invitation.accepted",
+    owner.email,
+    `${joined.memberName} joined ${joined.organizationName}`,
+    {
+      heading: `${joined.memberName} accepted your invitation`,
+      body: [
+        greeting(owner.name),
+        `<strong>${escapeHtml(joined.memberName)}</strong> has joined <strong>${escapeHtml(joined.organizationName)}</strong> as <strong>${escapeHtml(joined.roleName)}</strong> and can now sign in.`,
+      ],
+      action: { label: "View their profile", href: appUrl(`/members/${joined.membershipId}`) },
+    }
+  );
+}
