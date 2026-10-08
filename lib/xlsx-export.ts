@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
 import { z } from "zod";
 
+import { SITE_NAME } from "@/lib/site";
+
 /**
  * The export half of the spreadsheet story — `lib/xlsx-import.ts` is the
  * other half (templates in, rows out). Entity-specific parts are just a list
@@ -79,7 +81,7 @@ export async function buildExportWorkbook<T>(opts: {
   rows: T[];
 }): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Rentops";
+  workbook.creator = SITE_NAME;
   workbook.created = new Date();
   writeSheet(workbook, opts);
   return Buffer.from(await workbook.xlsx.writeBuffer());
@@ -90,7 +92,7 @@ export async function buildMultiSheetWorkbook(
   sheets: ExportSheet<unknown>[]
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Rentops";
+  workbook.creator = SITE_NAME;
   workbook.created = new Date();
   for (const spec of sheets) writeSheet(workbook, spec);
   return Buffer.from(await workbook.xlsx.writeBuffer());
