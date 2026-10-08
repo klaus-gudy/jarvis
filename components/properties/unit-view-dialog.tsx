@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatCurrencyFull } from "@/lib/format";
+import { documentImageSrc } from "@/lib/document-options";
 import type { UnitRow } from "@/components/properties/unit-columns";
 
 /**
@@ -92,7 +93,7 @@ export function UnitViewDialog({
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`/api/documents/${photo.id}`}
+                          src={documentImageSrc(photo.id, 192)}
                           alt={photo.fileName}
                           className="size-full object-cover"
                         />
