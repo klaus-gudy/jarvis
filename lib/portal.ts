@@ -181,6 +181,7 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       monthlyRent: true,
       leaseAmount: true,
       status: true,
+      autoRenew: true,
       renewedFromId: true,
       renewedTo: { select: { id: true } },
       unit: {
@@ -191,7 +192,6 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
           block: true,
           sizeSqm: true,
           amenities: true,
-          autoRenew: true,
           minTenureMonths: true,
           property: { select: { name: true, address: true, amenities: true } },
         },
@@ -242,7 +242,7 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       expiry: lease.status === "Active" ? leaseExpiry(now, lease.startDate, lease.endDate) : null,
       renewedFrom: lease.renewedFromId ? leaseReference(lease.renewedFromId) : null,
       renewedTo: lease.renewedTo ? leaseReference(lease.renewedTo.id) : null,
-      autoRenew: lease.unit.autoRenew,
+      autoRenew: lease.autoRenew,
       renewalMonths: lease.unit.minTenureMonths,
       home: {
         address: lease.unit.property.address,
