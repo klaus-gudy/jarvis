@@ -55,6 +55,3 @@ export function BrandWordmark({ className }: { className?: string }) {
     </span>
   );
 }
-
-export const RentopsLogo = BrandLogo;
-export const RentopsWordmark = BrandWordmark;
