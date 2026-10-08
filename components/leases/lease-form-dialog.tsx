@@ -30,6 +30,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { evaluateAmount } from "@/lib/amount-expression";
 import { lastDayOf } from "@/lib/dates";
 import { CURRENCY, formatCurrencyFull, formatDate, formatMoneyFull } from "@/lib/format";
@@ -117,10 +118,12 @@ export type EditableLease = {
   unitLabel: string;
   unitRentAmount: number;
   unitMinTenureMonths: number | null;
+  unitAutoRenew: boolean;
   membershipId: string;
   startDate: string;
   durationMonths: number;
   monthlyRent: number;
+  autoRenew: boolean;
 };
 
 export function LeaseFormDialog({
@@ -165,6 +168,14 @@ export function LeaseFormDialog({
       ? formatMoneyFull(lease.monthlyRent)
       : ""
   );
+  /**
+   * Null follows the chosen unit's default, so picking a different unit before
+   * touching the switch still lands on that unit's setting. Editing starts
+   * from what the lease already says.
+   */
+  const [autoRenewChoice, setAutoRenewChoice] = React.useState<boolean | null>(
+    lease ? lease.autoRenew : null
+  );
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
@@ -183,6 +194,7 @@ export function LeaseFormDialog({
       label: lease.unitLabel,
       rentAmount: lease.unitRentAmount,
       minTenureMonths: lease.unitMinTenureMonths,
+      autoRenew: lease.unitAutoRenew,
     };
 
     const existing = options.properties.find((item) => item.id === lease.propertyId);
@@ -203,6 +215,7 @@ export function LeaseFormDialog({
   const property = properties.find((item) => item.id === propertyId) ?? null;
   const unit = property?.units.find((item) => item.id === unitId) ?? null;
   const minTenure = unit?.minTenureMonths ?? 0;
+  const autoRenew = autoRenewChoice ?? unit?.autoRenew ?? true;
 
   const propertyItems: Option[] = properties.map((item) => ({
     value: item.id,
@@ -238,6 +251,7 @@ export function LeaseFormDialog({
     durationMonths >= 1 &&
     durationMonths <= 120;
   const tooShort = durationValid && durationMonths < minTenure;
+  const renewalMonths = minTenure > 0 ? minTenure : durationValid ? durationMonths : null;
 
   const start = parseIsoDate(startDate);
   const endDate =
@@ -284,6 +298,7 @@ export function LeaseFormDialog({
           startDate,
           durationMonths,
           monthlyRent: rentOverride,
+          autoRenew,
         }),
       }
     );
@@ -454,6 +469,30 @@ export function LeaseFormDialog({
                 />
               </Field>
             </div>
+
+            <Field orientation="horizontal">
+              <Switch
+                id="lease-auto-renew"
+                checked={autoRenew}
+                onCheckedChange={setAutoRenewChoice}
+                disabled={!unitId}
+              />
+              <div className="space-y-0.5">
+                <FieldLabel htmlFor="lease-auto-renew" className="font-normal">
+                  Renew automatically when the term ends
+                </FieldLabel>
+                {unit && (
+                  <FieldDescription>
+                    {/* Same term `handleLeaseRenewal` picks: the unit's
+                        minimum tenure, else the term being renewed. */}
+                    {renewalMonths
+                      ? `Renews for ${renewalMonths} months at the same rent. `
+                      : ""}
+                    This unit&apos;s default is {unit.autoRenew ? "on" : "off"}.
+                  </FieldDescription>
+                )}
+              </div>
+            </Field>
 
             {endDate && (
               <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
