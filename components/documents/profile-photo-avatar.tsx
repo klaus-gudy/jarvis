@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { PhotoCropDialog } from "@/components/documents/photo-crop-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { IMAGE_FILE_EXTENSIONS, IMAGE_FILE_LABEL, IMAGE_FILE_TYPES } from "@/lib/document-options";
+import { documentImageSrc, IMAGE_FILE_EXTENSIONS, IMAGE_FILE_LABEL, IMAGE_FILE_TYPES } from "@/lib/document-options";
 import { initials } from "@/lib/user-display";
 
 /**
@@ -110,7 +110,7 @@ export function ProfilePhotoAvatar({
     <>
       <div className="relative inline-flex shrink-0">
         <Avatar className={className}>
-          {photoId && <AvatarImage src={`/api/documents/${photoId}`} alt={name} />}
+          {photoId && <AvatarImage src={documentImageSrc(photoId, 96)} alt={name} />}
           <AvatarFallback className="text-sm">{initials(name)}</AvatarFallback>
         </Avatar>
 
