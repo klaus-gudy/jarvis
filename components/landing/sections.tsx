@@ -22,7 +22,7 @@ import { HeroContrast } from "@/components/landing/hero-contrast";
 import { LandingFaq } from "@/components/landing/faq";
 import { HoverLift, Reveal, Stagger, StaggerItem } from "@/components/landing/motion";
 import { PricingPlans } from "@/components/landing/pricing-plans";
-import { RentopsLogo } from "@/components/logo";
+import { BrandLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { NAV_SECTIONS, SITE_NAME } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -416,7 +416,7 @@ export function Footer() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
         <div className="max-w-xs">
           <span className="inline-flex items-center gap-2.5">
-            <RentopsLogo className="size-8" />
+            <BrandLogo className="size-8" />
             <span className="font-heading text-lg font-semibold tracking-tight">
               {SITE_NAME}
             </span>
