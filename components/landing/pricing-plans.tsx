@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   formatTzs,
   monthlyPrice,
-  planCheckoutHref,
+  subscribePath,
   PRICING_PLANS,
   yearlySaving,
   type BillingPeriod,
@@ -152,13 +152,13 @@ function PlanCard({
       </div>
 
       <div className="mt-6">
-        {/* A plain <a>, not next/link: the destination is snippe's hosted
-            checkout on another domain, where client-side routing and
-            prefetching mean nothing. Same tab on purpose — a payment opened in
-            a new one loses the back button people reach for when they change
-            their mind, and a popup is what a phone browser blocks. */}
+        {/* A plain <a>, not next/link: `/subscribe` answers with a redirect —
+            to sign-up, or on to snippe's hosted checkout on another domain —
+            where client-side routing and prefetching mean nothing. Same tab
+            on purpose — a payment opened in a new one loses the back button
+            people reach for when they change their mind. */}
         <Button
-          render={<a href={planCheckoutHref(plan.slug, billing)} />}
+          render={<a href={subscribePath(plan.slug, billing)} />}
           nativeButton={false}
           variant={plan.featured ? "default" : "outline"}
           className={cn(
