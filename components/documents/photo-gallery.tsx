@@ -45,6 +45,7 @@ export function PhotoGallery({
   assetTypes,
   photos,
   emptyMessage,
+  canWrite = true,
 }: {
   subjectType: FileAssetSubject;
   subjectId: string;
@@ -52,6 +53,8 @@ export function PhotoGallery({
   assetTypes: AssetTypeView[];
   photos: DocumentView[];
   emptyMessage: string;
+  /** False when the viewer may look but not add or delete — see `DocumentsPanel`. */
+  canWrite?: boolean;
 }) {
   const router = useRouter();
   const [api, setApi] = React.useState<CarouselApi>();
@@ -104,12 +107,14 @@ export function PhotoGallery({
       {/* No "Photos" heading here: the tab this sits in is already named
           Images and already carries the count in its trigger — repeating both
           would be the same information said twice before the first photo. */}
-      <div className="flex justify-end">
-        <Button onClick={() => setUploadOpen(true)}>
-          <ImagePlusIcon />
-          Add photos
-        </Button>
-      </div>
+      {canWrite && (
+        <div className="flex justify-end">
+          <Button onClick={() => setUploadOpen(true)}>
+            <ImagePlusIcon />
+            Add photos
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardContent className={photos.length > 0 ? "p-3" : undefined}>
@@ -153,15 +158,17 @@ export function PhotoGallery({
                           >
                             <MaximizeIcon />
                           </Button>
-                          <Button
-                            variant="secondary"
-                            size="icon-sm"
-                            aria-label={`Delete ${photo.fileName}`}
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => setDeleting(photo)}
-                          >
-                            <Trash2Icon />
-                          </Button>
+                          {canWrite && (
+                            <Button
+                              variant="secondary"
+                              size="icon-sm"
+                              aria-label={`Delete ${photo.fileName}`}
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => setDeleting(photo)}
+                            >
+                              <Trash2Icon />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CarouselItem>
