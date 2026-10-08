@@ -148,6 +148,7 @@ export function BillingTab({ invoice }: { invoice: BillingInvoice | null }) {
       <DataTable
         columns={columns}
         data={rows}
+        stateKey={invoice ? `billing:${invoice.id}` : undefined}
         searchPlaceholder="Search payments…"
         facetFilters={[
           {
