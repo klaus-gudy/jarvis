@@ -192,6 +192,9 @@ export async function buildContractPlan(
             contractNumber: contract.contractNumber,
             fileName: contractFileName(contract.contractNumber),
             missing: contract.missing,
+            // Which signatures this copy carries; filed onto the row so a
+            // signed contract can be told apart and kept.
+            signedBy: contract.signatures,
           },
         },
         contractNumber: contract.contractNumber,
