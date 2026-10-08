@@ -90,6 +90,7 @@ export function DocumentsPanel({
   uploadLabel = "Upload document",
   allowUpload = true,
   canWrite = true,
+  annotate,
 }: {
   subjectType: FileAssetSubject;
   subjectId: string | null;
@@ -110,6 +111,12 @@ export function DocumentsPanel({
    * delete instead of offering buttons the API would answer with a 403.
    */
   canWrite?: boolean;
+  /**
+   * Per-file extras from the caller: short notes shown beside the type (the
+   * Contract tab's "Current" / "Superseded" / "Signed") and `locked`, which
+   * hides Delete for a file the server would refuse to remove anyway.
+   */
+  annotate?: (document: DocumentView) => { notes?: string[]; locked?: boolean };
 }) {
   const router = useRouter();
   // `useIsMobile` reports desktop on the server, so the first client render
@@ -143,6 +150,14 @@ export function DocumentsPanel({
     ? assetTypes.filter((type) => !uploadedTypeIds.has(type.id))
     : [];
   const isEmpty = documents.length + missingTypes.length === 0;
+  const canDelete = (document: DocumentView) =>
+    canWrite && !annotate?.(document).locked;
+  const notesFor = (document: DocumentView) =>
+    (annotate?.(document).notes ?? []).map((note) => (
+      <Badge key={note} variant="secondary" className="font-normal">
+        {note}
+      </Badge>
+    ));
 
   async function handleDelete() {
     if (!deleting) return;
@@ -215,6 +230,7 @@ export function DocumentsPanel({
                   <Badge variant="outline" className="font-normal">
                     {document.assetType.label}
                   </Badge>
+                  {notesFor(document)}
                   <span className="text-xs text-muted-foreground">
                     {formatDate(new Date(document.createdAt))}
                     {document.uploadedByName
@@ -306,9 +322,12 @@ export function DocumentsPanel({
                       </button>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-normal">
-                        {document.assetType.label}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge variant="outline" className="font-normal">
+                          {document.assetType.label}
+                        </Badge>
+                        {notesFor(document)}
+                      </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {formatDate(new Date(document.createdAt))}
@@ -346,7 +365,7 @@ export function DocumentsPanel({
                             action on every other table in the app (e.g.
                             PaymentAccountsCard): danger reads from the icon at
                             rest, not as a hover surprise. */}
-                        {canWrite && (
+                        {canDelete(document) && (
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -461,7 +480,7 @@ export function DocumentsPanel({
               Download
             </Button>
 
-            {canWrite && (
+            {actionsFor && canDelete(actionsFor) && (
               <Button
                 variant="ghost"
                 className="h-11 justify-start gap-3 px-3 text-sm text-destructive hover:text-destructive"
