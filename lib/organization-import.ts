@@ -7,11 +7,18 @@ import { prisma } from "@/lib/prisma";
 import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/role-constants";
 import { cellText, inflatesSafely } from "@/lib/xlsx-import";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { PropertyStatus, PropertyType } from "@/lib/generated/prisma/enums";
+import {
+  PaymentAccountType,
+  PaymentClaimStatus,
+  PropertyStatus,
+  PropertyType,
+} from "@/lib/generated/prisma/enums";
 
 /**
  * The restore half of the organization backup — `lib/organization-export.ts`
- * is the other half. Reads the exact five-sheet workbook that route produces
+ * is the other half. Reads the workbook that route produces (five sheets, plus
+ * PaymentAccounts and PaymentClaims in backups from 2026-10-08 on — older
+ * files without them still restore)
  * and rebuilds it under a *different* organization, remapping every foreign
  * key from the old id it was exported with to the id its new row gets here.
  *
@@ -91,11 +98,37 @@ type ParsedLease = {
 };
 
 type ParsedPayment = {
+  /** Null only when the cell is blank; claims reference payments by it. */
+  oldId: string | null;
   oldLeaseId: string;
   amount: number;
   paidAt: Date;
   method: string | null;
   notes: string | null;
+  createdAt: Date | null;
+};
+
+type ParsedPaymentAccount = {
+  oldMembershipId: string;
+  type: PaymentAccountType;
+  provider: string;
+  accountNumber: string;
+  accountName: string | null;
+  isDefault: boolean;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+type ParsedPaymentClaim = {
+  oldLeaseId: string;
+  oldMembershipId: string;
+  amount: number;
+  paidAt: Date;
+  method: string | null;
+  notes: string | null;
+  status: PaymentClaimStatus;
+  reviewedAt: Date | null;
+  oldPaymentId: string | null;
   createdAt: Date | null;
 };
 
@@ -105,6 +138,8 @@ export type ParsedBackup = {
   memberships: ParsedMembership[];
   leases: ParsedLease[];
   payments: ParsedPayment[];
+  paymentAccounts: ParsedPaymentAccount[];
+  paymentClaims: ParsedPaymentClaim[];
 };
 
 export type ParseBackupResult =
@@ -203,6 +238,9 @@ export async function parseOrganizationBackup(
   const membershipsSheet = workbook.getWorksheet("Memberships");
   const leasesSheet = workbook.getWorksheet("Leases");
   const paymentsSheet = workbook.getWorksheet("Payments");
+  // Optional: backups made before 2026-10-08 don't have them.
+  const paymentAccountsSheet = workbook.getWorksheet("PaymentAccounts");
+  const paymentClaimsSheet = workbook.getWorksheet("PaymentClaims");
 
   if (!propertiesSheet || !unitsSheet || !membershipsSheet || !leasesSheet || !paymentsSheet) {
     return {
@@ -426,6 +464,8 @@ export async function parseOrganizationBackup(
     }
   }
 
+  /** Payment id → its lease, so a claim can't point at another lease's payment. */
+  const paymentLeases = new Map<string, string>();
   const payments: ParsedPayment[] = [];
   {
     const index = headerIndex(paymentsSheet);
@@ -447,7 +487,10 @@ export async function parseOrganizationBackup(
       if (!paidAt) errors.push(`${label}: paidAt must be a date`);
       if (!oldLeaseId || !leaseIds.has(oldLeaseId) || amount == null || !paidAt) continue;
 
+      const oldId = strAt(row, index, "id");
+      if (oldId) paymentLeases.set(oldId, oldLeaseId);
       payments.push({
+        oldId,
         oldLeaseId,
         amount,
         paidAt,
@@ -458,9 +501,117 @@ export async function parseOrganizationBackup(
     }
   }
 
+  const paymentAccounts: ParsedPaymentAccount[] = [];
+  if (paymentAccountsSheet) {
+    const index = headerIndex(paymentAccountsSheet);
+    const rows = dataRows(paymentAccountsSheet);
+    if (rows.length > MAX_ROWS_PER_SHEET) {
+      errors.push(`PaymentAccounts: more than ${MAX_ROWS_PER_SHEET} rows.`);
+    }
+    for (const { row, rowNumber } of rows) {
+      const label = `PaymentAccounts row ${rowNumber}`;
+      const oldMembershipId = strAt(row, index, "membershipId");
+      const type = strAt(row, index, "type");
+      const provider = strAt(row, index, "provider");
+      const accountNumber = strAt(row, index, "accountNumber");
+
+      if (!oldMembershipId) errors.push(`${label}: missing membershipId`);
+      else if (!membershipIds.has(oldMembershipId)) {
+        errors.push(`${label}: membershipId does not match any row in the Memberships sheet`);
+      }
+      if (!type || !Object.values(PaymentAccountType).includes(type as PaymentAccountType)) {
+        errors.push(`${label}: type must be one of ${Object.values(PaymentAccountType).join(", ")}`);
+      }
+      if (!provider) errors.push(`${label}: missing provider`);
+      if (!accountNumber) errors.push(`${label}: missing accountNumber`);
+      if (!oldMembershipId || !membershipIds.has(oldMembershipId) || !provider || !accountNumber) {
+        continue;
+      }
+
+      paymentAccounts.push({
+        oldMembershipId,
+        type: type as PaymentAccountType,
+        provider,
+        accountNumber,
+        accountName: strAt(row, index, "accountName"),
+        isDefault: boolAt(row, index, "isDefault"),
+        createdAt: dateAt(row, index, "createdAt"),
+        updatedAt: dateAt(row, index, "updatedAt"),
+      });
+    }
+  }
+
+  const paymentClaims: ParsedPaymentClaim[] = [];
+  if (paymentClaimsSheet) {
+    const index = headerIndex(paymentClaimsSheet);
+    const rows = dataRows(paymentClaimsSheet);
+    if (rows.length > MAX_ROWS_PER_SHEET) {
+      errors.push(`PaymentClaims: more than ${MAX_ROWS_PER_SHEET} rows.`);
+    }
+    const claimedPayments = new Set<string>();
+    for (const { row, rowNumber } of rows) {
+      const label = `PaymentClaims row ${rowNumber}`;
+      const oldLeaseId = strAt(row, index, "leaseId");
+      const oldMembershipId = strAt(row, index, "membershipId");
+      const amount = numAt(row, index, "amount");
+      const paidAt = dateAt(row, index, "paidAt");
+      const status = strAt(row, index, "status");
+      const oldPaymentId = strAt(row, index, "paymentId");
+
+      if (!oldLeaseId) errors.push(`${label}: missing leaseId`);
+      else if (!leaseIds.has(oldLeaseId)) {
+        errors.push(`${label}: leaseId does not match any row in the Leases sheet`);
+      }
+      if (!oldMembershipId) errors.push(`${label}: missing membershipId`);
+      else if (!membershipIds.has(oldMembershipId)) {
+        errors.push(`${label}: membershipId does not match any row in the Memberships sheet`);
+      }
+      if (amount == null) errors.push(`${label}: amount must be a number`);
+      if (!paidAt) errors.push(`${label}: paidAt must be a date`);
+      if (!status || !Object.values(PaymentClaimStatus).includes(status as PaymentClaimStatus)) {
+        errors.push(`${label}: status must be one of ${Object.values(PaymentClaimStatus).join(", ")}`);
+      }
+      // `paymentId` is unique on the table: two claims can't become one payment.
+      if (oldPaymentId && !paymentLeases.has(oldPaymentId)) {
+        errors.push(`${label}: paymentId does not match any row in the Payments sheet`);
+      } else if (oldPaymentId && paymentLeases.get(oldPaymentId) !== oldLeaseId) {
+        errors.push(`${label}: payment ${oldPaymentId} belongs to a different lease`);
+      } else if (oldPaymentId && claimedPayments.has(oldPaymentId)) {
+        errors.push(`${label}: another claim already points at payment ${oldPaymentId}`);
+      }
+      if (
+        !oldLeaseId ||
+        !leaseIds.has(oldLeaseId) ||
+        !oldMembershipId ||
+        !membershipIds.has(oldMembershipId) ||
+        amount == null ||
+        !paidAt
+      ) {
+        continue;
+      }
+      if (oldPaymentId) claimedPayments.add(oldPaymentId);
+
+      paymentClaims.push({
+        oldLeaseId,
+        oldMembershipId,
+        amount,
+        paidAt,
+        method: strAt(row, index, "method"),
+        notes: strAt(row, index, "notes"),
+        status: status as PaymentClaimStatus,
+        reviewedAt: dateAt(row, index, "reviewedAt"),
+        oldPaymentId,
+        createdAt: dateAt(row, index, "createdAt"),
+      });
+    }
+  }
+
   if (errors.length > 0) return { ok: false, errors };
 
-  return { ok: true, data: { properties, units, memberships, leases, payments } };
+  return {
+    ok: true,
+    data: { properties, units, memberships, leases, payments, paymentAccounts, paymentClaims },
+  };
 }
 
 export type ImportSummary = {
@@ -469,6 +620,8 @@ export type ImportSummary = {
   memberships: number;
   leases: number;
   payments: number;
+  paymentAccounts: number;
+  paymentClaims: number;
 };
 
 /**
@@ -752,9 +905,10 @@ export async function importOrganizationBackup(
       }
 
       let paymentsCreated = 0;
+      const paymentMap = new Map<string, string>();
       for (const payment of data.payments) {
         const newLeaseId = leaseMap.get(payment.oldLeaseId)!;
-        await tx.payment.create({
+        const created = await tx.payment.create({
           data: {
             invoiceId: invoiceMap.get(newLeaseId)!,
             amount: payment.amount,
@@ -764,8 +918,68 @@ export async function importOrganizationBackup(
             ...(payment.createdAt ? { createdAt: payment.createdAt } : {}),
             createdById: stamp.createdById,
           },
+          select: { id: true },
         });
+        if (payment.oldId) paymentMap.set(payment.oldId, created.id);
         paymentsCreated++;
+      }
+
+      // The restoring owner's membership is reused, and they may have added
+      // accounts to the fresh organization before restoring: an identical
+      // account is skipped rather than doubled, and theirs stays the default.
+      let paymentAccountsCreated = 0;
+      const hasDefault = new Set<string>();
+      for (const account of data.paymentAccounts) {
+        const membershipId = membershipMap.get(account.oldMembershipId)!;
+        const existing = await tx.paymentAccount.findMany({
+          where: { membershipId },
+          select: { type: true, provider: true, accountNumber: true, isDefault: true },
+        });
+        if (existing.some((row) => row.isDefault)) hasDefault.add(membershipId);
+        const duplicate = existing.some(
+          (row) =>
+            row.type === account.type &&
+            row.provider === account.provider &&
+            row.accountNumber === account.accountNumber
+        );
+        if (duplicate) continue;
+
+        const isDefault = account.isDefault && !hasDefault.has(membershipId);
+        if (isDefault) hasDefault.add(membershipId);
+        await tx.paymentAccount.create({
+          data: {
+            membershipId,
+            type: account.type,
+            provider: account.provider,
+            accountNumber: account.accountNumber,
+            accountName: account.accountName,
+            isDefault,
+            ...(account.createdAt ? { createdAt: account.createdAt } : {}),
+            ...(account.updatedAt ? { updatedAt: account.updatedAt } : {}),
+            ...stamp,
+          },
+        });
+        paymentAccountsCreated++;
+      }
+
+      // A claim keeps its outcome but not its reviewer: the backup doesn't say
+      // who reviewed it, and the restore didn't.
+      for (const claim of data.paymentClaims) {
+        const newLeaseId = leaseMap.get(claim.oldLeaseId)!;
+        await tx.paymentClaim.create({
+          data: {
+            invoiceId: invoiceMap.get(newLeaseId)!,
+            membershipId: membershipMap.get(claim.oldMembershipId)!,
+            amount: claim.amount,
+            paidAt: claim.paidAt,
+            method: claim.method,
+            notes: claim.notes,
+            status: claim.status,
+            reviewedAt: claim.reviewedAt,
+            paymentId: claim.oldPaymentId ? paymentMap.get(claim.oldPaymentId) : null,
+            ...(claim.createdAt ? { createdAt: claim.createdAt } : {}),
+          },
+        });
       }
 
       const summary = {
@@ -774,6 +988,8 @@ export async function importOrganizationBackup(
         memberships: data.memberships.length,
         leases: data.leases.length,
         payments: paymentsCreated,
+        paymentAccounts: paymentAccountsCreated,
+        paymentClaims: data.paymentClaims.length,
       };
       // One entry for the restore rather than one per row: thousands of
       // "created" lines would bury everything else, and every row it wrote
@@ -789,7 +1005,7 @@ export async function importOrganizationBackup(
       return summary;
     },
     // Generous on purpose: this is an infrequent, admin-triggered restore
-    // that can touch thousands of rows across five tables, each a separate
+    // that can touch thousands of rows across seven tables, each a separate
     // round trip — the 5s interactive-transaction default would abort a
     // large, otherwise-healthy backup partway through.
     { timeout: 60_000 }
