@@ -1,3 +1,5 @@
+import { SITE_NAME } from "@/lib/site";
+
 /**
  * Guided tours, one per page.
  *
@@ -49,7 +51,7 @@ export const TOURS: Tour[] = [
     label: "Dashboard tour",
     steps: [
       {
-        title: "Welcome to Rentops",
+        title: `Welcome to ${SITE_NAME}`,
         body: "A quick look around — under a minute. You can leave at any point, and replay this later from the help menu.",
       },
       {
