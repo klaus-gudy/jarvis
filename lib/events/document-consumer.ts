@@ -1,15 +1,10 @@
-import { systemActor } from "@/lib/audit";
 import { connect } from "amqplib";
 
 import {
   contractFileName,
   LEASE_CONTRACT_TYPE_ID,
 } from "@/lib/contract-constants";
-import {
-  deleteDocument,
-  parseContractObjectKey,
-  recordDocument,
-} from "@/lib/documents";
+import { parseContractObjectKey, recordDocument } from "@/lib/documents";
 import { describeError } from "@/lib/errors";
 import {
   CONSUMED_ROUTING_KEY,
@@ -17,12 +12,9 @@ import {
   RABBITMQ_URL,
   type DocumentStoredEvent,
 } from "@/lib/events/config";
+import { LEASE_PLACEHOLDERS } from "@/lib/lease-placeholders";
 import { leaseReference } from "@/lib/leases";
 import { declareEventTopology } from "@/lib/events/publisher";
-import { prisma } from "@/lib/prisma";
-
-/** The actor behind this consumer's writes: the render pipeline, not a person. */
-const CONTRACT_FILING = systemActor("contract-filing");
 
 /**
  * Files the contract that `document-worker` has just rendered.
@@ -98,6 +90,17 @@ function metaString(
 function metaMissing(meta: DocumentStoredEvent["meta"]): string[] {
   return Array.isArray(meta?.missing)
     ? meta.missing.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+/** Who signed this copy, per `meta` — only real signature placeholders count. */
+function metaSignedBy(meta: DocumentStoredEvent["meta"]): string[] {
+  return Array.isArray(meta?.signedBy)
+    ? meta.signedBy.filter(
+        (item): item is string =>
+          typeof item === "string" &&
+          LEASE_PLACEHOLDERS.some((p) => p.key === item && p.kind === "signature")
+      )
     : [];
 }
 
@@ -226,28 +229,16 @@ async function attach(): Promise<StopConsumer> {
     const fileName =
       metaString(meta, "fileName") ?? contractFileName(leaseReference(leaseId));
     const missing = metaMissing(meta);
+    const signedBy = metaSignedBy(meta);
 
     try {
       /*
-       * The previous contract goes first. `sys_LEASE_CONTRACT` is not a
-       * collection — one contract per lease — so a regenerated one replaces
-       * rather than accumulates. Deleted through `deleteDocument` rather than a
-       * raw query, so the object in the bucket goes with the row.
-       *
-       * Scoped to rows that are *not* the key we are about to file, so a
-       * redelivery cannot delete the very contract it already recorded.
+       * Filed as a new version; any earlier contract stays. A regenerated
+       * contract used to replace the last one, which lost the wording of a
+       * contract that may already have been signed. The newest is the current
+       * one and the Contract tab marks the rest superseded. A redelivery is
+       * still caught by the object key inside `recordDocument`.
        */
-      const previous = await prisma.fileAsset.findFirst({
-        where: {
-          organizationId,
-          leaseId,
-          assetTypeId: LEASE_CONTRACT_TYPE_ID,
-          objectKey: { not: event.objectKey },
-        },
-        select: { id: true },
-      });
-      if (previous) await deleteDocument(organizationId, previous.id, CONTRACT_FILING);
-
       const result = await recordDocument(
         organizationId,
         {
@@ -260,7 +251,9 @@ async function attach(): Promise<StopConsumer> {
           name: fileName,
           type: "application/pdf",
           sizeBytes: event.sizeBytes,
-        }
+          signedBy,
+        },
+        { versioned: true }
       );
 
       if ("error" in result) {
