@@ -1,6 +1,7 @@
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseSnippeEvent, verifySnippeSignature } from "@/lib/billing/snippe-webhook";
+import { grantSubscription } from "@/lib/billing/subscriptions";
 
 /**
  * snippe's webhook — the URL submitted in their dashboard as
@@ -87,9 +88,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unrecognised event" }, { status: 400 });
   }
 
+  let stored: { id: string };
   try {
-    await prisma.billingEvent.create({
+    stored = await prisma.billingEvent.create({
       data: { ...event, payload: body as Prisma.InputJsonValue },
+      select: { id: true },
     });
   } catch (error) {
     if (
@@ -107,7 +110,26 @@ export async function POST(request: Request) {
   console.log(
     `[snippe] stored ${event.type} ${event.reference} ` +
       `${event.amount ?? "?"} ${event.currency ?? ""} ` +
-      `plan=${event.plan ?? "-"}/${event.billing ?? "-"} (${event.eventId})`
+      `plan=${event.plan ?? "-"}/${event.billing ?? "-"} org=${event.organizationId ?? "-"} (${event.eventId})`
   );
+
+  /*
+   * The grant runs after the event is safely stored, and its outcome never
+   * changes the answer: snippe is told "received" because it was. A refused or
+   * failed grant is logged with its reason, and the stored event is enough to
+   * grant it again later (`grantSubscription` is idempotent per event).
+   */
+  if (event.type === "payment.completed") {
+    try {
+      const outcome = await grantSubscription(stored.id);
+      console.log(
+        outcome.granted
+          ? `[snippe] granted ${event.plan}/${event.billing} to ${event.organizationId} until ${outcome.paidUntil.toISOString()}`
+          : `[snippe] no subscription for ${event.eventId}: ${outcome.reason}`
+      );
+    } catch (error) {
+      console.error(`[snippe] granting ${event.eventId} failed:`, error);
+    }
+  }
   return Response.json({ ok: true });
 }
