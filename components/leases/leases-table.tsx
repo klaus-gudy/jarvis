@@ -225,6 +225,8 @@ export function LeasesTable({
             unitLabel: editing.unitLabel,
             unitRentAmount: editing.unitRentAmount,
             unitMinTenureMonths: editing.unitMinTenureMonths,
+            unitAutoRenew: editing.unitAutoRenew,
+            autoRenew: editing.autoRenew,
             membershipId: editing.membershipId,
             startDate: editing.startDate,
             durationMonths: editing.durationMonths,
