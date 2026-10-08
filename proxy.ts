@@ -23,7 +23,7 @@ const AUTH_PAGES = [
  * `/payment` would not be — it would match `/payments`, the signed-in ledger,
  * and open the whole org's rent roll to the internet.
  */
-const PUBLIC_PAGES = ["/invite", "/opengraph-image", "/payment-complete"];
+const PUBLIC_PAGES = ["/invite", "/opengraph-image", "/payment-complete", "/subscribe"];
 
 const APP_HOME = "/dashboard";
 
