@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getRecordStamps } from "@/lib/record-stamps";
 import { getCurrentUser, SESSION_EXPIRED_PATH } from "@/lib/auth/session";
 import { can, requireStaffPage } from "@/lib/authz";
+import { canWriteDocuments } from "@/lib/document-access";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
@@ -71,6 +72,9 @@ export default async function UnitDetailPage({
   });
 
   const photos = assets.filter((asset) => asset.assetType.isPhoto).map(serialise);
+  const canWriteFiles = Boolean(
+    access && canWriteDocuments(access, { subjectType: "UNIT", subjectId: unit.id })
+  );
   const papers = assets.filter((asset) => !asset.assetType.isPhoto).map(serialise);
   const photoTypes = unitTypes.filter((type) => type.isPhoto);
   const documentTypes = unitTypes.filter((type) => !type.isPhoto);
@@ -385,6 +389,7 @@ export default async function UnitDetailPage({
             subjectId={unit.id}
             assetTypes={photoTypes}
             photos={photos}
+            canWrite={canWriteFiles}
             emptyMessage="No photos yet. Add a few so this unit can be shown without a visit."
           />
         </TabsContent>
@@ -395,6 +400,7 @@ export default async function UnitDetailPage({
             subjectId={unit.id}
             assetTypes={documentTypes}
             documents={papers}
+            canWrite={canWriteFiles}
             emptyMessage="No documents yet. Upload a floor plan or an inspection report to keep it on file."
           />
         </TabsContent>
