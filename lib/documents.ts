@@ -7,6 +7,7 @@ import type { UploadDocumentInput } from "@/lib/documents-schemas";
 import type { FileAssetSubject } from "@/lib/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { deleteObject, putObject } from "@/lib/storage";
+import { deleteThumbnails } from "@/lib/thumbnails";
 import { displayName } from "@/lib/user-display";
 
 /**
@@ -619,6 +620,7 @@ export async function deleteDocument(
     });
   });
   await deleteObject(document.objectKey);
+  if (document.fileType.startsWith("image/")) await deleteThumbnails(document.objectKey);
 
   return { ok: true as const };
 }
