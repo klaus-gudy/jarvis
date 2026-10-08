@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { SITE_NAME } from "@/lib/site"
 
 /**
  * Where to land after signing in. Only an invitation link is honoured — it is
@@ -57,7 +58,7 @@ export default function LoginPage() {
     <>
       <AuthHeader
         title="Welcome back"
-        subtitle="Sign in to your Rentops workspace."
+        subtitle={`Sign in to your ${SITE_NAME} workspace.`}
       />
 
       <form onSubmit={handleSubmit}>
@@ -108,7 +109,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        New to Rentops?{" "}
+        New to {SITE_NAME}?{" "}
         <Link
           href="/register"
           className="font-medium text-primary hover:underline"
