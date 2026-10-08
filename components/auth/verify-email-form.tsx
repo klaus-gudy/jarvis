@@ -14,7 +14,7 @@ import {
 
 const OTP_LENGTH = 6;
 
-export function VerifyEmailForm() {
+export function VerifyEmailForm({ next = null }: { next?: string | null }) {
   const router = useRouter();
   const [code, setCode] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -36,6 +36,12 @@ export function VerifyEmailForm() {
       // `refresh()` before navigating: the gate lives in the server layout, so
       // the cached RSC payload still believes this account is unverified and
       // would bounce straight back here.
+      // A plan chosen at signup goes on to checkout; `/subscribe` redirects
+      // off-site, which only a full navigation follows.
+      if (next) {
+        window.location.assign(next);
+        return;
+      }
       router.refresh();
       router.push("/dashboard");
       return;
