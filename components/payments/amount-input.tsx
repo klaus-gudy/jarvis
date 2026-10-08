@@ -39,12 +39,14 @@ export function AmountInput({
   onValueChange,
   placeholder,
   required,
+  disabled,
 }: {
   id: string;
   value: string;
   onValueChange: (next: string) => void;
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const pendingCaret = React.useRef<number | null>(null);
@@ -96,6 +98,7 @@ export function AmountInput({
       onBlur={handleBlur}
       placeholder={placeholder}
       required={required}
+      disabled={disabled}
     />
   );
 }
