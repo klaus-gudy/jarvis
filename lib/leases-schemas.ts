@@ -50,6 +50,8 @@ export const createLeaseSchema = z.object({
     .min(0, "Monthly rent cannot be negative")
     .max(2_000_000_000, "Monthly rent is too large")
     .nullish(),
+  /** Omitted means "whatever the unit's default is" on create, "unchanged" on edit. */
+  autoRenew: z.boolean().nullish(),
 });
 
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;
