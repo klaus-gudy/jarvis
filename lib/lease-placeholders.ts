@@ -1,5 +1,6 @@
 import DOMPurify from "isomorphic-dompurify";
 
+import { lastDayOf } from "@/lib/dates";
 import { CURRENCY, formatDate, formatMoneyFull } from "@/lib/format";
 
 /**
@@ -275,7 +276,9 @@ export const LEASE_PLACEHOLDERS: Placeholder[] = [
     label: "Lease end date",
     group: "Lease terms",
     example: "31 Aug 2027",
-    resolve: (context) => date(context.lease.endDate),
+    // The last day, not the stored exclusive end — see `lastDayOf`.
+    resolve: (context) =>
+      date(context.lease.endDate ? lastDayOf(context.lease.endDate) : null),
   },
   {
     key: "number_of_months",
