@@ -35,13 +35,18 @@ export const MAIL_ROUTING_KEYS = [
   "org.created",
   // Section B — invitations
   "invitation.sent",
+  "invitation.accepted",
   // Section C — leases
   "lease.created",
   "lease.renewed",
   "lease.expiring",
+  "contract.ready",
   // Section D — billing
   "invoice.paid_in_full",
   "invoice.overdue",
+  "payment.recorded",
+  "payment_claim.submitted",
+  "payment_claim.rejected",
 ] as const;
 
 export type MailRoutingKey = (typeof MAIL_ROUTING_KEYS)[number];
