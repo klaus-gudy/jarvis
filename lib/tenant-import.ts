@@ -8,7 +8,7 @@ import {
 
 const SHEET = "Tenants";
 
-type ColumnKey = "firstName" | "lastName" | "phone" | "email";
+type ColumnKey = "firstName" | "lastName" | "phone" | "email" | "nationality";
 
 /**
  * First and last name are separate columns because that is how people keep
@@ -45,6 +45,13 @@ const COLUMNS: ImportColumn<ColumnKey>[] = [
     width: 30,
     required: false,
     example: "neema@example.com",
+  },
+  {
+    key: "nationality",
+    header: "Nationality",
+    width: 18,
+    required: false,
+    example: "Tanzanian",
   },
 ];
 
@@ -101,6 +108,7 @@ export function parseTenantWorkbook(buffer: ArrayBuffer) {
         name: fullName(ctx.raw.firstName, ctx.raw.lastName),
         phone,
         email: ctx.raw.email || undefined,
+        nationality: ctx.raw.nationality || undefined,
       };
     },
   });
