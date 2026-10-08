@@ -4,9 +4,7 @@ import { cache } from "react";
 import { seedDefaultLeaseTemplate } from "@/lib/lease-template-starters";
 import { parsePermissions, PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-
-/** The role name created for the registrant in app/api/auth/register/route.ts. */
-const OWNER_ROLE_NAME = "Owner";
+import { OWNER_ROLE_NAME, TENANT_ROLE_NAME } from "@/lib/role-constants";
 
 /**
  * Whoever holds the Owner role, as a person rather than a label — the lease
@@ -128,6 +126,11 @@ export async function createOrganizationForUser(userId: string, name: string) {
         permissions: [...PERMISSIONS],
         organizationId: organization.id,
       },
+    });
+    // Seeded like registration does, with no permissions: tenants reach only
+    // their portal until an Owner ticks something.
+    await tx.role.create({
+      data: { name: TENANT_ROLE_NAME, kind: "TENANT", organizationId: organization.id },
     });
     const membership = await tx.membership.create({
       data: { userId, organizationId: organization.id, roleId: ownerRole.id },
