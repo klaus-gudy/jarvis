@@ -118,6 +118,19 @@ export function formatFileSize(bytes: number) {
  * has to look up — every surface that shows a document shows its label, and a
  * second lookup to render a badge is a lookup that will eventually be missing.
  */
+/**
+ * Sizes `GET /api/documents/[id]?w=` will resize an image to: avatars, tiles,
+ * and a gallery slide. A fixed set, so a caller can't fill the bucket with
+ * every width it can type.
+ */
+export const THUMBNAIL_WIDTHS = [96, 192, 1280] as const;
+export type ThumbnailWidth = (typeof THUMBNAIL_WIDTHS)[number];
+
+/** The URL for a stored image, resized when a width is given. */
+export function documentImageSrc(id: string, width?: ThumbnailWidth) {
+  return width ? `/api/documents/${id}?w=${width}` : `/api/documents/${id}`;
+}
+
 export type DocumentView = {
   id: string;
   fileName: string;
