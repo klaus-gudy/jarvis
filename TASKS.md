@@ -11,8 +11,6 @@ Working list. Architecture and standing rules are in `plan.md`.
 ## Open items
 
 ### Product gaps — decided 2026-10-08, build next
-- [ ] **Template editor:** preview filled with a chosen real lease; a Swahili starter seeded beside the English one; backfill `tenant_nationality`.
-- [ ] **Photo thumbnails:** resized derivatives so lists stop loading full-size photos.
 - [ ] **Subscriptions** (with the snippe phase below): a pay link clicked without an org sends the visitor to register first, then on to checkout with the org id in `meta`. Webhook creates a `Subscription` (plan, period, paid-until) only when `amount` matches the plan price; shown in Settings. No plan limits yet.
 
 **Not chosen (2026-10-08):** cover photo/reorder, per-file upload retry, remove profile photo, custom file-type management, member-docs pagination; revoke notice and per-org invite-email override; undo/redo + table controls; FileAsset in backup; `DocumentJob` render status; org-wide Invoices page; "Issue invoice" for pre-billing leases; tenant pay-online; making `User.phone` required (stays nullable). Also still open: an org whose owners all lack an email logs a notice as sent and never retries.
@@ -21,6 +19,7 @@ Working list. Architecture and standing rules are in `plan.md`.
 
 ### Reliability & operations
 - [ ] **Deploy order (2026-10-08):** migrate this app **before** deploying `automatifier` (it now reads `Lease.autoRenew`). Expect one day of shifted reminder tiers: day counts now measure to the last day, so a lease can skip one tier on the switch-over day.
+- [ ] **After deploy (2026-10-08):** `npm run templates:add-swahili -- --dry-run` then for real; decide whether to run `npm run members:backfill-nationality -- --nationality=Tanzanian` (add `--with-nida` to limit it) — the value is your call, the script infers nothing.
 - [ ] **Prod chores after deploy:** the legacy audience-less session fallback is gone (2026-10-08), so any cookie minted before 2026-09-29 now signs out — expected. Run `npm run templates:sanitize -- --dry-run` then for real against prod after deploy. Confirm `AUTH_SECRET` in Railway is ≥ 32 bytes (the app now refuses shorter) and that Railway appends to `X-Forwarded-For` (else set `TRUSTED_PROXY_HOPS`).
 - [ ] **SMS alerts tab isn't org-scoped** — notifier rows have no `organizationId`, so a phone that is a member of two orgs shows both orgs' texts. Fix needs an `organization_id` (or `reference`) on notifier's SMS payload + a filter. Also: notifier's HTTP API has no auth (keep it private-network only), and it has no message-text search. **Send SMS** needs `sms:send`; the rate limit is still per process.
 - [ ] ✔ **A failed render is invisible** — the Generate button publishes and answers 202; "never made", "being made", "worker down" and "dead-lettered" look identical. The fix is a `DocumentJob` status row both this repo and `document-worker` can write (**does not exist**). Needs a decision first.
@@ -63,6 +62,7 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 | 2026-10-08 | Rentoo branding sweep; write controls hidden by permission (documents, photos, member edit, create lease); roles tour; Tenant role seeded on org create; arithmetic rent inputs, amenities column, per-entity sticky filters; backup carries PaymentAccounts + PaymentClaims |
 | 2026-10-08 | Per-lease auto-renew (unit is the default); end dates shown as the last day everywhere incl. `automatifier`; renewals start with no gap; contract versions kept, signed ones undeletable |
 | 2026-10-08 | Tenant email at verified addresses (lease, payment, claim, contract) + opt-in verification; claim rejection reasons, receipts, owner alert; invitation resend + accepted notice; reset copy for phone-only users |
+| 2026-10-08 | Swahili starter template seeded (+ script for existing orgs); real-lease template preview; tenant nationality on create/import + backfill script; image thumbnails via `?w=` |
 | Production Docker image | Multi-stage Node 24 build, Next.js standalone server, non-root runtime, migrations on startup, runtime secrets excluded from build context |
 
 ## Phase — snippe webhook
