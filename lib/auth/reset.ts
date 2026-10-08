@@ -167,6 +167,14 @@ export async function completePasswordReset(
       data: { passwordHash, sessionVersion: { increment: 1 } },
       select: { email: true, name: true },
     }),
+    // The code only ever goes to the email on file, so using it proves the
+    // address — which is what lets a tenant whose landlord added it start
+    // receiving lease and payment mail. Codes die when the email changes
+    // (`updateMember`), so this can't verify an address it wasn't sent to.
+    prisma.user.updateMany({
+      where: { id: userId, email: { not: null }, emailVerifiedAt: null },
+      data: { emailVerifiedAt: new Date() },
+    }),
   ]);
 
   return { ok: true, email: user.email, name: user.name };
