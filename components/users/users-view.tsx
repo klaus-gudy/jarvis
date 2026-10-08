@@ -3,14 +3,14 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react";
+import { PencilIcon, RotateCwIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { MemberEditDialog } from "@/components/member-edit-dialog";
 import { useCan, usePermissions } from "@/components/permissions-provider";
 import { PersonCell } from "@/components/person-cell";
 import { InvitationCard } from "@/components/users/invitation-card";
-import { InviteDialog } from "@/components/users/invite-dialog";
+import { InviteDialog, InviteLinkDialog } from "@/components/users/invite-dialog";
 import { MemberCard } from "@/components/users/member-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,12 @@ export function UsersView({
   const [inviting, setInviting] = React.useState<MemberRow | null>(null);
   const [editing, setEditing] = React.useState<MemberRow | null>(null);
   const [revoking, setRevoking] = React.useState<InvitationRow | null>(null);
+  /** The fresh link after a resend — shown once, like a new invitation's. */
+  const [resent, setResent] = React.useState<{
+    link: string;
+    emailedTo: string | null;
+    suppressedRole: string | null;
+  } | null>(null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -261,6 +267,25 @@ export function UsersView({
     setPending(false);
   }
 
+  async function resendInvitation(invitation: InvitationRow) {
+    const response = await fetch(`/api/invitations/${invitation.id}/resend`, {
+      method: "POST",
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.token) {
+      toast.error(data?.error ?? "Couldn't resend the invitation");
+      return;
+    }
+    // The token is only ever returned here, so build the link immediately.
+    setResent({
+      link: `${window.location.origin}/invite/${data.token}`,
+      emailedTo: data.emailedTo ?? null,
+      suppressedRole: data.emailSuppressedForRole ?? null,
+    });
+    toast.success(data.emailed ? "New link created and emailed" : "New link created");
+    router.refresh();
+  }
+
   async function handleRevoke() {
     if (!revoking) return;
     setPending(true);
@@ -402,6 +427,13 @@ export function UsersView({
             rowActions={(invitation): RowAction[] => [
               {
                 disabled: !canInvite,
+                disabledReason: "Your role can't send invitations",
+                label: "Resend invite",
+                icon: RotateCwIcon,
+                onSelect: () => resendInvitation(invitation),
+              },
+              {
+                disabled: !canInvite,
                 disabledReason: "Your role can't revoke invitations",
                 label: "Revoke invite",
                 icon: XIcon,
@@ -415,6 +447,17 @@ export function UsersView({
           />
         </TabsContent>
       </Tabs>
+
+      {resent && (
+        <InviteLinkDialog
+          open
+          onOpenChange={(open) => !open && setResent(null)}
+          link={resent.link}
+          emailedTo={resent.emailedTo}
+          suppressedRole={resent.suppressedRole}
+          resent
+        />
+      )}
 
       <InviteDialog
         key={String(inviteOpen)}
