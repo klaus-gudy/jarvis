@@ -84,6 +84,8 @@ export function ContractTab({
   assetTypes: AssetTypeView[];
 }) {
   const canGenerate = useCan("contract:generate");
+  // `documentRequirement` for a LEASE subject: either one deletes a contract.
+  const canDelete = useCan(["document:write", "lease:write"]);
   const router = useRouter();
   const [running, setRunning] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -205,6 +207,7 @@ export function ContractTab({
         assetTypes={assetTypes}
         documents={documents}
         allowUpload={false}
+        canWrite={canDelete}
         emptyMessage="No contract yet. It is normally generated from your default lease template moments after a lease is created."
       />
     </div>
