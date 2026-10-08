@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
     <>
       <AuthHeader
         title="Forgot your password?"
-        subtitle="Enter the email or phone you sign in with and we'll send you a verification code."
+        subtitle="Enter the email or phone you sign in with. We'll email a verification code to the address on your account."
       />
 
       <form onSubmit={handleSubmit}>
@@ -63,6 +63,12 @@ export default function ForgotPasswordPage() {
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Sending code…" : "Send verification code"}
           </Button>
+
+          {/* Codes only ever go by email, and the response never says whether
+              an account exists — so a phone-only tenant is told up front. */}
+          <p className="text-sm text-muted-foreground">
+            No email on your account? Ask your landlord to add one, then come back here.
+          </p>
         </FieldGroup>
       </form>
 
