@@ -36,7 +36,7 @@ export type InvoiceDetail = {
   status: InvoiceStatus;
   payments: PaymentRow[];
   /** Tenant-reported payments awaiting review — not part of `paid`. */
-  pendingClaims: PaymentRow[];
+  pendingClaims: (PaymentRow & { receiptId: string | null })[];
 };
 
 /**
@@ -67,7 +67,14 @@ export async function getInvoiceForLease(
       paymentClaims: {
         where: { status: "PENDING" },
         orderBy: { createdAt: "asc" },
-        select: { id: true, amount: true, paidAt: true, method: true, notes: true },
+        select: {
+          id: true,
+          amount: true,
+          paidAt: true,
+          method: true,
+          notes: true,
+          receiptId: true,
+        },
       },
     },
   });
