@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/hover-card";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import type { LeaseExpiry, LeaseStatus } from "@/lib/leases";
+import { lastDayOf } from "@/lib/dates";
 
 export type LeasePreview = {
   reference: string;
@@ -73,7 +74,7 @@ export function LeaseHoverCard({
             <dt className="text-muted-foreground">Term</dt>
             <dd className="flex items-center gap-1.5">
               {formatDate(new Date(lease.startDate))} →{" "}
-              {formatDate(new Date(lease.endDate))}
+              {formatDate(lastDayOf(lease.endDate))}
               <ExpiryTag expiry={lease.expiry ?? null} />
             </dd>
           </div>
