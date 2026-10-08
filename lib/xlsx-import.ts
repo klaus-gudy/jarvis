@@ -3,6 +3,8 @@ import { inflateRawSync } from "node:zlib";
 import ExcelJS from "exceljs";
 import type { ZodType } from "zod";
 
+import { SITE_NAME } from "@/lib/site";
+
 /**
  * The spreadsheet half of every bulk importer: generate a template, read one
  * back, and report per-row what is usable. Entity-specific parts — the columns
@@ -200,7 +202,7 @@ export async function buildTemplate<K extends string>(
   spec: TemplateSpec<K>
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Rentops";
+  workbook.creator = SITE_NAME;
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet(spec.sheetName, {
