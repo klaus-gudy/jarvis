@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader, facetFilterFn } from "@/components/ui/data-table";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import type { LeaseExpiry, LeaseStatus } from "@/lib/leases";
+import { lastDayOf } from "@/lib/dates";
 
 export type UnitLeaseRow = {
   id: string;
@@ -89,7 +90,7 @@ export function buildUnitLeaseColumns({
       header: "End date",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {formatDate(new Date(row.original.endDate))}
+          {formatDate(lastDayOf(row.original.endDate))}
           <ExpiryTag expiry={row.original.expiry} />
         </div>
       ),
