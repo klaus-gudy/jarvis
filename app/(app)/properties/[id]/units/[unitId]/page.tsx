@@ -250,7 +250,7 @@ export default async function UnitDetailPage({
                           : "—"
                       }
                     />
-                    <DetailRow label="Auto-renew" value={unit.autoRenew ? "On" : "Off"} />
+                    <DetailRow label="New leases auto-renew" value={unit.autoRenew ? "Yes" : "No"} />
                   </dl>
                 </CardContent>
               </Card>
