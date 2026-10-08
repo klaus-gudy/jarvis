@@ -32,6 +32,7 @@ model Organization {
   fileAssetTypes FileAssetType[]
   leaseTemplates LeaseTemplate[]
   auditLogs      AuditLog[]
+  subscriptions  Subscription[]
 }
 
 /// Append-only history of who changed what. Written in the same transaction as
@@ -752,11 +753,10 @@ model LeaseTemplate {
 /// HMAC signature, so everything here was said by snippe — unlike the
 /// `/payment-complete` page, whose query string anyone can type.
 ///
-/// Stored as an append-only log rather than folded into a subscription: there
-/// is no subscription model yet, and a payment made from the public pricing
-/// page arrives with no organization attached (the visitor has no account at
-/// that point). Keeping every event, with its full payload, means attribution
-/// can be decided later without anything having been thrown away.
+/// An append-only log of every verified snippe delivery. Since 2026-10-08 a
+/// completed payment whose link named an organization, plan and period — and
+/// whose amount matches that plan's price — also grants a `Subscription`; the
+/// event is kept either way, so a refused grant can be revisited.
 model BillingEvent {
   id            String    @id @default(cuid())
   /// snippe's event id (`evt_…`). Unique, so a redelivery is a no-op — snippe
@@ -778,6 +778,9 @@ model BillingEvent {
   /// From the `?meta=` blob `planCheckoutHref` attaches to the checkout link.
   plan          String?
   billing       String?
+  /// The organization the link was made for — a **claim** (the payer can edit
+  /// the link), so no foreign key; `grantSubscription` checks it exists.
+  organizationId String?
   /// The verified body, verbatim. The columns above are conveniences for
   /// querying; this is the record.
   payload       Json
@@ -788,4 +791,33 @@ model BillingEvent {
   @@index([reference])
   @@index([customerEmail])
   @@index([type, receivedAt])
+
+  subscription Subscription?
+}
+
+/// A paid period of a plan for one organization, granted from a completed
+/// `BillingEvent` only when the amount matches the plan's price. Periods stack:
+/// paying before `paidUntil` extends from it, not from today. Nothing is
+/// limited by plan yet — this records what was bought.
+model Subscription {
+  id        String   @id @default(cuid())
+  /// `mikumi` / `kilimanjaro` / `serengeti` — a `PRICING_PLANS` slug.
+  plan      String
+  /// `monthly` or `yearly`.
+  billing   String
+  /// Whole shillings paid, equal to the plan's price for `billing`.
+  amount    Int
+  currency  String
+  startsAt  DateTime
+  paidUntil DateTime
+  createdAt DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// One grant per payment, so a re-run can't double the period.
+  billingEventId String       @unique
+  billingEvent   BillingEvent @relation(fields: [billingEventId], references: [id])
+
+  @@index([organizationId, paidUntil])
 }
