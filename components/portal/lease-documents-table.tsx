@@ -21,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsMobile } from "@/hooks/use-mobile"
 import { formatDate } from "@/lib/format"
 import type { LeaseStatus } from "@/lib/leases"
+import { lastDayOf } from "@/lib/dates"
 
 /** One file on one of the tenant's leases, flattened for the table. */
 export type LeaseDocumentRow = {
@@ -45,7 +46,7 @@ export type LeaseDocumentRow = {
 
 function term(row: LeaseDocumentRow) {
   const months = `${row.durationMonths} month${row.durationMonths === 1 ? "" : "s"}`
-  return `${formatDate(new Date(row.startDate))} – ${formatDate(new Date(row.endDate))} · ${months}`
+  return `${formatDate(new Date(row.startDate))} – ${formatDate(lastDayOf(row.endDate))} · ${months}`
 }
 
 /**
