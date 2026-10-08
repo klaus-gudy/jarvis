@@ -25,6 +25,7 @@ import { listDocuments } from "@/lib/documents";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import { getUnit } from "@/lib/units";
 import { cn } from "@/lib/utils";
+import { lastDayOf } from "@/lib/dates";
 
 /** Tabs a link may open on, e.g. `?tab=photos`. */
 const TABS = ["overview", "leases", "photos", "documents", "activity"] as const;
@@ -307,7 +308,7 @@ export default async function UnitDetailPage({
                           // instead of clipping it.
                           <span className="inline-flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
                             {formatDate(currentLease.startDate)} →{" "}
-                            {formatDate(currentLease.endDate)}
+                            {formatDate(lastDayOf(currentLease.endDate))}
                             <ExpiryTag expiry={currentLease.expiry} />
                           </span>
                         }
