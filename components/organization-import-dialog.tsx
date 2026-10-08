@@ -28,7 +28,7 @@ type Phase = "choose" | "uploading" | "done";
  * Restores a backup downloaded from "Export data" into this organization.
  *
  * Unlike `ImportDialog` (units, tenants), there is no per-row review: the
- * five sheets reference each other, so accepting some rows and rejecting
+ * sheets reference each other, so accepting some rows and rejecting
  * others would leave leases pointing at units that were never created. The
  * server validates the whole file and either restores everything or nothing,
  * so this dialog only has a file picker and a result.
@@ -209,11 +209,23 @@ export function OrganizationImportDialog({
                   </span>
                   leases
                 </li>
-                <li className="col-span-2 rounded-lg border p-2.5">
+                <li className="rounded-lg border p-2.5">
                   <span className="block text-lg font-semibold tabular-nums">
                     {summary.payments}
                   </span>
                   payments
+                </li>
+                <li className="rounded-lg border p-2.5">
+                  <span className="block text-lg font-semibold tabular-nums">
+                    {summary.paymentAccounts}
+                  </span>
+                  payment accounts
+                </li>
+                <li className="col-span-2 rounded-lg border p-2.5">
+                  <span className="block text-lg font-semibold tabular-nums">
+                    {summary.paymentClaims}
+                  </span>
+                  payment claims
                 </li>
               </ul>
             </div>
