@@ -310,6 +310,7 @@ export default async function MemberDetailPage({
               `paidAt` as an ISO string — so the rows cross to the client as
               they are. */}
           <MemberPaymentsTab
+            membershipId={member.membershipId}
             payments={payments}
             isTenant={isTenant}
             roleName={member.roleName}
