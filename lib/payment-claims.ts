@@ -1,8 +1,17 @@
 import { audit, snapshot, type Actor } from "@/lib/audit";
 import type { AuthContext } from "@/lib/authz";
+import { createDocument } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import type { RecordPaymentInput } from "@/lib/invoices-schemas";
+import { invoiceReference } from "@/lib/invoice-types";
 import { recordPayment } from "@/lib/invoices";
+import { sendClaimSubmittedToOwner } from "@/lib/mail/billing";
+import { sendClaimRejectedToTenant } from "@/lib/mail/tenants";
+import { getOwnerRecipients, getTenantRecipient } from "@/lib/notifications/recipients";
+import { displayName } from "@/lib/user-display";
+
+/** The system type a tenant's receipt is filed under, on the invoice. */
+export const CLAIM_RECEIPT_TYPE_ID = "sys_CLAIM_RECEIPT";
 
 /**
  * Payments a tenant reports from the portal. A claim is **never** part of a
@@ -19,6 +28,8 @@ export type PaymentClaimView = {
   method: string | null;
   notes: string | null;
   createdAt: Date;
+  /** The tenant's receipt, a `FileAsset` id readable at `/api/documents/<id>`. */
+  receiptId: string | null;
 };
 
 const VIEW = {
@@ -28,6 +39,7 @@ const VIEW = {
   method: true,
   notes: true,
   createdAt: true,
+  receiptId: true,
 } as const;
 
 /**
@@ -176,16 +188,23 @@ export async function confirmPaymentClaim(
   return result;
 }
 
+/** `reason` is required — the tenant is told it, in the portal and by email. */
 export async function rejectPaymentClaim(
   organizationId: string,
   invoiceId: string,
   claimId: string,
+  reason: string,
   actor: Actor
 ) {
   return prisma.$transaction(async (tx) => {
     const rejected = await tx.paymentClaim.updateMany({
       where: { ...orgClaim(organizationId, invoiceId, claimId), status: "PENDING" },
-      data: { status: "REJECTED", reviewedAt: new Date(), reviewedById: actor.membershipId },
+      data: {
+        status: "REJECTED",
+        rejectionReason: reason,
+        reviewedAt: new Date(),
+        reviewedById: actor.membershipId,
+      },
     });
     if (rejected.count === 0) return { error: "not-found" as const };
 
@@ -195,8 +214,110 @@ export async function rejectPaymentClaim(
       action: "payment_claim.rejected",
       entityType: "PaymentClaim",
       entityId: claimId,
-      changes: { status: ["PENDING", "REJECTED"] },
+      changes: { status: ["PENDING", "REJECTED"], rejectionReason: [null, reason] },
     });
     return { ok: true as const };
   });
+}
+
+/** `payment_claim.rejected` — to the tenant, with the reason. Run in `after()`. */
+export async function announceClaimRejected(claimId: string) {
+  const claim = await prisma.paymentClaim.findUnique({
+    where: { id: claimId },
+    select: {
+      amount: true,
+      paidAt: true,
+      rejectionReason: true,
+      membershipId: true,
+      invoice: { select: { lease: { select: { unit: { select: { label: true } } } } } },
+    },
+  });
+  if (!claim?.rejectionReason) return;
+  const tenant = await getTenantRecipient(claim.membershipId);
+  if (!tenant) return;
+  await sendClaimRejectedToTenant(
+    {
+      amount: claim.amount,
+      paidAt: claim.paidAt,
+      reason: claim.rejectionReason,
+      unitLabel: claim.invoice.lease.unit.label,
+    },
+    tenant
+  );
+}
+
+/** `payment_claim.submitted` — to every owner. Run in `after()`. */
+export async function announceClaimSubmitted(organizationId: string, claimId: string) {
+  const claim = await prisma.paymentClaim.findUnique({
+    where: { id: claimId },
+    select: {
+      amount: true,
+      paidAt: true,
+      method: true,
+      invoice: {
+        select: {
+          id: true,
+          lease: {
+            select: {
+              id: true,
+              unit: { select: { label: true, property: { select: { name: true } } } },
+              membership: { select: { user: { select: { name: true, email: true, phone: true } } } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!claim) return;
+  const { lease } = claim.invoice;
+  const facts = {
+    leaseId: lease.id,
+    invoiceReference: invoiceReference(claim.invoice.id),
+    tenantName: displayName(lease.membership.user),
+    unitLabel: lease.unit.label,
+    propertyName: lease.unit.property.name,
+    amount: claim.amount,
+    paidAt: claim.paidAt,
+    method: claim.method,
+  };
+  for (const owner of await getOwnerRecipients(organizationId)) {
+    await sendClaimSubmittedToOwner(facts, owner);
+  }
+}
+
+/**
+ * Files the tenant's receipt on the invoice and links it to their claim. Only
+ * their own claim, only while it is still pending, and only once — a claim
+ * already reviewed has nothing left to prove.
+ */
+export async function attachClaimReceipt(
+  ctx: AuthContext,
+  claimId: string,
+  file: { name: string; type: string; bytes: Uint8Array }
+) {
+  const claim = await prisma.paymentClaim.findFirst({
+    where: {
+      id: claimId,
+      membershipId: ctx.membershipId,
+      membership: { organizationId: ctx.organizationId },
+    },
+    select: { id: true, status: true, receiptId: true, invoiceId: true },
+  });
+  if (!claim) return { error: "not-found" as const };
+  if (claim.status !== "PENDING") return { error: "reviewed" as const };
+  if (claim.receiptId) return { error: "already-attached" as const };
+
+  const filed = await createDocument(
+    ctx.organizationId,
+    ctx.userId,
+    { assetTypeId: CLAIM_RECEIPT_TYPE_ID, subjectType: "INVOICE", subjectId: claim.invoiceId },
+    file
+  );
+  if ("error" in filed) return { error: "store-failed" as const };
+
+  await prisma.paymentClaim.update({
+    where: { id: claim.id },
+    data: { receiptId: filed.document.id },
+  });
+  return { receiptId: filed.document.id };
 }
