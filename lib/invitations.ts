@@ -3,9 +3,13 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { hashPassword } from "@/lib/auth/hash";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { mayEmailInvitation } from "@/lib/mail/config";
+import { sendInvitationAcceptedToOwner, sendInvitationEmail } from "@/lib/mail/invitations";
+import { getOwnerRecipients } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
 import type { AuthContext } from "@/lib/authz";
-import { parsePermissions } from "@/lib/permissions";
+import { parsePermissions, type RoleKind } from "@/lib/permissions";
+import { displayName } from "@/lib/user-display";
 
 const INVITE_TTL_DAYS = 14;
 
@@ -120,6 +124,134 @@ export async function createInvitation(
     roleKind: role.kind,
     organizationName: role.organization.name,
   };
+}
+
+/**
+ * A fresh link for a pending invitation: a new token (the old link stops
+ * working at once — only the hash is stored), and a new expiry. Held to the
+ * same role rules as `createInvitation`, since it hands the same role over.
+ * Works on an expired invitation too; that is the usual reason to resend.
+ */
+export async function resendInvitation(ctx: AuthContext, id: string) {
+  const invitation = await prisma.invitation.findFirst({
+    where: { id, organizationId: ctx.organizationId, status: "PENDING" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      expiresAt: true,
+      role: {
+        select: { name: true, kind: true, permissions: true, organization: { select: { name: true } } },
+      },
+    },
+  });
+  if (!invitation) return { error: "not-found" as const };
+
+  if (ctx.kind !== "OWNER") {
+    if (invitation.role.kind === "OWNER") return { error: "forbidden" as const };
+    const granted = parsePermissions(invitation.role.permissions);
+    if (granted.some((p) => !ctx.permissions.has(p))) {
+      return { error: "escalation" as const };
+    }
+  }
+
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.invitation.update({
+      where: { id: invitation.id },
+      data: { tokenHash: hashToken(token), expiresAt, ...updatedBy(ctx) },
+    });
+    await audit(tx, {
+      organizationId: ctx.organizationId,
+      actor: ctx,
+      action: "invitation.resent",
+      entityType: "Invitation",
+      entityId: invitation.id,
+      changes: { expiresAt: [invitation.expiresAt, expiresAt] },
+    });
+  });
+
+  return {
+    invitation: { id: invitation.id },
+    token,
+    expiresInDays: INVITE_TTL_DAYS,
+    name: invitation.name,
+    email: invitation.email,
+    roleName: invitation.role.name,
+    roleKind: invitation.role.kind,
+    organizationName: invitation.role.organization.name,
+  };
+}
+
+/**
+ * What happens to the link by email, for the create and resend routes alike:
+ * whether one goes out, why not if not, and the send itself for `after()`.
+ * Never emails a role this deployment keeps quiet (`mayEmailInvitation`), and
+ * says so, so the dialog can tell the inviter to share the link by hand.
+ */
+export function invitationDelivery(input: {
+  inviterUserId: string;
+  email: string | null;
+  name: string | null;
+  roleName: string;
+  roleKind: RoleKind;
+  organizationName: string;
+  token: string;
+  expiresInDays: number;
+}) {
+  const mayEmail = mayEmailInvitation(input.roleKind);
+  const emailed = Boolean(input.email) && mayEmail;
+  return {
+    emailed,
+    emailSuppressedForRole: input.email && !mayEmail ? input.roleName : null,
+    send: async () => {
+      if (!emailed) return;
+      // The inviter's name, for "X invited you" — read here because nothing
+      // in the response depends on it.
+      const inviter = await prisma.user.findUnique({
+        where: { id: input.inviterUserId },
+        select: { name: true },
+      });
+      await sendInvitationEmail({
+        to: input.email,
+        name: input.name,
+        organizationName: input.organizationName,
+        roleName: input.roleName,
+        invitedByName: inviter?.name ?? null,
+        token: input.token,
+        expiresInDays: input.expiresInDays,
+      });
+    },
+  };
+}
+
+/**
+ * `invitation.accepted` — tells the owners who just joined. The person who
+ * accepted is left out if they are an owner themselves. Run in `after()`.
+ */
+export async function announceInvitationAccepted(userId: string, organizationId: string) {
+  const membership = await prisma.membership.findUnique({
+    where: { userId_organizationId: { userId, organizationId } },
+    select: {
+      id: true,
+      role: { select: { name: true } },
+      organization: { select: { name: true } },
+      user: { select: { name: true, email: true, phone: true } },
+    },
+  });
+  if (!membership) return;
+  const joined = {
+    memberName: displayName(membership.user),
+    roleName: membership.role.name,
+    organizationName: membership.organization.name,
+    membershipId: membership.id,
+  };
+  for (const owner of await getOwnerRecipients(organizationId)) {
+    if (owner.email && owner.email === membership.user.email) continue;
+    await sendInvitationAcceptedToOwner(joined, owner);
+  }
 }
 
 export async function revokeInvitation(
