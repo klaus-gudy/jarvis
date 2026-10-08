@@ -21,6 +21,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { safeNextPath } from "@/lib/site";
 
 /**
  * Shown when a signed-in user belongs to no organization — never invited, or
@@ -46,6 +47,13 @@ export function CreateOrganizationDialog({ userName }: { userName: string }) {
 
     if (response.ok) {
       toast.success(`${name} created`);
+      // Sent here by `/subscribe` to make an organization first: carry on to
+      // checkout now that there is one to pay for.
+      const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+      if (next) {
+        window.location.assign(next);
+        return;
+      }
       router.refresh();
       return;
     }
