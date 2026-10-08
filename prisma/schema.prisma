@@ -639,6 +639,13 @@ model FileAsset {
    * component that formats a size.
    */
   sizeBytes Int
+  /**
+   * Generated contracts only: the signature placeholders drawn into this file
+   * (`landlord_signature`, `tenant_signature`). Non-empty means a signed
+   * contract, which `deleteDocument` refuses to remove. Empty for every other
+   * file, and for contracts filed before 2026-10-08.
+   */
+  signedBy  String[] @default([])
 
   /**
    * What kind of document this is. A foreign key rather than an enum since
