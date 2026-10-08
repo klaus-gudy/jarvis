@@ -460,6 +460,8 @@ export type RenderedTemplate = {
   missing: string[];
   /** Tokens the body used that no placeholder defines — a typo, usually. */
   unknown: string[];
+  /** Signature tokens that rendered as a drawn image — who signed this copy. */
+  signatures: string[];
 };
 
 /**
@@ -489,6 +491,7 @@ export function renderLeaseTemplate(
 ): RenderedTemplate {
   const missing = new Set<string>();
   const unknown = new Set<string>();
+  const signatures = new Set<string>();
 
   const html = sanitizeTemplateHtml(body).replace(
     TOKEN_PATTERN,
@@ -511,13 +514,20 @@ export function renderLeaseTemplate(
       if (blank) missing.add(key);
       // A signature is an image only when it really is an inlined PNG. Any
       // other value — the preview's "[Owner signature]" — stays escaped text.
-      const html =
-        placeholder.kind === "signature" && !blank && SIGNATURE_DATA_URI.test(value)
-          ? `<img class="jarvis-signature" alt="${escapeHtml(placeholder.label)}" src="${value}" />`
-          : escapeHtml(blank ? BLANK_VALUE : value);
+      const drawn =
+        placeholder.kind === "signature" && !blank && SIGNATURE_DATA_URI.test(value);
+      if (drawn) signatures.add(key);
+      const html = drawn
+        ? `<img class="jarvis-signature" alt="${escapeHtml(placeholder.label)}" src="${value}" />`
+        : escapeHtml(blank ? BLANK_VALUE : value);
       return decorate ? decorate({ key, html, known: true, blank }) : html;
     }
   );
 
-  return { html, missing: [...missing], unknown: [...unknown] };
+  return {
+    html,
+    missing: [...missing],
+    unknown: [...unknown],
+    signatures: [...signatures],
+  };
 }
