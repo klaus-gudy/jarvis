@@ -1,6 +1,7 @@
 import {
   Building2Icon,
   BuildingIcon,
+  CreditCardIcon,
   FileTextIcon,
   LayoutDashboardIcon,
   ScrollTextIcon,
@@ -114,6 +115,13 @@ export const navItems: NavItem[] = [
         permission: ORGANIZATION_SETTINGS_PERMISSIONS,
         icon: Building2Icon,
         description: "Owner, backup and restore, and deleting the organization",
+      },
+      {
+        title: "Billing",
+        url: "/settings/billing",
+        permission: "org:manage",
+        icon: CreditCardIcon,
+        description: "Your plan, what is paid, and paying for the next period",
       },
       {
         title: "Lease templates",
