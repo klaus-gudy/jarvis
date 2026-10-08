@@ -362,6 +362,7 @@ export default async function UnitDetailPage({
         {canReadLeases && (
           <TabsContent value="leases" className="pt-5">
             <UnitLeasesTab
+              unitId={unit.id}
               leases={unit.leases.map((lease) => ({
                 id: lease.id,
                 reference: lease.reference,
