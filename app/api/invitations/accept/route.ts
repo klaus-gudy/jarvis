@@ -1,6 +1,7 @@
+import { after } from "next/server";
 import { z } from "zod";
 
-import { acceptInvitation } from "@/lib/invitations";
+import { acceptInvitation, announceInvitationAccepted } from "@/lib/invitations";
 import { createSession, getSession } from "@/lib/auth/session";
 import { optionalTzPhoneSchema } from "@/lib/phone";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
@@ -104,6 +105,8 @@ export async function POST(request: Request) {
   // Either a new account, a passwordless member activating, or the signed-in
   // user themselves — never someone else's existing account.
   await createSession(result.accepted.userId, result.accepted.organizationId);
+  const { userId, organizationId } = result.accepted;
+  after(() => announceInvitationAccepted(userId, organizationId));
 
   return Response.json({ ok: true });
 }
