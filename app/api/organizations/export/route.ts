@@ -10,6 +10,8 @@ import {
 import type {
   LeaseExportRow,
   MembershipExportRow,
+  PaymentAccountExportRow,
+  PaymentClaimExportRow,
   PaymentExportRow,
   PropertyExportRow,
   UnitExportRow,
@@ -126,6 +128,36 @@ const PAYMENT_COLUMNS: ExportColumn<PaymentExportRow>[] = [
   { header: "createdAt", width: 14, format: DATE_FORMAT, value: (p) => p.createdAt },
 ];
 
+const PAYMENT_ACCOUNT_COLUMNS: ExportColumn<PaymentAccountExportRow>[] = [
+  { header: "id", width: 26, value: (a) => a.id },
+  // References the Memberships sheet's `id` column — whose account this is.
+  { header: "membershipId", width: 26, value: (a) => a.membershipId },
+  { header: "type", width: 14, value: (a) => a.type },
+  { header: "provider", width: 18, value: (a) => a.provider },
+  { header: "accountNumber", width: 20, value: (a) => a.accountNumber },
+  { header: "accountName", width: 24, value: (a) => a.accountName ?? "" },
+  { header: "isDefault", width: 10, value: (a) => (a.isDefault ? "TRUE" : "FALSE") },
+  { header: "createdAt", width: 14, format: DATE_FORMAT, value: (a) => a.createdAt },
+  { header: "updatedAt", width: 14, format: DATE_FORMAT, value: (a) => a.updatedAt },
+];
+
+const PAYMENT_CLAIM_COLUMNS: ExportColumn<PaymentClaimExportRow>[] = [
+  { header: "id", width: 26, value: (c) => c.id },
+  // Resolved through the claim's invoice, exactly as on the Payments sheet.
+  { header: "leaseId", width: 26, value: (c) => c.leaseId },
+  // The tenant who reported it; references the Memberships sheet.
+  { header: "membershipId", width: 26, value: (c) => c.membershipId },
+  { header: "amount", width: 14, format: "#,##0", value: (c) => c.amount },
+  { header: "paidAt", width: 14, format: DATE_FORMAT, value: (c) => c.paidAt },
+  { header: "method", width: 16, value: (c) => c.method ?? "" },
+  { header: "notes", width: 30, value: (c) => c.notes ?? "" },
+  { header: "status", width: 12, value: (c) => c.status },
+  { header: "reviewedAt", width: 14, format: DATE_FORMAT, value: (c) => c.reviewedAt ?? "" },
+  // References the Payments sheet's `id` column, for a confirmed claim.
+  { header: "paymentId", width: 26, value: (c) => c.paymentId ?? "" },
+  { header: "createdAt", width: 14, format: DATE_FORMAT, value: (c) => c.createdAt },
+];
+
 export async function GET() {
   const auth = await authorize("org:backup");
   if (!auth.ok) return auth.response;
@@ -138,6 +170,8 @@ export async function GET() {
     exportSheet("Memberships", MEMBERSHIP_COLUMNS, data.memberships),
     exportSheet("Leases", LEASE_COLUMNS, data.leases),
     exportSheet("Payments", PAYMENT_COLUMNS, data.payments),
+    exportSheet("PaymentAccounts", PAYMENT_ACCOUNT_COLUMNS, data.paymentAccounts),
+    exportSheet("PaymentClaims", PAYMENT_CLAIM_COLUMNS, data.paymentClaims),
   ]);
 
   return xlsxResponse(buffer, exportFilename("organization-backup"));
