@@ -213,6 +213,8 @@ export type DocumentRow = {
    */
   assetType: { id: string; label: string; isPhoto: boolean };
   createdAt: Date;
+  /** Contracts only — see `FileAsset.signedBy`. Empty for everything else. */
+  signedBy: string[];
   /** Null once the uploader has left the organization — the file outlives them. */
   uploadedByName: string | null;
 };
@@ -223,6 +225,7 @@ const ROW_SELECT = {
   fileType: true,
   sizeBytes: true,
   createdAt: true,
+  signedBy: true,
   assetType: { select: { id: true, label: true, isPhoto: true } },
   uploadedBy: {
     select: { user: { select: { name: true, email: true, phone: true } } },
@@ -236,6 +239,7 @@ type SelectedRow = {
   sizeBytes: number;
   assetType: { id: string; label: string; isPhoto: boolean };
   createdAt: Date;
+  signedBy: string[];
   uploadedBy: {
     user: { name: string | null; email: string | null; phone: string | null };
   } | null;
@@ -249,6 +253,7 @@ function toRow(row: SelectedRow): DocumentRow {
     sizeBytes: row.sizeBytes,
     assetType: row.assetType,
     createdAt: row.createdAt,
+    signedBy: row.signedBy,
     uploadedByName: row.uploadedBy ? displayName(row.uploadedBy.user) : null,
   };
 }
@@ -411,7 +416,19 @@ export async function recordDocument(
     name: string;
     type: string;
     sizeBytes: number;
-  }
+    /** Signature placeholders drawn into a generated contract. */
+    signedBy?: string[];
+  },
+  {
+    versioned = false,
+  }: {
+    /**
+     * Adds to what is on file instead of obeying the type's one-per-subject
+     * rule: a regenerated contract is a new version, and the old one stays as
+     * the record of what was agreed (and possibly signed) before.
+     */
+    versioned?: boolean;
+  } = {}
 ) {
   if (!isObjectKeyInOrganization(file.objectKey, organizationId)) {
     return { error: "object-key-foreign" as const };
@@ -441,7 +458,7 @@ export async function recordDocument(
   });
   if (already) return { document: toRow(already), duplicate: true as const };
 
-  if (!assetType.allowsMultiple) {
+  if (!assetType.allowsMultiple && !versioned) {
     const existing = await findExisting(
       organizationId,
       input.subjectType,
@@ -460,6 +477,7 @@ export async function recordDocument(
         fileName: file.name,
         fileType: file.type,
         sizeBytes: file.sizeBytes,
+        signedBy: file.signedBy ?? [],
         assetTypeId: assetType.id,
         organizationId,
         // Null, always: nothing that reaches this function was filed by a person.
@@ -530,6 +548,7 @@ export async function getDocument(organizationId: string, id: string) {
       objectKey: true,
       fileName: true,
       fileType: true,
+      signedBy: true,
       // The subject decides which permission reading or deleting it needs
       // (`lib/document-access.ts`).
       propertyId: true,
@@ -584,6 +603,9 @@ export async function deleteDocument(
 ) {
   const document = await getDocument(organizationId, id);
   if (!document) return { error: "not-found" as const };
+  // A signed contract is the record of what both sides agreed; it outlives
+  // any regeneration and is never removed one file at a time.
+  if (document.signedBy.length > 0) return { error: "signed" as const };
 
   await prisma.$transaction(async (tx) => {
     const row = await tx.fileAsset.delete({ where: { id: document.id } });
