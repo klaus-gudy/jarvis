@@ -126,5 +126,7 @@ export type DocumentView = {
   assetType: { id: string; label: string; isPhoto: boolean };
   /** ISO string. */
   createdAt: string;
+  /** Signed contracts can't be deleted; see `FileAsset.signedBy`. */
+  signedBy?: string[];
   uploadedByName: string | null;
 };
