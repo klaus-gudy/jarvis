@@ -65,7 +65,9 @@ export type PortalLease = {
     status: InvoiceStatus;
     payments: PortalPayment[];
     /** Payments this tenant reported that the landlord hasn't confirmed yet. */
-    pendingClaims: { id: string; amount: number; paidAt: Date; method: string | null }[];
+    pendingClaims: PortalClaim[];
+    /** Rejected in the last 90 days, newest first, with the landlord's reason. */
+    rejectedClaims: (PortalClaim & { rejectionReason: string | null })[];
     coverage: RentCoverage;
   } | null;
   contract: { id: string; fileName: string; fileType: string; sizeBytes: number } | null;
@@ -85,6 +87,17 @@ export type PortalLandlord = {
     isDefault: boolean;
   }[];
 };
+
+export type PortalClaim = {
+  id: string;
+  amount: number;
+  paidAt: Date;
+  method: string | null;
+  /** Whether a receipt was attached. */
+  receiptId: string | null;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type PortalMember = {
   name: string | null;
@@ -211,9 +224,24 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
             select: { id: true, amount: true, paidAt: true, method: true },
           },
           paymentClaims: {
-            where: { status: "PENDING" },
+            where: {
+              OR: [
+                { status: "PENDING" },
+                // Old rejections stop mattering; a recent one explains why a
+                // payment the tenant reported never reached their balance.
+                { status: "REJECTED", reviewedAt: { gte: new Date(now.getTime() - 90 * DAY_MS) } },
+              ],
+            },
             orderBy: { createdAt: "asc" },
-            select: { id: true, amount: true, paidAt: true, method: true },
+            select: {
+              id: true,
+              amount: true,
+              paidAt: true,
+              method: true,
+              status: true,
+              rejectionReason: true,
+              receiptId: true,
+            },
           },
         },
       },
@@ -267,7 +295,10 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
             balance: lease.invoice.amount - paid,
             status: deriveInvoiceStatus(lease.invoice.amount, paid),
             payments: lease.invoice.payments,
-            pendingClaims: lease.invoice.paymentClaims,
+            pendingClaims: lease.invoice.paymentClaims.filter((claim) => claim.status === "PENDING"),
+            rejectedClaims: lease.invoice.paymentClaims
+              .filter((claim) => claim.status === "REJECTED")
+              .reverse(),
             coverage: rentCoverage(lease, { amount: lease.invoice.amount, paid }, now),
           }
         : null,
