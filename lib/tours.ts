@@ -181,6 +181,27 @@ export const TOURS: Tour[] = [
       },
     ],
   },
+  {
+    id: "roles",
+    route: "/roles",
+    label: "Roles tour",
+    steps: [
+      {
+        title: "Who can do what",
+        body: "A role is a list of permissions, and someone can do exactly what their role lists — nothing more is assumed, not even for the Owner.",
+      },
+      {
+        target: '[data-tour="role-grid"]',
+        title: "One card per role",
+        body: "The dots show how far each role reaches, one per area. Open a card to tick permissions or see who holds it. Owner and Tenant can be edited but never deleted.",
+      },
+      {
+        target: '[data-tour="new-role"]',
+        title: "Make your own",
+        body: "Start a caretaker or accountant role from a template, adjust it, then give it to people from the Users page.",
+      },
+    ],
+  },
 ];
 
 /**
