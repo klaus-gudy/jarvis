@@ -282,8 +282,45 @@ export const CHECKOUT_URL = (
  * payer** — base64 is transport, not encryption. It must never carry anything
  * secret, and what it says about the package is a claim to be checked against
  * the amount paid, never a grant on its own.
+ *
+ * `org` names the organization the payment is for, so the webhook can credit
+ * it (`lib/billing/subscriptions.ts`). Only `/subscribe` builds these links,
+ * after making sure there is a signed-in member with an organization — a
+ * payment from nobody-in-particular can't be attributed to anyone.
  */
-export function planCheckoutHref(slug: string, billing: BillingPeriod): string {
-  const meta = btoa(JSON.stringify({ plan: slug, billing }));
+export function planCheckoutHref(
+  slug: string,
+  billing: BillingPeriod,
+  organizationId: string
+): string {
+  const meta = btoa(JSON.stringify({ plan: slug, billing, org: organizationId }));
   return `${CHECKOUT_URL}?meta=${encodeURIComponent(meta)}`;
+}
+
+/** What one period of a plan costs — the amount a webhook must match to grant it. */
+export function planPrice(plan: PricingPlan, billing: BillingPeriod): number {
+  return billing === "yearly" ? plan.yearlyPrice : monthlyPrice(plan);
+}
+
+/**
+ * Every "pay" button goes here, not to the checkout: `/subscribe` makes sure
+ * there is an account and an organization first (registering or creating one
+ * if needed), then forwards to snippe with the organization in `meta`.
+ */
+export function subscribePath(slug: string, billing: BillingPeriod): string {
+  return `/subscribe?plan=${encodeURIComponent(slug)}&billing=${billing}`;
+}
+
+/**
+ * The only places `?next=` may send someone after signing in, registering,
+ * verifying or creating an organization: an invitation link, or `/subscribe`
+ * for a known plan — each in its exact shape, so `next` is never an open
+ * redirect.
+ */
+export function safeNextPath(next: string | null | undefined): string | null {
+  if (!next) return null;
+  if (/^\/invite\/[A-Za-z0-9_-]+$/.test(next)) return next;
+  const subscribe = /^\/subscribe\?plan=([a-z0-9-]+)&billing=(monthly|yearly)$/.exec(next);
+  if (subscribe && PRICING_PLANS.some((plan) => plan.slug === subscribe[1])) return next;
+  return null;
 }
