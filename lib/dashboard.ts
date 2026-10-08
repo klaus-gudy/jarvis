@@ -1,7 +1,7 @@
 import { getActivity } from "@/lib/activity";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
-import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
+import { calendarDaysBetween, lastDayOf, startOfTodayUtc } from "@/lib/dates";
 import { displayName, primaryContact } from "@/lib/user-display";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -516,7 +516,7 @@ export async function getDashboardPanels(
         unitLabel: lease.unit.label,
         propertyName: lease.unit.property.name,
         endDate: lease.endDate,
-        daysLeft: calendarDaysBetween(today, lease.endDate),
+        daysLeft: calendarDaysBetween(today, lastDayOf(lease.endDate)),
       })),
     },
     moveIns: {
