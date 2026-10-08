@@ -12,7 +12,7 @@ const BLUE = "#d6e4f0";
  * inside a SidebarMenuButton is clamped to size-4 by the sidebar's
  * `[&_svg]:size-4` rule; only a class (with `!`) can win that.
  */
-export function RentopsLogo({ className }: { className?: string }) {
+export function BrandLogo({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 56 56"
@@ -47,11 +47,14 @@ export function RentopsLogo({ className }: { className?: string }) {
  * invite). The name is real text rather than an svg <text> node so it uses the
  * app's font and inherits the current colour instead of hard-coding white.
  */
-export function RentopsWordmark({ className }: { className?: string }) {
+export function BrandWordmark({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <RentopsLogo className="size-9" />
+      <BrandLogo className="size-9" />
       <span className="text-xl font-semibold tracking-tight">{SITE_NAME}</span>
     </span>
   );
 }
+
+export const RentopsLogo = BrandLogo;
+export const RentopsWordmark = BrandWordmark;
