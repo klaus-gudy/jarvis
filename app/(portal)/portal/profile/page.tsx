@@ -1,6 +1,7 @@
 import { ProfilePhotoAvatar } from "@/components/documents/profile-photo-avatar"
 import { SignatureCard } from "@/components/members/signature-card"
 import { PortalNoOrganization, PortalNotFound } from "@/components/portal/portal-states"
+import { VerifyEmailCard } from "@/components/portal/verify-email-card"
 import {
   EmergencyContactCard,
   TenantProfileCard,
@@ -59,6 +60,8 @@ export default async function PortalProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {member.email && !member.emailVerified && <VerifyEmailCard email={member.email} />}
 
       <TenantProfileCard
         details={details}
