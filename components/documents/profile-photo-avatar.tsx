@@ -33,6 +33,7 @@ export function ProfilePhotoAvatar({
   name,
   photoId,
   assetTypeId,
+  canEdit = true,
   className = "size-12",
 }: {
   /**
@@ -46,6 +47,8 @@ export function ProfilePhotoAvatar({
   photoId: string | null;
   /** The resolved id of the seeded `PROFILE_PHOTO` type. Editing is disabled without one — should never happen, but a missing seed is not a reason to crash the page. */
   assetTypeId: string | null;
+  /** False when the viewer's role may not change this member's files. */
+  canEdit?: boolean;
   /** Sizes the avatar itself; the add badge is fixed, being only used at one size today. */
   className?: string;
 }) {
@@ -55,7 +58,7 @@ export function ProfilePhotoAvatar({
   const [pending, setPending] = React.useState(false);
 
   // Editing needs both a subject to attach to and a type to file under.
-  const editable = membershipId !== null && assetTypeId !== null;
+  const editable = canEdit && membershipId !== null && assetTypeId !== null;
 
   function handlePick(file: File) {
     if (!(file.type in IMAGE_FILE_TYPES)) {
