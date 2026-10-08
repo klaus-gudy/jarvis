@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { FileTextIcon, ReceiptIcon } from "lucide-react"
+import { FileTextIcon, PaperclipIcon, ReceiptIcon } from "lucide-react"
 
 import { AddPaymentButton } from "@/components/portal/add-payment-button"
 import { InvoiceStatusPill } from "@/components/portal/lease-status"
@@ -76,9 +76,14 @@ export function InvoiceBalanceCard({ lease }: { lease: Invoiced }) {
             <ul className="divide-y rounded-lg border text-sm">
               {invoice.pendingClaims.map((claim) => (
                 <li key={claim.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                  <span className="min-w-0 truncate text-muted-foreground">
-                    {formatDate(claim.paidAt)}
-                    {claim.method ? ` · ${claim.method}` : ""}
+                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                    <span className="truncate">
+                      {formatDate(claim.paidAt)}
+                      {claim.method ? ` · ${claim.method}` : ""}
+                    </span>
+                    {claim.receiptId && (
+                      <PaperclipIcon className="size-3.5 shrink-0" aria-label="Receipt attached" />
+                    )}
                   </span>
                   <span className="shrink-0 font-medium tabular-nums">
                     {formatCurrencyFull(claim.amount)}
@@ -89,6 +94,30 @@ export function InvoiceBalanceCard({ lease }: { lease: Invoiced }) {
             <p className="text-xs text-muted-foreground">
               Your landlord confirms these before they count toward the balance.
             </p>
+          </div>
+        )}
+
+        {invoice.rejectedClaims.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Not confirmed</p>
+            <ul className="divide-y rounded-lg border text-sm">
+              {invoice.rejectedClaims.map((claim) => (
+                <li key={claim.id} className="space-y-1 px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-muted-foreground">
+                      {formatDate(claim.paidAt)}
+                      {claim.method ? ` · ${claim.method}` : ""}
+                    </span>
+                    <span className="shrink-0 font-medium tabular-nums line-through decoration-muted-foreground/60">
+                      {formatCurrencyFull(claim.amount)}
+                    </span>
+                  </div>
+                  {claim.rejectionReason && (
+                    <p className="text-xs text-destructive">{claim.rejectionReason}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
