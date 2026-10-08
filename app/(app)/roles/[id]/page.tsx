@@ -121,7 +121,7 @@ export default async function RoleDetailPage({
         </TabsContent>
 
         <TabsContent value="members" className="pt-5">
-          <RoleMembersTable members={role.members} />
+          <RoleMembersTable roleId={role.id} members={role.members} />
         </TabsContent>
       </Tabs>
     </div>
