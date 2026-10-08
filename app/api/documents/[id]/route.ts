@@ -107,6 +107,12 @@ export async function DELETE(
     if (result.error === "not-found") {
       return Response.json({ error: "Document not found" }, { status: 404 });
     }
+    if (result.error === "signed") {
+      return Response.json(
+        { error: "A signed contract is kept on file and can't be deleted" },
+        { status: 409 }
+      );
+    }
   } catch (cause) {
     if (cause instanceof StorageNotConfiguredError) {
       console.error(cause.message);
