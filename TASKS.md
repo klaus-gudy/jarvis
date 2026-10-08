@@ -11,7 +11,6 @@ Working list. Architecture and standing rules are in `plan.md`.
 ## Open items
 
 ### Product gaps — decided 2026-10-08, build next
-- [ ] **Branding:** "Rentoo" everywhere the user sees it, every string read from `SITE_NAME` (`app/page.tsx`, `not-found.tsx`, `(auth)/layout`, `(auth)/login`, `payment-complete`, `app-loader`, `logo`, `org-switcher`, landing). Mail `service_name` stays `"Jarvis"`.
 - [ ] **Auto-renew:** `Unit.autoRenew` stays as the default; `Lease.autoRenew` is copied from it at creation and editable per lease; renewal and expiry notices read the lease.
 - [ ] **End date = last day of the lease:** Ended from 00:00 the day *after* `endDate`; the badge can say "ends today". Check `leaseStatus()`, `syncLeaseStatuses`, overlap checks and renewal start dates.
 - [ ] **Tenant email:** tenants with a verified email get lease created/renewed/ending, payment confirmed, claim rejected (with reason) and contract-ready-to-sign. Ends the owners-only rule for these events only. Phone-only users on the reset screen are told to ask their landlord to add an email (landlord edits it on the member page); no SMS reset.
@@ -19,10 +18,7 @@ Working list. Architecture and standing rules are in `plan.md`.
 - [ ] **Contracts keep every version:** regenerate adds a contract and marks the old one superseded; a signed contract can't be deleted.
 - [ ] **Template editor:** preview filled with a chosen real lease; a Swahili starter seeded beside the English one; backfill `tenant_nationality`.
 - [ ] **Photo thumbnails:** resized derivatives so lists stop loading full-size photos.
-- [ ] **Backup:** add `PaymentAccount` and `PaymentClaim` sheets (export + restore).
 - [ ] **Payment claims:** required rejection reason (portal + tenant email); email owners on a new claim; tenant can attach a receipt (image/PDF).
-- [ ] **Permissions:** grey out/hide write controls the API would refuse (lease detail, member page, documents panels); re-add the `roles` tour; seed the Tenant role in `createOrganizationForUser`.
-- [ ] **Units table polish:** arithmetic in unit/lease rent inputs, amenities column, sticky filters on per-entity tables.
 - [ ] **Subscriptions** (with the snippe phase below): a pay link clicked without an org sends the visitor to register first, then on to checkout with the org id in `meta`. Webhook creates a `Subscription` (plan, period, paid-until) only when `amount` matches the plan price; shown in Settings. No plan limits yet.
 
 **Not chosen (2026-10-08):** cover photo/reorder, per-file upload retry, remove profile photo, custom file-type management, member-docs pagination; revoke notice and per-org invite-email override; undo/redo + table controls; FileAsset in backup; `DocumentJob` render status; org-wide Invoices page; "Issue invoice" for pre-billing leases; tenant pay-online; making `User.phone` required (stays nullable). Also still open: an org whose owners all lack an email logs a notice as sent and never retries.
@@ -69,6 +65,7 @@ Phase numbers in the archive are not unique (two each of 28, 62 and 83) — sear
 | 80–90 | Contract pipeline → PDF → storage, backfill, Excel export, org backup/restore, rendering moved to `document-worker` |
 | 91–96 | One broker naming convention, emailed invitations, owners-only mail, invite verification, day-count fix |
 | Later (2026-09) | Stored `Lease.status`; consumers start inside the server; hourly cron; `automatifier`-driven renewal/vacating (lazy sweep removed); auto-renew defaults; tours stored per user; pricing packages; hosted checkout; `/payment-complete` |
+| 2026-10-08 | Rentoo branding sweep; write controls hidden by permission (documents, photos, member edit, create lease); roles tour; Tenant role seeded on org create; arithmetic rent inputs, amenities column, per-entity sticky filters; backup carries PaymentAccounts + PaymentClaims |
 | Production Docker image | Multi-stage Node 24 build, Next.js standalone server, non-root runtime, migrations on startup, runtime secrets excluded from build context |
 
 ## Phase — snippe webhook
