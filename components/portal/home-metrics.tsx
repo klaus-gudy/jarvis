@@ -1,7 +1,7 @@
 import { Building2Icon, CalendarClockIcon, WalletIcon } from "lucide-react"
 
 import { MetricCard } from "@/components/dashboard/metric-card"
-import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates"
+import { calendarDaysBetween, lastDayOf, startOfTodayUtc } from "@/lib/dates"
 import { formatCurrency, formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLandlord, PortalLease } from "@/lib/portal"
 
@@ -36,7 +36,7 @@ export function OutstandingCard({ lease }: { lease: PortalLease | null }) {
       ? `Due ${formatDate(invoice.dueDate)}`
       : invoice.balance === 0
         ? "The whole lease is paid"
-        : `Rent covered until ${formatDate(coverage.coveredUntil)}`
+        : `Rent covered until ${formatDate(lastDayOf(coverage.coveredUntil))}`
 
   return (
     <MetricCard
@@ -110,7 +110,7 @@ export function DaysLeftCard({ lease }: { lease: PortalLease | null }) {
         value={lease.status}
         label="This lease is no longer running"
         href="/portal/lease"
-        stats={[{ label: "Ended on", value: formatDate(lease.endDate) }, renewal]}
+        stats={[{ label: "Ended on", value: formatDate(lastDayOf(lease.endDate)) }, renewal]}
       />
     )
   }
@@ -128,7 +128,7 @@ export function DaysLeftCard({ lease }: { lease: PortalLease | null }) {
       stats={[
         {
           label: "Ends on",
-          value: formatDate(lease.endDate),
+          value: formatDate(lastDayOf(lease.endDate)),
           tone: warn ? "accent" : "default",
         },
         renewal,
