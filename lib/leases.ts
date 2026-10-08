@@ -3,11 +3,12 @@ import {
   sendLeaseRenewedToOwner,
   type LeaseFacts,
 } from "@/lib/mail/leases";
+import { sendLeaseCreatedToTenant, sendLeaseRenewedToTenant } from "@/lib/mail/tenants";
 import type { PropertyPreview } from "@/components/hover-cards/property-hover-card";
 import type { UnitPreview } from "@/components/hover-cards/unit-hover-card";
 import { audit, createdBy, diff, snapshot, updatedBy, type Actor } from "@/lib/audit";
 import { getProfilePhotoIds } from "@/lib/documents";
-import { getOwnerRecipients } from "@/lib/notifications/recipients";
+import { getOwnerRecipients, getTenantRecipient } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
 import { invoiceReference } from "@/lib/invoice-types";
 import { displayName } from "@/lib/user-display";
@@ -783,6 +784,7 @@ export async function leaseFacts(leaseId: string): Promise<LeaseFacts | null> {
       durationMonths: true,
       monthlyRent: true,
       leaseAmount: true,
+      membershipId: true,
       invoice: { select: { id: true, dueDate: true } },
       unit: { select: { label: true, property: { select: { name: true } } } },
       membership: { select: { user: { select: { name: true, email: true, phone: true } } } },
@@ -794,6 +796,7 @@ export async function leaseFacts(leaseId: string): Promise<LeaseFacts | null> {
 
   return {
     leaseId: lease.id,
+    tenantMembershipId: lease.membershipId,
     reference: leaseReference(lease.id),
     tenantName: displayName(lease.membership.user),
     propertyName: lease.unit.property.name,
@@ -808,7 +811,7 @@ export async function leaseFacts(leaseId: string): Promise<LeaseFacts | null> {
   };
 }
 
-/** `lease.created` — to every owner. Never throws. */
+/** `lease.created` — to every owner, and the tenant if verified. Never throws. */
 export async function announceLeaseCreated(
   organizationId: string,
   leaseId: string
@@ -819,6 +822,8 @@ export async function announceLeaseCreated(
   for (const owner of await getOwnerRecipients(organizationId)) {
     await sendLeaseCreatedToOwner(facts, owner);
   }
+  const tenant = await getTenantRecipient(facts.tenantMembershipId);
+  if (tenant) await sendLeaseCreatedToTenant(facts, tenant);
 }
 
 /** One renewal the sweep performed, as much of it as an email needs. */
@@ -846,5 +851,7 @@ export async function announceLeaseRenewals(
     for (const owner of owners) {
       await sendLeaseRenewedToOwner(facts, renewal.previousEndDate, owner);
     }
+    const tenant = await getTenantRecipient(facts.tenantMembershipId);
+    if (tenant) await sendLeaseRenewedToTenant(facts, renewal.previousEndDate, tenant);
   }
 }
