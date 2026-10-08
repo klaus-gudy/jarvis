@@ -19,6 +19,7 @@ import type {
 import { formatCurrency, formatDayMonth, formatRelativeTime } from "@/lib/format";
 import type { PropertySummary } from "@/lib/properties";
 import { initials } from "@/lib/user-display";
+import { lastDayOf } from "@/lib/dates";
 
 /** Matches the tables' person cells, so the same tenant looks the same anywhere. */
 function PersonAvatar({ name, photoId }: { name: string; photoId: string | null }) {
@@ -53,7 +54,7 @@ export function RenewalsPanel({
           title={renewal.tenantName}
           subtitle={`${renewal.propertyName} / ${renewal.unitLabel}`}
           trailing={`${renewal.daysLeft}d`}
-          trailingCaption={formatDayMonth(renewal.endDate)}
+          trailingCaption={formatDayMonth(lastDayOf(renewal.endDate))}
           // Under a month left is the point where it stops being a diary note.
           tone={renewal.daysLeft <= 30 ? "accent" : "default"}
         />
