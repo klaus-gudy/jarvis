@@ -1,4 +1,4 @@
-import type { PermissionRequirement } from "@/lib/authz";
+import { can, type AuthContext, type PermissionRequirement } from "@/lib/authz";
 
 /**
  * Which permission reading or writing a document needs depends on what it is
@@ -45,6 +45,15 @@ export function documentRequirement(
     default:
       return general;
   }
+}
+
+/** Whether `ctx` may upload or delete files on `subject` — for hiding controls. */
+export function canWriteDocuments(
+  ctx: Pick<AuthContext, "kind" | "permissions" | "membershipId">,
+  subject: DocumentSubject
+) {
+  const required = documentRequirement(subject, "write", ctx);
+  return !required || can(ctx, required);
 }
 
 /** The subject of a stored row, from its six nullable subject columns. */
