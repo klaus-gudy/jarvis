@@ -28,6 +28,7 @@ import {
 } from "@/components/settings/rich-text-editor";
 import {
   TemplatePreview,
+  PREVIEW_MODE_LABEL,
   type PreviewMode,
 } from "@/components/settings/template-preview";
 import { Badge } from "@/components/ui/badge";
@@ -271,19 +272,23 @@ export function LeaseTemplateForm({
             editor cannot answer, so the control does not exist there.
           */}
           {mode === "preview" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="bg-card"
-              onClick={() =>
-                setPreviewMode((current) =>
-                  current === "tokens" ? "sample" : "tokens"
-                )
-              }
-            >
-              {previewMode === "tokens" ? "Sample data" : "Placeholders"}
-            </Button>
+            <div className="inline-flex rounded-lg bg-muted p-0.5">
+              {(["tokens", "sample", "lease"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setPreviewMode(value)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                    previewMode === value
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {PREVIEW_MODE_LABEL[value]}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Only once there is something to throw away. */}
@@ -382,7 +387,7 @@ export function LeaseTemplateForm({
             */}
             <div className="flex justify-end lg:hidden">
               <div className="inline-flex rounded-full bg-muted p-0.5">
-                {(["tokens", "sample"] as const).map((value) => (
+                {(["tokens", "sample", "lease"] as const).map((value) => (
                   <button
                     key={value}
                     type="button"
@@ -394,7 +399,7 @@ export function LeaseTemplateForm({
                         : "text-muted-foreground"
                     )}
                   >
-                    {value === "tokens" ? "Placeholders" : "Sample data"}
+                    {PREVIEW_MODE_LABEL[value]}
                   </button>
                 ))}
               </div>
