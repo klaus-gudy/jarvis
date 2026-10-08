@@ -5,6 +5,7 @@ import { LEASE_STATUS_VARIANT } from "@/components/members/member-lease-columns"
 import type { UnitLeaseRow } from "@/components/properties/unit-lease-columns";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { lastDayOf } from "@/lib/dates";
 
 /** A lease as one card, for the mobile list on a unit's Leases tab — `MemberLeaseCard` with the tenant in place of the unit. */
 export function UnitLeaseCard({ lease }: { lease: UnitLeaseRow }) {
@@ -26,7 +27,7 @@ export function UnitLeaseCard({ lease }: { lease: UnitLeaseRow }) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span>
           {formatDate(new Date(lease.startDate))} →{" "}
-          {formatDate(new Date(lease.endDate))}
+          {formatDate(lastDayOf(lease.endDate))}
         </span>
         <ExpiryTag expiry={lease.expiry} />
       </div>
