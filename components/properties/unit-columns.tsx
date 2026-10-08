@@ -40,9 +40,12 @@ export type UnitRow = {
   photos: { id: string; fileName: string }[];
 };
 
+/** Amenities shown inline before the rest fold into a "+N". */
+const AMENITIES_SHOWN = 2;
+
 /**
- * Floor, block, size, minimum tenure and amenities don't get columns — they
- * only ever show up in the View dialog, opened from the row actions.
+ * Floor, block and minimum tenure don't get columns — they only ever show up
+ * in the View dialog, opened from the row actions.
  */
 export function buildUnitColumns({
   rowActions,
@@ -102,6 +105,30 @@ export function buildUnitColumns({
         );
       },
       filterFn: facetFilterFn,
+    },
+    {
+      // Joined into text so the table's search finds "parking" like any column.
+      id: "amenities",
+      accessorFn: (unit) => unit.amenities.join(", "),
+      header: "Amenities",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const { amenities } = row.original;
+        if (amenities.length === 0) return <span className="text-muted-foreground">—</span>;
+        const hidden = amenities.length - AMENITIES_SHOWN;
+        return (
+          <div className="flex flex-wrap items-center gap-1" title={amenities.join(", ")}>
+            {amenities.slice(0, AMENITIES_SHOWN).map((amenity) => (
+              <Badge key={amenity} variant="outline" className="font-normal">
+                {amenity}
+              </Badge>
+            ))}
+            {hidden > 0 && (
+              <span className="text-xs text-muted-foreground">+{hidden}</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "status",
