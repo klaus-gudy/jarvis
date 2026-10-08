@@ -54,21 +54,16 @@ export async function verifySessionToken(
   try {
     const { payload } = await jwtVerify(token, getSecret(), {
       algorithms: ["HS256"],
+      audience: SESSION_AUDIENCE,
     });
-    // TODO(after 2026-10-07): require `aud === "session"` outright. Sessions
-    // minted before the audience existed carry none and live 7 days; until
-    // they have expired, an audience-less token is accepted only if it is
-    // not a reset ticket (the old tickets are the ones marked `kind`).
-    const legacy = payload.aud === undefined && payload.kind === undefined;
-    if (payload.aud !== SESSION_AUDIENCE && !legacy) return null;
-    if (!payload.sub) return null;
+    // Every token carrying the session audience was minted with `sv`; one
+    // without it is not ours to trust.
+    if (!payload.sub || typeof payload.sv !== "number") return null;
     return {
       sub: payload.sub,
       orgId: (payload.orgId as string | null) ?? null,
-      // Tokens minted before the claim existed were all persistent cookies.
-      persist: (payload.persist as boolean | undefined) ?? true,
-      // Tokens minted before revocation existed match the column's default.
-      sv: typeof payload.sv === "number" ? payload.sv : 0,
+      persist: payload.persist === true,
+      sv: payload.sv,
     };
   } catch {
     return null;
