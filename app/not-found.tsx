@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeftIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { RentopsWordmark } from "@/components/logo"
+import { BrandWordmark } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function NotFound() {
@@ -18,7 +18,7 @@ export default function NotFound() {
       </div>
 
       <div className="flex w-full max-w-sm flex-col items-center text-center">
-        <RentopsWordmark className="mb-10" />
+        <BrandWordmark className="mb-10" />
 
         <p className="text-sm font-medium tracking-widest text-muted-foreground">
           404
