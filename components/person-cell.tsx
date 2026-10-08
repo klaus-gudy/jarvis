@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initials } from "@/lib/user-display";
+import { documentImageSrc } from "@/lib/document-options";
 
 /**
  * Shared by every table and card that names a person, so the same member
@@ -21,7 +22,7 @@ export function PersonCell({
   return (
     <div className="flex items-center gap-2.5">
       <Avatar className="size-8 shrink-0">
-        {photoId && <AvatarImage src={`/api/documents/${photoId}`} alt={name} />}
+        {photoId && <AvatarImage src={documentImageSrc(photoId, 96)} alt={name} />}
         <AvatarFallback className="text-xs">{initials(name)}</AvatarFallback>
       </Avatar>
       <span className="font-medium">{children ?? name}</span>
