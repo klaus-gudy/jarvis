@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import { INVOICE_STATUS_VARIANT } from "@/lib/invoice-types";
 import type { LeaseRow, LeaseStatus } from "@/lib/leases";
+import { lastDayOf } from "@/lib/dates";
 
 const STATUS_VARIANT: Record<LeaseStatus, "secondary" | "outline" | "destructive"> =
   {
@@ -42,7 +43,7 @@ export function LeaseCard({ lease }: { lease: LeaseRow }) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span>
           {formatDate(new Date(lease.startDate))} →{" "}
-          {formatDate(new Date(lease.endDate))}
+          {formatDate(lastDayOf(lease.endDate))}
         </span>
         <ExpiryTag expiry={lease.expiry} />
       </div>
