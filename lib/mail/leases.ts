@@ -1,3 +1,4 @@
+import { lastDayOf } from "@/lib/dates";
 import { formatCurrencyFull } from "@/lib/format";
 import { MAIL_SERVICE_NAME, type MailRoutingKey } from "@/lib/mail/config";
 import { appUrl, escapeHtml, renderEmail, type EmailParts } from "@/lib/mail/layout";
@@ -54,7 +55,7 @@ export type LeaseFacts = {
 /** The terms table both `lease.created` emails repeat, so they can't diverge. */
 function termsLines(lease: LeaseFacts) {
   return [
-    `Term: <strong>${escapeHtml(formatDate(lease.startDate))}</strong> to <strong>${escapeHtml(formatDate(lease.endDate))}</strong> (${lease.durationMonths} months).`,
+    `Term: <strong>${escapeHtml(formatDate(lease.startDate))}</strong> to <strong>${escapeHtml(formatDate(lastDayOf(lease.endDate)))}</strong> (${lease.durationMonths} months).`,
     `Rent: <strong>${escapeHtml(formatCurrencyFull(lease.monthlyRent))}</strong> a month — ${escapeHtml(formatCurrencyFull(lease.leaseAmount))} over the full term.`,
   ];
 }
@@ -101,7 +102,7 @@ export async function sendLeaseRenewedToOwner(
       heading: `${lease.unitLabel} renewed for ${lease.durationMonths} more months`,
       body: [
         owner.name?.trim() ? `Hi ${escapeHtml(owner.name.trim())},` : "Hi,",
-        `<strong>${escapeHtml(lease.tenantName)}</strong>'s lease on <strong>${escapeHtml(lease.unitLabel)}</strong> at <strong>${escapeHtml(lease.propertyName)}</strong> ended on ${escapeHtml(formatDate(previousEndDate))} and renewed automatically, because the unit is set to auto-renew.`,
+        `<strong>${escapeHtml(lease.tenantName)}</strong>'s lease on <strong>${escapeHtml(lease.unitLabel)}</strong> at <strong>${escapeHtml(lease.propertyName)}</strong> ended on ${escapeHtml(formatDate(lastDayOf(previousEndDate)))} and renewed automatically, because the unit is set to auto-renew.`,
         ...termsLines(lease),
         // Stated because it is the one thing about a renewal that surprises
         // people: the agreed rate carries forward, and a unit whose asking
@@ -140,7 +141,7 @@ export async function sendLeaseExpiringToOwner(
       heading: `${lease.unitLabel} at ${lease.propertyName} — ${days} left`,
       body: [
         owner.name?.trim() ? `Hi ${escapeHtml(owner.name.trim())},` : "Hi,",
-        `<strong>${escapeHtml(lease.tenantName)}</strong>'s lease (${escapeHtml(lease.reference)}) ends on <strong>${escapeHtml(formatDate(lease.endDate))}</strong>.`,
+        `<strong>${escapeHtml(lease.tenantName)}</strong>'s lease (${escapeHtml(lease.reference)}) ends on <strong>${escapeHtml(formatDate(lastDayOf(lease.endDate)))}</strong>.`,
         // Said plainly because the alternative — the landlord assuming it is
         // handled — is how a unit ends up empty on the first of the month.
         `This unit isn't set to renew automatically, so nothing happens unless you act: renew at ${escapeHtml(formatCurrencyFull(lease.monthlyRent))} a month, agree a new rate, or start looking for the next tenant.`,
