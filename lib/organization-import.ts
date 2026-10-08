@@ -92,6 +92,8 @@ type ParsedLease = {
   durationMonths: number;
   monthlyRent: number;
   leaseAmount: number;
+  /** Null in backups from before leases carried the flag — the unit's applies. */
+  autoRenew: boolean | null;
   oldRenewedFromId: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -447,6 +449,7 @@ export async function parseOrganizationBackup(
         durationMonths,
         monthlyRent,
         leaseAmount,
+        autoRenew: strAt(row, index, "autoRenew") === null ? null : boolAt(row, index, "autoRenew"),
         oldRenewedFromId,
         createdAt: dateAt(row, index, "createdAt"),
         updatedAt: dateAt(row, index, "updatedAt"),
@@ -850,6 +853,8 @@ export async function importOrganizationBackup(
         }
       }
 
+      // Older backups have no per-lease flag; their leases take the unit's.
+      const unitAutoRenew = new Map(data.units.map((unit) => [unit.oldId, unit.autoRenew]));
       const leaseMap = new Map<string, string>();
       // A lease's invoice always exists and is deterministic — `insertLease`
       // and `updateLease` both set `amount: leaseAmount, dueDate: startDate` —
@@ -868,6 +873,7 @@ export async function importOrganizationBackup(
             durationMonths: lease.durationMonths,
             monthlyRent: lease.monthlyRent,
             leaseAmount: lease.leaseAmount,
+            autoRenew: lease.autoRenew ?? unitAutoRenew.get(lease.oldUnitId) ?? true,
             ...(lease.createdAt ? { createdAt: lease.createdAt } : {}),
             ...(lease.updatedAt ? { updatedAt: lease.updatedAt } : {}),
             ...stamp,
