@@ -89,6 +89,7 @@ export function DocumentsPanel({
   emptyMessage,
   uploadLabel = "Upload document",
   allowUpload = true,
+  canWrite = true,
 }: {
   subjectType: FileAssetSubject;
   subjectId: string | null;
@@ -103,6 +104,12 @@ export function DocumentsPanel({
    * upload this list does not accept.
    */
   allowUpload?: boolean;
+  /**
+   * False when the viewer's role may read these files but not change them
+   * (`documentRequirement(…, "write")`, decided by the page). Hides upload and
+   * delete instead of offering buttons the API would answer with a 403.
+   */
+  canWrite?: boolean;
 }) {
   const router = useRouter();
   // `useIsMobile` reports desktop on the server, so the first client render
@@ -131,7 +138,8 @@ export function DocumentsPanel({
   // table. Order follows `assetTypes` itself (system types first, then this
   // organization's own alphabetically), so it reads the same as the dropdown.
   const uploadedTypeIds = new Set(documents.map((document) => document.assetType.id));
-  const missingTypes = allowUpload
+  const showUpload = allowUpload && canWrite;
+  const missingTypes = showUpload
     ? assetTypes.filter((type) => !uploadedTypeIds.has(type.id))
     : [];
   const isEmpty = documents.length + missingTypes.length === 0;
@@ -158,7 +166,7 @@ export function DocumentsPanel({
 
   return (
     <div className="space-y-3">
-      {allowUpload && (
+      {showUpload && (
         <div className="flex justify-end">
           <Button onClick={() => openUpload(null)}>
             <PlusIcon />
@@ -338,15 +346,17 @@ export function DocumentsPanel({
                             action on every other table in the app (e.g.
                             PaymentAccountsCard): danger reads from the icon at
                             rest, not as a hover surprise. */}
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Delete ${document.fileName}`}
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => setDeleting(document)}
-                        >
-                          <Trash2Icon />
-                        </Button>
+                        {canWrite && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Delete ${document.fileName}`}
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setDeleting(document)}
+                          >
+                            <Trash2Icon />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -451,18 +461,20 @@ export function DocumentsPanel({
               Download
             </Button>
 
-            <Button
-              variant="ghost"
-              className="h-11 justify-start gap-3 px-3 text-sm text-destructive hover:text-destructive"
-              onClick={() => {
-                const document = actionsFor;
-                setActionsFor(null);
-                setDeleting(document);
-              }}
-            >
-              <Trash2Icon />
-              Delete
-            </Button>
+            {canWrite && (
+              <Button
+                variant="ghost"
+                className="h-11 justify-start gap-3 px-3 text-sm text-destructive hover:text-destructive"
+                onClick={() => {
+                  const document = actionsFor;
+                  setActionsFor(null);
+                  setDeleting(document);
+                }}
+              >
+                <Trash2Icon />
+                Delete
+              </Button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
