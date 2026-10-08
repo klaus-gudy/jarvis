@@ -27,3 +27,22 @@ export async function getOwnerRecipients(
     .map((membership) => membership.user)
     .filter((user) => user.email !== null);
 }
+
+/**
+ * The tenant on a membership, when they can be emailed: only a **verified**
+ * address. Landlords type tenants' emails in for them, and an unproven address
+ * may belong to someone else — so mail waits until the tenant has used it
+ * (email verification, an invitation sent to it, or a password reset).
+ */
+export async function getTenantRecipient(membershipId: string): Promise<Recipient | null> {
+  const membership = await prisma.membership.findUnique({
+    where: { id: membershipId },
+    select: {
+      role: { select: { kind: true } },
+      user: { select: { email: true, name: true, emailVerifiedAt: true } },
+    },
+  });
+  if (!membership || membership.role.kind !== "TENANT") return null;
+  const { email, name, emailVerifiedAt } = membership.user;
+  return email && emailVerifiedAt ? { email, name } : null;
+}
