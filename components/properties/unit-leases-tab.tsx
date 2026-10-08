@@ -16,7 +16,7 @@ import { DataTable, type RowAction } from "@/components/ui/data-table";
  * seen from the unit's side. Rows open the lease; there is no create button
  * because the lease form picks from free units and has no way to lock one.
  */
-export function UnitLeasesTab({ leases }: { leases: UnitLeaseRow[] }) {
+export function UnitLeasesTab({ unitId, leases }: { unitId: string; leases: UnitLeaseRow[] }) {
   const canReadTenants = useCan("tenant:read");
   const columns = React.useMemo(
     () => buildUnitLeaseColumns({ canReadTenants }),
@@ -27,6 +27,7 @@ export function UnitLeasesTab({ leases }: { leases: UnitLeaseRow[] }) {
     <DataTable
       columns={columns}
       data={leases}
+      stateKey={`unit-leases:${unitId}`}
       searchPlaceholder="Search leases…"
       facetFilters={[
         {
