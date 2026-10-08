@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { formatCurrencyFull, formatDate } from "@/lib/format"
 import type { PortalLease } from "@/lib/portal"
 import { cn } from "@/lib/utils"
+import { lastDayOf } from "@/lib/dates"
 
 /**
  * One lease in the My lease grid — the same card shape as a property on the
@@ -49,7 +50,7 @@ export function LeaseListCard({ lease }: { lease: PortalLease }) {
           <div className="mt-4 space-y-1.5">
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="text-muted-foreground tabular-nums">
-                {formatDate(lease.startDate)} – {formatDate(lease.endDate)}
+                {formatDate(lease.startDate)} – {formatDate(lastDayOf(lease.endDate))}
               </span>
               <span
                 className={cn(
