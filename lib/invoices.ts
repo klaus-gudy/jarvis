@@ -5,7 +5,8 @@ import {
   sendInvoicePaidToOwner,
   type InvoiceFacts,
 } from "@/lib/mail/billing";
-import { getOwnerRecipients } from "@/lib/notifications/recipients";
+import { sendPaymentReceivedToTenant } from "@/lib/mail/tenants";
+import { getOwnerRecipients, getTenantRecipient } from "@/lib/notifications/recipients";
 import { displayName } from "@/lib/user-display";
 import {
   deriveInvoiceStatus,
@@ -100,6 +101,7 @@ export async function recordPayment(
       lease: {
         select: {
           id: true,
+          membershipId: true,
           unit: { select: { label: true, property: { select: { name: true } } } },
           membership: {
             select: { user: { select: { name: true, email: true, phone: true } } },
@@ -144,7 +146,44 @@ export async function recordPayment(
   // anyway — the overpayment guard rejects it — so this cannot repeat.
   const settled = input.amount >= balance;
 
-  return { payment, settled, facts: settled ? invoiceFacts(invoice, paid + input.amount) : null };
+  // What the tenant's receipt says, for `announcePaymentRecorded`.
+  const receipt: PaymentReceipt = {
+    tenantMembershipId: invoice.lease.membershipId,
+    amount: payment.amount,
+    paidAt: payment.paidAt,
+    invoiceReference: invoiceReference(invoice.id),
+    balance: balance - input.amount,
+    unitLabel: invoice.lease.unit.label,
+    propertyName: invoice.lease.unit.property.name,
+  };
+
+  return {
+    payment,
+    settled,
+    facts: settled ? invoiceFacts(invoice, paid + input.amount) : null,
+    receipt,
+  };
+}
+
+export type PaymentReceipt = {
+  tenantMembershipId: string;
+  amount: number;
+  paidAt: Date;
+  invoiceReference: string;
+  /** What is left to pay after this payment. */
+  balance: number;
+  unitLabel: string;
+  propertyName: string;
+};
+
+/**
+ * `payment.recorded` — the tenant's receipt, if they have a verified email.
+ * `fromClaim` words it as a confirmation of what they reported. Run in
+ * `after()`, like the owners' notice.
+ */
+export async function announcePaymentRecorded(receipt: PaymentReceipt, fromClaim: boolean) {
+  const tenant = await getTenantRecipient(receipt.tenantMembershipId);
+  if (tenant) await sendPaymentReceivedToTenant({ ...receipt, fromClaim }, tenant);
 }
 
 /** Everything the two paid-in-full emails render, assembled once. */
