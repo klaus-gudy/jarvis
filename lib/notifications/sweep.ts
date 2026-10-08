@@ -91,10 +91,10 @@ async function sweepExpiringLeases(now: Date) {
       id: true,
       endDate: true,
       monthlyRent: true,
+      autoRenew: true,
       unit: {
         select: {
           label: true,
-          autoRenew: true,
           minTenureMonths: true,
           property: { select: { name: true, organizationId: true } },
         },
@@ -113,12 +113,12 @@ async function sweepExpiringLeases(now: Date) {
   let skipped = 0;
 
   for (const lease of leases) {
-    // A unit that renews itself needs no decision from anyone, and the
+    // A lease that renews itself needs no decision from anyone, and the
     // landlord copy says as much in so many words. Telling someone to act on
     // something the app is about to do for them is worse than silence.
     // Not counted as skipped: `skipped` means "already sent", and this lease
     // was never eligible in the first place.
-    if (lease.unit.autoRenew && lease.unit.minTenureMonths != null) continue;
+    if (lease.autoRenew && lease.unit.minTenureMonths != null) continue;
 
     const daysLeft = calendarDaysBetween(startOfTodayUtc(now), lastDayOf(lease.endDate));
     // The tightest tier this lease has reached. A lease created with 20 days
