@@ -397,7 +397,7 @@ export function UnitFormDialog({
                           htmlFor="unit-auto-renew"
                           className="font-normal"
                         >
-                          Auto-renew leases on this unit
+                          New leases on this unit auto-renew
                         </FieldLabel>
                       </Field>
 
