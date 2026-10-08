@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { AmountInput } from "@/components/payments/amount-input";
 import { Button } from "@/components/ui/button";
 import {
   Combobox,
@@ -29,7 +30,8 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { CURRENCY, formatCurrencyFull, formatDate } from "@/lib/format";
+import { evaluateAmount } from "@/lib/amount-expression";
+import { CURRENCY, formatCurrencyFull, formatDate, formatMoneyFull } from "@/lib/format";
 import { addMonths, DURATION_OPTIONS } from "@/lib/leases-schemas";
 import type { LeaseOptions } from "@/lib/leases";
 
@@ -159,7 +161,7 @@ export function LeaseFormDialog({
    */
   const [rent, setRent] = React.useState(
     lease && lease.monthlyRent !== lease.unitRentAmount
-      ? String(lease.monthlyRent)
+      ? formatMoneyFull(lease.monthlyRent)
       : ""
   );
   const [pending, setPending] = React.useState(false);
@@ -218,10 +220,10 @@ export function LeaseFormDialog({
 
   // Blank falls back to the unit's asking rent, mirroring the server's
   // `input.monthlyRent ?? unit.rentAmount`.
-  const rentOverride = rent.trim() === "" ? null : Number(rent);
-  const rentValid =
-    rentOverride === null ||
-    (Number.isInteger(rentOverride) && rentOverride >= 0);
+  // The field accepts sums, so it is worked out here rather than `Number()`d.
+  const rentResult = evaluateAmount(rent);
+  const rentOverride = rentResult.status === "ok" ? rentResult.value : null;
+  const rentValid = rentResult.status !== "invalid";
   const effectiveRent = rentValid && rentOverride !== null
     ? rentOverride
     : (unit?.rentAmount ?? 0);
@@ -430,15 +432,11 @@ export function LeaseFormDialog({
                 <FieldLabel htmlFor="lease-rent">
                   Monthly rent ({CURRENCY})
                 </FieldLabel>
-                <Input
+                <AmountInput
                   id="lease-rent"
-                  type="number"
-                  min={0}
-                  step={1}
-                  inputMode="numeric"
                   value={rent}
-                  onChange={(event) => setRent(event.target.value)}
-                  placeholder={unit ? String(unit.rentAmount) : "Pick a unit first"}
+                  onValueChange={setRent}
+                  placeholder={unit ? formatMoneyFull(unit.rentAmount) : "Pick a unit first"}
                   disabled={!unitId}
                 />
                 <FieldDescription>
@@ -447,7 +445,11 @@ export function LeaseFormDialog({
                     : "Defaults to the unit's asking rent."}
                 </FieldDescription>
                 <FieldError
-                  errors={fieldErrors.monthlyRent?.map((m) => ({ message: m }))}
+                  errors={
+                    rentResult.status === "invalid"
+                      ? [{ message: rentResult.message }]
+                      : fieldErrors.monthlyRent?.map((m) => ({ message: m }))
+                  }
                 />
               </Field>
             </div>
