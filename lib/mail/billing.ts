@@ -71,6 +71,39 @@ export async function sendInvoicePaidToOwner(
 }
 
 /* ------------------------------------------------------------------ *
+ * payment_claim.submitted — a tenant reported a payment in the portal
+ * ------------------------------------------------------------------ */
+
+export async function sendClaimSubmittedToOwner(
+  claim: {
+    leaseId: string;
+    invoiceReference: string;
+    tenantName: string;
+    unitLabel: string;
+    propertyName: string;
+    amount: number;
+    paidAt: Date;
+    method: string | null;
+  },
+  owner: { email: string | null; name: string | null }
+) {
+  await deliver(
+    "payment_claim.submitted",
+    owner.email,
+    `${claim.tenantName} reported a payment of ${formatCurrencyFull(claim.amount)}`,
+    {
+      heading: "A payment is waiting for you to confirm",
+      body: [
+        owner.name?.trim() ? `Hi ${escapeHtml(owner.name.trim())},` : "Hi,",
+        `<strong>${escapeHtml(claim.tenantName)}</strong> says they paid <strong>${escapeHtml(formatCurrencyFull(claim.amount))}</strong> on ${escapeHtml(formatDate(claim.paidAt))}${claim.method ? ` by ${escapeHtml(claim.method)}` : ""} against ${escapeHtml(claim.invoiceReference)} — ${escapeHtml(claim.unitLabel)} at ${escapeHtml(claim.propertyName)}.`,
+        "It doesn't count toward their balance until you confirm it. If it isn't right, reject it with a reason — they'll see it.",
+      ],
+      action: { label: "Review the payment", href: appUrl(`/leases/${claim.leaseId}?tab=billing`) },
+    }
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * invoice.overdue — from the sweep, on a weekly cadence
  * ------------------------------------------------------------------ */
 
