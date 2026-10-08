@@ -38,6 +38,7 @@ export function MemberLeasesTab({
 
   const canReadProperties = useCan("property:read");
   const canReadLeases = useCan("lease:read");
+  const canWriteLeases = useCan("lease:write");
   const columns = React.useMemo(
     () => buildMemberLeaseColumns({ canReadProperties, canReadLeases }),
     [canReadProperties, canReadLeases]
@@ -45,7 +46,7 @@ export function MemberLeasesTab({
 
   return (
     <div className="space-y-3">
-      {isTenant && options && (
+      {isTenant && options && canWriteLeases && (
         <div className="flex justify-end">
           <Button onClick={() => setFormOpen(true)}>
             <PlusIcon />
