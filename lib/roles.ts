@@ -77,8 +77,8 @@ export async function getRoles(organizationId: string): Promise<RoleRow[]> {
 
 /**
  * The Tenant role is created on demand for organizations that predate it being
- * seeded (`createOrganizationForUser` still creates only Owner). Looked up by
- * kind, never by name — the role may have been renamed.
+ * seeded (registration and `createOrganizationForUser` both seed it now).
+ * Looked up by kind, never by name — the role may have been renamed.
  */
 export async function ensureTenantRole(organizationId: string) {
   const existing = await prisma.role.findFirst({
