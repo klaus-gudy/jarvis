@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -25,6 +25,7 @@ import {
 import { AmountInput } from "@/components/payments/amount-input";
 import { InvoiceSummaryCard } from "@/components/payments/invoice-summary-card";
 import { evaluateAmount } from "@/lib/amount-expression";
+import { ACCEPTED_FILE_EXTENSIONS, ACCEPTED_FILE_LABEL } from "@/lib/document-options";
 import { formatMoneyFull } from "@/lib/format";
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment-options";
 
@@ -55,6 +56,7 @@ export function RecordPaymentDialog({
   invoice,
   endpoint,
   copy = LANDLORD_COPY,
+  receiptEndpoint,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -73,6 +75,11 @@ export function RecordPaymentDialog({
    */
   endpoint?: string;
   copy?: RecordPaymentCopy;
+  /**
+   * Tenant side only: where the optional receipt is uploaded once the claim
+   * exists. Its presence is what shows the file field.
+   */
+  receiptEndpoint?: (claimId: string) => string;
 }) {
   const { id: invoiceId, balance } = invoice;
   const router = useRouter();
@@ -80,6 +87,7 @@ export function RecordPaymentDialog({
   const [paidAt, setPaidAt] = React.useState(todayInputValue());
   const [method, setMethod] = React.useState<string>(PAYMENT_METHOD_OPTIONS[0]);
   const [notes, setNotes] = React.useState("");
+  const [receipt, setReceipt] = React.useState<File | null>(null);
   const [pending, setPending] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
@@ -120,6 +128,21 @@ export function RecordPaymentDialog({
     });
 
     if (response.ok) {
+      // The claim is filed either way; a receipt that fails to upload is said
+      // out loud rather than undoing a report the landlord can already see.
+      if (receipt && receiptEndpoint) {
+        const data = await response.json().catch(() => null);
+        const claimId: string | undefined = data?.claim?.id;
+        if (claimId) {
+          const body = new FormData();
+          body.set("file", receipt);
+          const upload = await fetch(receiptEndpoint(claimId), { method: "POST", body });
+          if (!upload.ok) {
+            const failure = await upload.json().catch(() => null);
+            toast.error(`Payment sent, but the receipt wasn't attached: ${failure?.error ?? "upload failed"}`);
+          }
+        }
+      }
       onOpenChange(false);
       toast.success(copy.success);
       router.refresh();
@@ -227,6 +250,21 @@ export function RecordPaymentDialog({
               />
               <FieldError errors={fieldErrors.notes?.map((m) => ({ message: m }))} />
             </Field>
+
+            {receiptEndpoint && (
+              <Field>
+                <FieldLabel htmlFor="payment-receipt">Receipt</FieldLabel>
+                <Input
+                  id="payment-receipt"
+                  type="file"
+                  accept={ACCEPTED_FILE_EXTENSIONS}
+                  onChange={(event) => setReceipt(event.target.files?.[0] ?? null)}
+                />
+                <FieldDescription>
+                  Optional — a photo or PDF of the M-Pesa message or bank slip ({ACCEPTED_FILE_LABEL}).
+                </FieldDescription>
+              </Field>
+            )}
 
             {formError && <FieldError>{formError}</FieldError>}
           </div>
