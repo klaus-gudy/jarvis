@@ -17,7 +17,7 @@ import {
   type UpdateLeaseInput,
 } from "@/lib/leases-schemas";
 import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoices";
-import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
+import { calendarDaysBetween, lastDayOf, startOfTodayUtc } from "@/lib/dates";
 
 /** Mirrors the Prisma `LeaseStatus` enum; kept literal so client components can import it. */
 export type LeaseStatus = "Active" | "Upcoming" | "Ended" | "Renewed";
@@ -75,7 +75,8 @@ export type LeaseRow = {
 /**
  * The status a lease's dates imply. Used to **write** `Lease.status` — on
  * create, on edit, and by `syncLeaseStatuses` as dates pass. Reads use the
- * stored column.
+ * stored column. `endDate` is exclusive (see `lastDayOf`), so a lease is still
+ * Active through its last day and Ended from the start of the next.
  */
 export function leaseStatus(now: Date, startDate: Date, endDate: Date): LeaseStatus {
   if (startDate > now) return "Upcoming";
@@ -111,7 +112,7 @@ export function leaseExpiry(
 ): LeaseExpiry | null {
   if (startDate > now || endDate < now) return null;
 
-  const daysLeft = calendarDaysBetween(startOfTodayUtc(now), endDate);
+  const daysLeft = calendarDaysBetween(startOfTodayUtc(now), lastDayOf(endDate));
   if (daysLeft > EXPIRY_SOON_DAYS) return null;
 
   return {
