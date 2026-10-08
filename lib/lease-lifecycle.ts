@@ -23,8 +23,6 @@ const AUTOMATIFIER = systemActor("automatifier");
  * status guard no longer matches.
  */
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** What a handler tells the worker to do with the message it was given. */
 export type LifecycleOutcome =
   /** Acted, or already actioned — either way the broker can drop it. */
@@ -118,9 +116,10 @@ export async function handleLeaseRenewal(leaseId: string): Promise<LifecycleOutc
   const tenure = lease.unit.minTenureMonths;
   const durationMonths = tenure && tenure > 0 ? tenure : lease.durationMonths;
 
-  // The day after the old term ends, so the half-open overlap test can never
-  // read the two as colliding.
-  const startDate = new Date(lease.endDate.getTime() + DAY_MS);
+  // The stored end is exclusive — the first day after the old term — so the
+  // renewal starts on it, with no gap, and the half-open overlap test reads
+  // the two as touching rather than colliding.
+  const startDate = lease.endDate;
 
   const result = await insertLease({
     organizationId,
