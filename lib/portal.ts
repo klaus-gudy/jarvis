@@ -1,7 +1,7 @@
 import { audit, diff } from "@/lib/audit";
 import type { AuthContext } from "@/lib/authz";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contract-constants";
-import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
+import { calendarDaysBetween, lastDayOf, startOfTodayUtc } from "@/lib/dates";
 import { deriveInvoiceStatus, invoiceReference, type InvoiceStatus } from "@/lib/invoice-types";
 import { leaseExpiry, leaseReference, type LeaseExpiry, type LeaseStatus } from "@/lib/leases";
 import { getOrganizationOwner, getOrganizationOwnerMembershipId } from "@/lib/organizations";
@@ -236,7 +236,9 @@ export async function getPortalLeases(ctx: AuthContext): Promise<PortalLease[]> 
       // The stored column — it alone knows about Renewed.
       status: lease.status,
       daysLeft:
-        lease.status === "Active" ? Math.max(0, calendarDaysBetween(today, lease.endDate)) : null,
+        lease.status === "Active"
+          ? Math.max(0, calendarDaysBetween(today, lastDayOf(lease.endDate)))
+          : null,
       expiry: lease.status === "Active" ? leaseExpiry(now, lease.startDate, lease.endDate) : null,
       renewedFrom: lease.renewedFromId ? leaseReference(lease.renewedFromId) : null,
       renewedTo: lease.renewedTo ? leaseReference(lease.renewedTo.id) : null,
