@@ -31,13 +31,13 @@ export function RolesView({ roles }: { roles: RoleRow[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={() => setFormOpen(true)}>
+        <Button data-tour="new-role" onClick={() => setFormOpen(true)}>
           <PlusIcon />
           New role
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div data-tour="role-grid" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {sorted.map((role) => (
           <RoleCard key={role.id} role={role} />
         ))}
