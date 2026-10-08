@@ -15,6 +15,9 @@ import {
 import { LEASE_PLACEHOLDERS } from "@/lib/lease-placeholders";
 import { leaseReference } from "@/lib/leases";
 import { declareEventTopology } from "@/lib/events/publisher";
+import { sendContractReadyToTenant } from "@/lib/mail/tenants";
+import { getTenantRecipient } from "@/lib/notifications/recipients";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Files the contract that `document-worker` has just rendered.
@@ -91,6 +94,29 @@ function metaMissing(meta: DocumentStoredEvent["meta"]): string[] {
   return Array.isArray(meta?.missing)
     ? meta.missing.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+/** `contract.ready` — to the tenant, if they have a verified email. */
+async function announceContractReady(leaseId: string, signedBy: string[]) {
+  const lease = await prisma.lease.findUnique({
+    where: { id: leaseId },
+    select: {
+      membershipId: true,
+      unit: { select: { label: true, property: { select: { name: true } } } },
+    },
+  });
+  if (!lease) return;
+  const tenant = await getTenantRecipient(lease.membershipId);
+  if (!tenant) return;
+  await sendContractReadyToTenant(
+    {
+      reference: leaseReference(leaseId),
+      unitLabel: lease.unit.label,
+      propertyName: lease.unit.property.name,
+      tenantSigned: signedBy.includes("tenant_signature"),
+    },
+    tenant
+  );
 }
 
 /** Who signed this copy, per `meta` — only real signature placeholders count. */
@@ -283,6 +309,11 @@ async function attach(): Promise<StopConsumer> {
         `[contract-filing] filed ${fileName} for ${label} — ${event.sizeBytes} bytes${blanks}`
       );
       channel.ack(message);
+      // After the ack, never before it: the contract is filed whatever the
+      // mail does, and a failed lookup here must not redeliver the message.
+      await announceContractReady(leaseId, signedBy).catch((cause) =>
+        console.error(`[contract-filing] contract-ready mail for ${label} failed: ${describeError(cause)}`)
+      );
     } catch (cause) {
       const reason = describeError(cause);
       console.error(
