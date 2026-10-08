@@ -12,6 +12,27 @@ import type { AssetTypeView } from "@/lib/asset-types";
 
 type DocumentView = React.ComponentProps<typeof DocumentsPanel>["documents"][number];
 
+/** Who a signature placeholder belongs to, as the Contract tab names them. */
+const SIGNER: Record<string, string> = {
+  landlord_signature: "landlord",
+  tenant_signature: "tenant",
+};
+
+/**
+ * Every version is kept, newest first: the first is current, the rest are
+ * superseded, and a signed one is locked against deletion (the server agrees).
+ */
+function annotateContract(document: DocumentView, current: DocumentView | undefined) {
+  const signers = (document.signedBy ?? []).map((key) => SIGNER[key] ?? key);
+  return {
+    notes: [
+      document.id === current?.id ? "Current" : "Superseded",
+      ...(signers.length > 0 ? [`Signed by ${signers.join(" & ")}`] : []),
+    ],
+    locked: signers.length > 0,
+  };
+}
+
 /**
  * Bottom left, where the global `<Toaster>` is not.
  *
@@ -159,7 +180,8 @@ export function ContractTab({
             {blanks > 0
               ? `${blanks} field${blanks === 1 ? "" : "s"} had no data. `
               : ""}
-            It will appear here once the document worker has filed it.
+            It will appear here once the document worker has filed it
+            {hasContract ? "; the current one stays on file as superseded." : "."}
           </span>
         ),
         duration: 8000,
@@ -185,21 +207,27 @@ export function ContractTab({
 
   return (
     <div className="space-y-3">
-      {!hasContract && (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            className="bg-card"
-            onClick={handleGenerate}
-            disabled={running || !canGenerate}
-            title={canGenerate ? undefined : "Your role doesn't allow this"}
-          >
-            <FileSignatureIcon />
-            {running ? "Queueing…" : failed ? "Try again" : "Generate contract"}
-          </Button>
-        </div>
-      )}
+      {/* Always offered: a new version never replaces the old one, so
+          regenerating after an edit or a signature loses nothing. */}
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          className="bg-card"
+          onClick={handleGenerate}
+          disabled={running || !canGenerate}
+          title={canGenerate ? undefined : "Your role doesn't allow this"}
+        >
+          <FileSignatureIcon />
+          {running
+            ? "Queueing…"
+            : failed
+              ? "Try again"
+              : hasContract
+                ? "Generate new version"
+                : "Generate contract"}
+        </Button>
+      </div>
 
       <DocumentsPanel
         subjectType="LEASE"
@@ -208,6 +236,7 @@ export function ContractTab({
         documents={documents}
         allowUpload={false}
         canWrite={canDelete}
+        annotate={(document) => annotateContract(document, documents[0])}
         emptyMessage="No contract yet. It is normally generated from your default lease template moments after a lease is created."
       />
     </div>
