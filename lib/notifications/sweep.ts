@@ -1,4 +1,4 @@
-import { calendarDaysBetween, startOfTodayUtc } from "@/lib/dates";
+import { calendarDaysBetween, lastDayOf, startOfTodayUtc } from "@/lib/dates";
 import { invoiceReference } from "@/lib/invoice-types";
 import { leaseReference } from "@/lib/leases";
 import {
@@ -120,7 +120,7 @@ async function sweepExpiringLeases(now: Date) {
     // was never eligible in the first place.
     if (lease.unit.autoRenew && lease.unit.minTenureMonths != null) continue;
 
-    const daysLeft = calendarDaysBetween(startOfTodayUtc(now), lease.endDate);
+    const daysLeft = calendarDaysBetween(startOfTodayUtc(now), lastDayOf(lease.endDate));
     // The tightest tier this lease has reached. A lease created with 20 days
     // to run gets the 30-day notice and never the 60 — it was never eligible.
     const tier = EXPIRY_TIERS.find((days) => daysLeft <= days);
