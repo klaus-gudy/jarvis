@@ -90,6 +90,8 @@ export type PortalMember = {
   name: string | null;
   phone: string | null;
   email: string | null;
+  /** Whether `email` is proven — the condition for receiving any mail. */
+  emailVerified: boolean;
   organizationName: string;
   signatureKey: string | null;
   canSignIn: boolean;
@@ -127,7 +129,9 @@ export async function getPortalMember(ctx: AuthContext): Promise<PortalMember | 
   const membership = await prisma.membership.findFirst({
     where: { id: ctx.membershipId, organizationId: ctx.organizationId },
     select: {
-      user: { select: { name: true, phone: true, email: true, passwordHash: true } },
+      user: {
+        select: { name: true, phone: true, email: true, emailVerifiedAt: true, passwordHash: true },
+      },
       organization: { select: { name: true } },
       profile: {
         select: {
@@ -150,6 +154,7 @@ export async function getPortalMember(ctx: AuthContext): Promise<PortalMember | 
     name: membership.user.name,
     phone: membership.user.phone,
     email: membership.user.email,
+    emailVerified: membership.user.emailVerifiedAt !== null,
     organizationName: membership.organization.name,
     signatureKey: profile?.signatureKey ?? null,
     canSignIn: membership.user.passwordHash !== null,
