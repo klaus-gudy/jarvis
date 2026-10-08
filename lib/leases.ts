@@ -70,6 +70,9 @@ export type LeaseRow = {
   unitId: string;
   unitRentAmount: number;
   unitMinTenureMonths: number | null;
+  /** The lease's own flag, and the unit's default it was seeded from. */
+  autoRenew: boolean;
+  unitAutoRenew: boolean;
 };
 
 /**
@@ -195,6 +198,8 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
     unitId: lease.unitId,
     unitRentAmount: lease.unit.rentAmount,
     unitMinTenureMonths: lease.unit.minTenureMonths,
+    autoRenew: lease.autoRenew,
+    unitAutoRenew: lease.unit.autoRenew,
   }));
 }
 
@@ -236,7 +241,7 @@ export type LeaseDetail = {
   startDate: Date;
   endDate: Date;
   durationMonths: number;
-  /** From the unit (auto-renew is a unit setting); `renewalMonths` is its minimum tenure. */
+  /** The lease's own flag; `renewalMonths` is the unit's minimum tenure (the renewal term). */
   autoRenew: boolean;
   renewalMonths: number | null;
   /** The rate agreed for this lease, which may differ from the unit's asking rent. */
@@ -350,7 +355,7 @@ export async function getLease(
     startDate: lease.startDate,
     endDate: lease.endDate,
     durationMonths: lease.durationMonths,
-    autoRenew: lease.unit.autoRenew,
+    autoRenew: lease.autoRenew,
     renewalMonths: lease.unit.minTenureMonths,
     monthlyRent: lease.monthlyRent,
     leaseAmount: lease.leaseAmount,
@@ -366,6 +371,8 @@ export type LeaseUnitOption = {
   rentAmount: number;
   /** Floors the duration the form will accept for this unit. */
   minTenureMonths: number | null;
+  /** What a new lease on this unit starts with; the form may change it. */
+  autoRenew: boolean;
 };
 
 export type LeaseOptions = {
@@ -416,6 +423,7 @@ export async function getLeaseOptions(organizationId: string): Promise<LeaseOpti
           label: unit.label,
           rentAmount: unit.rentAmount,
           minTenureMonths: unit.minTenureMonths,
+          autoRenew: unit.autoRenew,
         })),
       })),
     tenants: tenantMemberships.map((membership) => ({
@@ -444,6 +452,7 @@ export async function insertLease(params: {
   durationMonths: number;
   /** The agreed rate — the unit's asking rent unless it was negotiated. */
   monthlyRent: number;
+  autoRenew: boolean;
   renewedFromId?: string;
 }) {
   const endDate = addMonths(params.startDate, params.durationMonths);
@@ -472,6 +481,7 @@ export async function insertLease(params: {
         // later change to the unit's rentAmount doesn't rewrite this lease's history.
         monthlyRent: params.monthlyRent,
         leaseAmount: params.monthlyRent * params.durationMonths,
+        autoRenew: params.autoRenew,
         renewedFromId: params.renewedFromId,
         ...createdBy(params.actor),
       },
@@ -551,7 +561,7 @@ export async function createLease(
       propertyId: input.propertyId,
       property: { organizationId },
     },
-    select: { id: true, minTenureMonths: true, rentAmount: true },
+    select: { id: true, minTenureMonths: true, rentAmount: true, autoRenew: true },
   });
   if (!unit) return { error: "unit-not-found" as const };
 
@@ -581,6 +591,8 @@ export async function createLease(
     durationMonths: input.durationMonths,
     // A negotiated rate wins; absent one, the unit's asking rent stands.
     monthlyRent: input.monthlyRent ?? unit.rentAmount,
+    // Likewise: the unit's setting is the default, the form may override it.
+    autoRenew: input.autoRenew ?? unit.autoRenew,
   });
 }
 
@@ -683,6 +695,7 @@ export async function updateLease(
       durationMonths: input.durationMonths,
       monthlyRent,
       leaseAmount,
+      autoRenew: input.autoRenew ?? existing.autoRenew,
     };
     const updated = await tx.lease.update({
       where: { id: existing.id },
