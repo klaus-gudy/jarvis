@@ -27,10 +27,12 @@ import type { PaymentRow } from "@/lib/payments";
  * several buildings.
  */
 export function MemberPaymentsTab({
+  membershipId,
   payments,
   isTenant,
   roleName,
 }: {
+  membershipId: string;
   payments: PaymentRow[];
   isTenant: boolean;
   roleName: string;
@@ -64,6 +66,7 @@ export function MemberPaymentsTab({
     <DataTable
       columns={columns}
       data={payments}
+      stateKey={`member-payments:${membershipId}`}
       searchPlaceholder="Search payments…"
       facetFilters={[
         {
