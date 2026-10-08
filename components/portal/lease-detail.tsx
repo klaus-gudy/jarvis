@@ -15,6 +15,7 @@ import { formatDate } from "@/lib/format"
 import { toInternationalTzPhone } from "@/lib/phone"
 import type { PortalLandlord, PortalLease } from "@/lib/portal"
 import { cn } from "@/lib/utils"
+import { lastDayOf } from "@/lib/dates"
 
 /**
  * The tenant's lease page cards. The main column uses the landlord's shared
@@ -64,7 +65,7 @@ export function LeaseTermCard({ lease }: { lease: PortalLease }) {
         <div className="space-y-2.5">
           <div className="flex justify-between gap-3 text-sm text-muted-foreground tabular-nums">
             <span>{formatDate(lease.startDate)}</span>
-            <span>{formatDate(lease.endDate)}</span>
+            <span>{formatDate(lastDayOf(lease.endDate))}</span>
           </div>
           <div
             className="h-2 overflow-hidden rounded-full bg-muted"
