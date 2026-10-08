@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { evaluateAmount } from "@/lib/amount-expression";
+import { lastDayOf } from "@/lib/dates";
 import { CURRENCY, formatCurrencyFull, formatDate, formatMoneyFull } from "@/lib/format";
 import { addMonths, DURATION_OPTIONS } from "@/lib/leases-schemas";
 import type { LeaseOptions } from "@/lib/leases";
@@ -458,7 +459,7 @@ export function LeaseFormDialog({
               <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
                 <p>
                   <span className="text-muted-foreground">Ends on </span>
-                  <span className="font-medium">{formatDate(endDate)}</span>
+                  <span className="font-medium">{formatDate(lastDayOf(endDate))}</span>
                 </p>
                 {/* Editing re-derives the value, so it is shown before saving
                     rather than letting the total change out of sight. */}
