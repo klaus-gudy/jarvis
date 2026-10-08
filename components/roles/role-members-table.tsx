@@ -13,7 +13,7 @@ import type { RoleMember } from "@/lib/roles";
  * page, minus the Role column (it's this page's role for every row). Rows open
  * the member's page; role changes happen there or on /users.
  */
-export function RoleMembersTable({ members }: { members: RoleMember[] }) {
+export function RoleMembersTable({ roleId, members }: { roleId: string; members: RoleMember[] }) {
   const columns = React.useMemo<ColumnDef<RoleMember>[]>(
     () => [
       {
@@ -52,6 +52,7 @@ export function RoleMembersTable({ members }: { members: RoleMember[] }) {
     <DataTable
       columns={columns}
       data={members}
+      stateKey={`role-members:${roleId}`}
       searchPlaceholder="Search people…"
       emptyMessage="Nobody holds this role yet. Assign it from the Users page, or invite someone into it."
       getRowHref={(member) => `/members/${member.membershipId}`}
