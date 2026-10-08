@@ -521,6 +521,13 @@ model PaymentClaim {
   status     PaymentClaimStatus @default(PENDING)
   createdAt  DateTime           @default(now())
   reviewedAt DateTime?
+  /// Why the landlord rejected it. Required on rejection; shown to the tenant.
+  rejectionReason String?
+
+  /// The tenant's receipt (image or PDF), filed on the invoice as
+  /// `sys_CLAIM_RECEIPT`. Its own unique FK so one file backs one claim.
+  receiptId String?    @unique
+  receipt   FileAsset? @relation("PaymentClaimReceipt", fields: [receiptId], references: [id], onDelete: SetNull)
 
   /// The staff member who confirmed or rejected it.
   reviewedById String?
@@ -646,6 +653,9 @@ model FileAsset {
    * file, and for contracts filed before 2026-10-08.
    */
   signedBy  String[] @default([])
+
+  /// Set when this file is the receipt a tenant attached to a reported payment.
+  claimReceipt PaymentClaim? @relation("PaymentClaimReceipt")
 
   /**
    * What kind of document this is. A foreign key rather than an enum since
