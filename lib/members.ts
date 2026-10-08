@@ -193,6 +193,11 @@ export async function updateMember(
         ...(email !== user.email ? { emailVerifiedAt: null } : {}),
       },
     });
+    // A reset code already sent went to the old address; using it must not
+    // reset the account (or verify the new address) after the change.
+    if (email !== user.email) {
+      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+    }
     // `User` is global, so the stamp goes on this org's membership instead.
     await tx.membership.update({
       where: { id: membershipId },
