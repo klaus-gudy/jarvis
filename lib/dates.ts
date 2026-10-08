@@ -25,3 +25,18 @@ export function startOfTodayUtc(now: Date = new Date()) {
 export function calendarDaysBetween(from: Date, to: Date) {
   return Math.round((to.getTime() - from.getTime()) / DAY_MS);
 }
+
+/**
+ * The last day a lease runs — what every screen, email and contract calls its
+ * end date.
+ *
+ * `Lease.endDate` is stored **exclusive**: start + N months, the first day the
+ * tenant no longer has (a 1 Sep lease for 12 months stores 1 Sep next year).
+ * Overlap checks, occupancy and the Active→Ended flip all compare against that
+ * stored value, so it stays; people read the day before. Day counts measure to
+ * this date too, so on the last day a lease "ends today". Also used for a
+ * coverage date, which is exclusive in the same way.
+ */
+export function lastDayOf(exclusiveEnd: Date | string) {
+  return new Date(new Date(exclusiveEnd).getTime() - DAY_MS);
+}
