@@ -73,6 +73,7 @@ export type LeaseExportRow = {
   durationMonths: number;
   monthlyRent: number;
   leaseAmount: number;
+  autoRenew: boolean;
   renewedFromId: string | null;
   createdAt: Date;
   updatedAt: Date;
