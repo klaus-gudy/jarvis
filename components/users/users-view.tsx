@@ -317,6 +317,7 @@ export function UsersView({
           <DataTable
             columns={memberColumns}
             data={members}
+            stateKey="users"
             searchPlaceholder="Search members…"
             facetFilters={[
               {
@@ -380,6 +381,7 @@ export function UsersView({
           <DataTable
             columns={invitationColumns}
             data={invitations}
+            stateKey="invitations"
             searchPlaceholder="Search invites…"
             facetFilters={[
               {
