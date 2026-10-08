@@ -39,6 +39,8 @@ async function deliver(
 
 export type LeaseFacts = {
   leaseId: string;
+  /** The tenant's membership, for the tenant's copy (`getTenantRecipient`). */
+  tenantMembershipId: string;
   reference: string;
   tenantName: string;
   propertyName: string;
