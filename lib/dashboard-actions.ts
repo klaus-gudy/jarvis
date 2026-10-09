@@ -2,6 +2,7 @@ import type { AuthContext } from "@/lib/authz";
 import { LEASE_CONTRACT_TYPE_ID } from "@/lib/contract-constants";
 import { getOrganizationOwnerMembershipId } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
+import { trackedUnit } from "@/lib/tracking";
 
 /**
  * What the landlord dashboard's Quick actions card has to say, worked out for
@@ -52,6 +53,8 @@ export async function getDashboardAttention(ctx: AuthContext): Promise<Dashboard
       ? prisma.lease.findMany({
           where: {
             ...orgLease,
+            // No contract nudge for a lease on a deactivated unit.
+            unit: trackedUnit(ctx.organizationId),
             status: { in: ["Active", "Upcoming"] },
             fileAssets: { none: { assetTypeId: LEASE_CONTRACT_TYPE_ID } },
           },
