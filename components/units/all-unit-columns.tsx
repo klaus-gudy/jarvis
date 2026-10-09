@@ -5,7 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { PropertyHoverCard } from "@/components/hover-cards/property-hover-card";
 import { UnitHoverCard } from "@/components/hover-cards/unit-hover-card";
 import { UnitOccupancy } from "@/components/units/unit-occupancy";
-import { Badge } from "@/components/ui/badge";
+import { UnitStatusBadge } from "@/components/units/unit-status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DataTableColumnHeader,
@@ -107,12 +107,7 @@ export function buildAllUnitColumns({
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge
-          variant={row.original.status === "Occupied" ? "secondary" : "outline"}
-          className="rounded-full font-normal"
-        >
-          {row.original.status}
-        </Badge>
+        <UnitStatusBadge status={row.original.status} active={row.original.active} />
       ),
       filterFn: facetFilterFn,
     },
