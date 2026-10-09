@@ -38,6 +38,7 @@ const UNIT_COLUMNS: ExportColumn<UnitExportRow>[] = [
   { header: "propertyId", width: 26, value: (u) => u.propertyId },
   { header: "label", width: 14, value: (u) => u.label },
   { header: "rentAmount", width: 14, format: "#,##0", value: (u) => u.rentAmount },
+  { header: "status", width: 12, value: (u) => u.status },
   { header: "minTenureMonths", width: 16, value: (u) => u.minTenureMonths ?? "" },
   { header: "autoRenew", width: 12, value: (u) => (u.autoRenew ? "TRUE" : "FALSE") },
   { header: "unitType", width: 16, value: (u) => u.unitType ?? "" },
