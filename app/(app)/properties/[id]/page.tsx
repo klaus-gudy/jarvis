@@ -9,6 +9,7 @@ import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { PhotoGallery } from "@/components/documents/photo-gallery";
 import { PropertyActions } from "@/components/properties/property-actions";
 import { PropertyIcon } from "@/components/properties/property-icon";
+import { DeleteAction, TrackingStatusAction } from "@/components/properties/record-actions";
 import { UnitsTable } from "@/components/properties/units-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,10 +21,11 @@ import { canWriteDocuments } from "@/lib/document-access";
 import { listAssetTypes } from "@/lib/asset-types";
 import { listDocuments } from "@/lib/documents";
 import { getProperty } from "@/lib/properties";
+import { countLiveLeases } from "@/lib/tracking";
 import { cn } from "@/lib/utils";
 
 /** Tabs a link may open on, e.g. a unit page's back link → units. */
-const TABS = ["overview", "units", "images", "documents", "activity"] as const;
+const TABS = ["overview", "units", "images", "documents", "activity", "actions"] as const;
 
 export default async function PropertyDetailPage({
   params,
@@ -48,10 +50,11 @@ export default async function PropertyDetailPage({
 
   // Photos and papers come from one query and split here: the Images tab and
   // the Documents tab are two ways of reading one table, not two sources.
-  const [assets, propertyTypes, unitTypes] = await Promise.all([
+  const [assets, propertyTypes, unitTypes, liveLeases] = await Promise.all([
     listDocuments(user.activeOrgId, "PROPERTY", property.id),
     listAssetTypes(user.activeOrgId, "PROPERTY"),
     listAssetTypes(user.activeOrgId, "UNIT"),
+    countLiveLeases(user.activeOrgId, { propertyId: property.id }),
   ]);
 
   const serialise = (asset: (typeof assets)[number]) => ({
@@ -111,9 +114,12 @@ export default async function PropertyDetailPage({
               />
             </div>
             <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
-              <h2 className="truncate text-base font-semibold tracking-tight sm:text-xl">
-                {property.name}
-              </h2>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="truncate text-base font-semibold tracking-tight sm:text-xl">
+                  {property.name}
+                </h2>
+                {!isActive && <InactivePill />}
+              </div>
               {/* Address, category and owner wrap onto their own lines on a
                   narrow screen, so the line is sized down to stop three of
                   them dominating the card. */}
@@ -125,15 +131,12 @@ export default async function PropertyDetailPage({
           </div>
           <PropertyActions
             propertyId={property.id}
-            propertyName={property.name}
-            unitCount={property.totalUnits}
             ownerName={property.ownerName}
             initialValues={{
               name: property.name,
               type: property.type,
               category: property.category,
               address: property.address,
-              status: property.status,
               description: property.description ?? "",
               amenities: property.amenities,
             }}
@@ -174,6 +177,9 @@ export default async function PropertyDetailPage({
           </TabsTrigger>
           <TabsTrigger value="activity" className="flex-none px-3">
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="actions" className="flex-none px-3">
+            Actions
           </TabsTrigger>
         </TabsList>
 
@@ -264,6 +270,7 @@ export default async function PropertyDetailPage({
               sizeSqm: unit.sizeSqm,
               amenities: unit.amenities,
               status: unit.isOccupied ? "Occupied" : "Vacant",
+              active: unit.status === "ACTIVE",
               tenantName: unit.tenantName,
               tenantMembershipId: unit.tenantMembershipId,
               tenantPhone: unit.tenantPhone,
@@ -306,7 +313,37 @@ export default async function PropertyDetailPage({
         <TabsContent value="activity" className="pt-5">
           <ActivityTimeline subject={`Property:${property.id}`} emptyMessage="No activity on this property yet." />
         </TabsContent>
+
+        <TabsContent value="actions" className="space-y-4 pt-5">
+          <TrackingStatusAction
+            kind="property"
+            name={property.name}
+            endpoint={`/api/properties/${property.id}/status`}
+            active={isActive}
+            liveLeases={liveLeases}
+          />
+          <DeleteAction
+            kind="property"
+            name={property.name}
+            endpoint={`/api/properties/${property.id}`}
+            consequence={
+              property.totalUnits > 0
+                ? `This also deletes its ${property.totalUnits} unit${property.totalUnits === 1 ? "" : "s"} and any leases on them. This cannot be undone.`
+                : "This cannot be undone."
+            }
+            redirectTo="/properties"
+          />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+/** Shown beside the name while the property is out of tracking. */
+function InactivePill() {
+  return (
+    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      Inactive
+    </span>
   );
 }
