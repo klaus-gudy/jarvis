@@ -12,6 +12,7 @@ import {
   PaymentClaimStatus,
   PropertyStatus,
   PropertyType,
+  UnitStatus,
 } from "@/lib/generated/prisma/enums";
 
 /**
@@ -52,6 +53,7 @@ type ParsedUnit = {
   oldPropertyId: string;
   label: string;
   rentAmount: number;
+  status: UnitStatus;
   minTenureMonths: number | null;
   autoRenew: boolean;
   unitType: string | null;
@@ -323,6 +325,11 @@ export async function parseOrganizationBackup(
       }
       if (!unitLabel) errors.push(`${label}: missing label`);
       if (rentAmount == null) errors.push(`${label}: rentAmount must be a number`);
+      // Backups from before units had a status carry no column: they were all active.
+      const status = strAt(row, index, "status") ?? "ACTIVE";
+      if (!Object.values(UnitStatus).includes(status as UnitStatus)) {
+        errors.push(`${label}: status must be one of ${Object.values(UnitStatus).join(", ")}`);
+      }
       if (!oldId || !oldPropertyId || !unitLabel || rentAmount == null) continue;
 
       unitIds.add(oldId);
@@ -331,6 +338,7 @@ export async function parseOrganizationBackup(
         oldPropertyId,
         label: unitLabel,
         rentAmount,
+        status: status as UnitStatus,
         minTenureMonths: numAt(row, index, "minTenureMonths"),
         autoRenew: boolAt(row, index, "autoRenew"),
         unitType: strAt(row, index, "unitType"),
@@ -721,6 +729,7 @@ export async function importOrganizationBackup(
             propertyId: propertyMap.get(unit.oldPropertyId)!,
             label: unit.label,
             rentAmount: unit.rentAmount,
+            status: unit.status,
             minTenureMonths: unit.minTenureMonths,
             autoRenew: unit.autoRenew,
             unitType: unit.unitType,
