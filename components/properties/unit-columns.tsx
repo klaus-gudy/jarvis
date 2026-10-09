@@ -9,6 +9,7 @@ import {
   type RowAction,
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { UnitStatusBadge } from "@/components/units/unit-status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { LeasePreview } from "@/components/hover-cards/lease-hover-card";
 import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
@@ -26,6 +27,8 @@ export type UnitRow = {
   sizeSqm: number | null;
   amenities: string[];
   status: "Occupied" | "Vacant";
+  /** False once deactivated — out of tracking, shown as "Inactive". */
+  active: boolean;
   tenantName: string | null;
   /** The current lease's tenant and the lease itself, for links; null when vacant. */
   tenantMembershipId: string | null;
@@ -134,12 +137,7 @@ export function buildUnitColumns({
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge
-          variant={row.original.status === "Occupied" ? "secondary" : "outline"}
-          className="rounded-full font-normal"
-        >
-          {row.original.status}
-        </Badge>
+        <UnitStatusBadge status={row.original.status} active={row.original.active} />
       ),
       filterFn: facetFilterFn,
     },
