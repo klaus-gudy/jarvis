@@ -38,7 +38,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   AMENITY_OPTIONS,
   CATEGORY_OPTIONS,
-  PROPERTY_STATUS_OPTIONS,
   PROPERTY_TYPE_OPTIONS,
 } from "@/lib/property-options";
 
@@ -47,7 +46,6 @@ export type PropertyFormValues = {
   type: string;
   category: string;
   address: string;
-  status: string;
   description: string;
   amenities: string[];
 };
@@ -59,7 +57,6 @@ const EMPTY: PropertyFormValues = {
   type: "RESIDENTIAL",
   category: CATEGORY_OPTIONS[0],
   address: "",
-  status: "ACTIVE",
   description: "",
   amenities: [],
 };
@@ -137,14 +134,9 @@ export function PropertyFormDialog({
 
   /*
    * What's inside the collapsed panel, so it can be read without opening it.
-   * Only values that differ from the default are named — a summary that always
-   * says "Active" is noise, and would also stop "Optional" ever showing.
+   * Only values that were filled in are named, so "Optional" shows otherwise.
    */
   const extrasSummary = [
-    values.status !== "ACTIVE"
-      ? (PROPERTY_STATUS_OPTIONS.find((o) => o.value === values.status)?.label ??
-        values.status)
-      : null,
     values.description.trim() ? "Description" : null,
     values.amenities.length > 0
       ? `${values.amenities.length} ${values.amenities.length === 1 ? "amenity" : "amenities"}`
@@ -156,7 +148,7 @@ export function PropertyFormDialog({
   // Opens the panel when the server rejected something inside it — otherwise
   // the error sits in a collapsed section and the form looks stuck.
   const extrasHaveError = Boolean(
-    fieldErrors.status || fieldErrors.description || fieldErrors.amenities
+    fieldErrors.description || fieldErrors.amenities
   );
 
   return (
@@ -273,48 +265,15 @@ export function PropertyFormDialog({
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4 px-1 pt-1 pb-2">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="property-status">Status</FieldLabel>
-                        <Select
-                          value={values.status}
-                          onValueChange={(next) => next && set("status", next)}
-                        >
-                          <SelectTrigger id="property-status" className="w-full">
-                            <SelectValue>
-                              {(selected: string) =>
-                                PROPERTY_STATUS_OPTIONS.find(
-                                  (o) => o.value === selected
-                                )?.label ?? selected
-                              }
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PROPERTY_STATUS_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FieldError
-                          errors={fieldErrors.status?.map((m) => ({ message: m }))}
-                        />
-                      </Field>
-
-                      <Field>
-                        <FieldLabel htmlFor="property-owner">Ownership</FieldLabel>
-                        <Input
-                          id="property-owner"
-                          value={ownerName}
-                          readOnly
-                          disabled
-                        />
-                        <FieldDescription>
-                          From your organization&apos;s owner.
-                        </FieldDescription>
-                      </Field>
-                    </div>
+                    {/* Status isn't edited here: deactivating has its own
+                        checks, on the property's Actions tab. */}
+                    <Field>
+                      <FieldLabel htmlFor="property-owner">Ownership</FieldLabel>
+                      <Input id="property-owner" value={ownerName} readOnly disabled />
+                      <FieldDescription>
+                        From your organization&apos;s owner.
+                      </FieldDescription>
+                    </Field>
 
                     <Field>
                       <FieldLabel htmlFor="property-description">
