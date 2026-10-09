@@ -66,6 +66,12 @@ export async function PATCH(
       { status: 400 }
     );
   }
+  if (result.error === "unit-inactive") {
+    return Response.json(
+      { error: "This unit is deactivated — reactivate it first" },
+      { status: 409 }
+    );
+  }
   if (result.error === "unit-occupied") {
     return Response.json(
       { error: "This unit already has a lease over that period" },
