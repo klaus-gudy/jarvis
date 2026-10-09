@@ -2,6 +2,7 @@ import {
   Building2Icon,
   BuildingIcon,
   CreditCardIcon,
+  DoorOpenIcon,
   FileTextIcon,
   LayoutDashboardIcon,
   ScrollTextIcon,
@@ -66,6 +67,13 @@ export const navItems: NavItem[] = [
     permission: "property:read",
     icon: BuildingIcon,
     description: "Buildings and the units inside them",
+  },
+  {
+    title: "Units",
+    url: "/units",
+    permission: "property:read",
+    icon: DoorOpenIcon,
+    description: "Every unit, who is in it and until when",
   },
   {
     title: "Tenants",
