@@ -10,6 +10,7 @@ import { audit, createdBy, diff, snapshot, updatedBy, type Actor } from "@/lib/a
 import { getProfilePhotoIds } from "@/lib/documents";
 import { getOwnerRecipients, getTenantRecipient } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
+import { trackedProperty } from "@/lib/tracking";
 import { invoiceReference } from "@/lib/invoice-types";
 import { displayName } from "@/lib/user-display";
 import {
@@ -394,12 +395,13 @@ export async function getLeaseOptions(organizationId: string): Promise<LeaseOpti
   const now = new Date();
 
   const [properties, tenantMemberships] = await Promise.all([
+    // Deactivated properties and units are never offered for a new lease.
     prisma.property.findMany({
-      where: { organizationId },
+      where: trackedProperty(organizationId),
       orderBy: { name: "asc" },
       include: {
         units: {
-          where: { leases: { none: { endDate: { gte: now } } } },
+          where: { status: "ACTIVE", leases: { none: { endDate: { gte: now } } } },
           orderBy: { label: "asc" },
         },
       },
@@ -563,9 +565,19 @@ export async function createLease(
       propertyId: input.propertyId,
       property: { organizationId },
     },
-    select: { id: true, minTenureMonths: true, rentAmount: true, autoRenew: true },
+    select: {
+      id: true,
+      minTenureMonths: true,
+      rentAmount: true,
+      autoRenew: true,
+      status: true,
+      property: { select: { status: true } },
+    },
   });
   if (!unit) return { error: "unit-not-found" as const };
+  if (unit.status !== "ACTIVE" || unit.property.status !== "ACTIVE") {
+    return { error: "unit-inactive" as const };
+  }
 
   const membership = await prisma.membership.findFirst({
     where: {
@@ -628,7 +640,13 @@ export async function renewLease(
       unitId: true,
       membershipId: true,
       renewedTo: { select: { id: true } },
-      unit: { select: { minTenureMonths: true } },
+      unit: {
+        select: {
+          minTenureMonths: true,
+          status: true,
+          property: { select: { status: true } },
+        },
+      },
     },
   });
   if (!lease) return { error: "not-found" as const };
@@ -638,6 +656,9 @@ export async function renewLease(
     return { error: "already-renewed" as const };
   }
   if (lease.status !== "Ended") return { error: "not-ended" as const };
+  if (lease.unit.status !== "ACTIVE" || lease.unit.property.status !== "ACTIVE") {
+    return { error: "unit-inactive" as const };
+  }
 
   const minTenure = lease.unit.minTenureMonths;
   if (minTenure != null && input.durationMonths < minTenure) {
@@ -705,9 +726,22 @@ export async function updateLease(
       propertyId: input.propertyId,
       property: { organizationId },
     },
-    select: { id: true, minTenureMonths: true, rentAmount: true },
+    select: {
+      id: true,
+      minTenureMonths: true,
+      rentAmount: true,
+      status: true,
+      property: { select: { status: true } },
+    },
   });
   if (!unit) return { error: "unit-not-found" as const };
+  // A lease may stay on a unit deactivated since, but can't move onto one.
+  if (
+    unit.id !== existing.unitId &&
+    (unit.status !== "ACTIVE" || unit.property.status !== "ACTIVE")
+  ) {
+    return { error: "unit-inactive" as const };
+  }
 
   const membership = await prisma.membership.findFirst({
     where: {
