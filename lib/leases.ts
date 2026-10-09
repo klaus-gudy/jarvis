@@ -10,7 +10,7 @@ import { audit, createdBy, diff, snapshot, updatedBy, type Actor } from "@/lib/a
 import { getProfilePhotoIds } from "@/lib/documents";
 import { getOwnerRecipients, getTenantRecipient } from "@/lib/notifications/recipients";
 import { prisma } from "@/lib/prisma";
-import { trackedProperty } from "@/lib/tracking";
+import { trackedProperty, trackedUnit } from "@/lib/tracking";
 import { invoiceReference } from "@/lib/invoice-types";
 import { displayName } from "@/lib/user-display";
 import {
@@ -138,7 +138,8 @@ export async function getLeases(organizationId: string): Promise<LeaseRow[]> {
   const leases = await prisma.lease.findMany({
     where: {
       membership: { organizationId },
-      unit: { property: { organizationId } },
+      // Leases on deactivated units leave this list; the unit page still has them.
+      unit: trackedUnit(organizationId),
     },
     orderBy: { updatedAt: "desc" },
     include: {
