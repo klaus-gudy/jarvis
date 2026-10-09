@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { PencilIcon, Trash2Icon } from "lucide-react";
-import { toast } from "sonner";
+import { PencilIcon } from "lucide-react";
 
 import {
   PropertyFormDialog,
@@ -11,67 +9,26 @@ import {
 } from "@/components/properties/property-form-dialog";
 import { useCan } from "@/components/permissions-provider";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
+/**
+ * The property page's header button. Deactivate and Delete live on the
+ * Actions tab, where there is room to say what each one does.
+ */
 export function PropertyActions({
   propertyId,
-  propertyName,
-  unitCount,
   ownerName,
   initialValues,
 }: {
   propertyId: string;
-  propertyName: string;
-  unitCount: number;
   ownerName: string;
   initialValues: PropertyFormValues;
 }) {
   const canWrite = useCan("property:write");
-  const router = useRouter();
-  const [pending, setPending] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [open, setOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
 
-  async function handleDelete() {
-    setPending(true);
-    setError(null);
-
-    const response = await fetch(`/api/properties/${propertyId}`, {
-      method: "DELETE",
-    });
-
-    if (response.ok) {
-      setOpen(false);
-      toast.success(`${propertyName} deleted`);
-      router.push("/properties");
-      router.refresh();
-      return;
-    }
-
-    const data = await response.json().catch(() => null);
-    const message = data?.error ?? "Could not delete this property";
-    setError(message);
-    toast.error(message);
-    setPending(false);
-  }
-
   return (
-    /*
-     * Stacked and full width on a phone, side by side from `sm` up. `shrink-0`
-     * keeps the pair off the identity block's line once they are back in a
-     * row — without it a long property name squeezes the buttons instead of
-     * truncating itself.
-     */
+    // Full width on a phone; `shrink-0` from `sm` up keeps a long property
+    // name from squeezing the button instead of truncating itself.
     <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
       <Button
         variant="outline"
@@ -97,40 +54,6 @@ export function PropertyActions({
           property={{ id: propertyId, ...initialValues }}
         />
       )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger
-          render={
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto"
-              disabled={!canWrite}
-              title={canWrite ? undefined : "Your role doesn't allow this"}
-            >
-              <Trash2Icon />
-              Delete
-            </Button>
-          }
-        />
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete {propertyName}?</DialogTitle>
-            <DialogDescription>
-              {unitCount > 0
-                ? `This also deletes its ${unitCount} unit${unitCount === 1 ? "" : "s"} and any leases on them. This cannot be undone.`
-                : "This cannot be undone."}
-            </DialogDescription>
-          </DialogHeader>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline">Cancel</Button>} />
-            <Button variant="destructive" onClick={handleDelete} disabled={pending}>
-              {pending ? "Deleting…" : "Delete property"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
