@@ -8,7 +8,9 @@ import {
   type LeaseExpiry,
   type LeaseStatus,
 } from "@/lib/leases";
+import type { UnitStatus } from "@/lib/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
+import { countLiveLeases } from "@/lib/tracking";
 import { displayName } from "@/lib/user-display";
 import type { CreateUnitInput, UpdateUnitInput } from "@/lib/units-schemas";
 
@@ -129,6 +131,46 @@ export async function deleteUnit(
 }
 
 /**
+ * Takes a unit out of tracking, or brings it back (see `lib/tracking.ts`).
+ * Deactivating is refused while the unit has a lease running or still to start.
+ */
+export async function setUnitStatus(
+  organizationId: string,
+  propertyId: string,
+  unitId: string,
+  status: UnitStatus,
+  actor: Actor
+) {
+  const existing = await prisma.unit.findFirst({
+    where: { id: unitId, propertyId, property: { organizationId } },
+    select: { id: true, status: true },
+  });
+  if (!existing) return { error: "not-found" as const };
+  if (existing.status === status) return { unit: { id: existing.id, status } };
+
+  if (status === "INACTIVE") {
+    const live = await countLiveLeases(organizationId, { unitId: existing.id });
+    if (live > 0) return { error: "has-live-leases" as const, count: live };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.unit.update({
+      where: { id: existing.id },
+      data: { status, ...updatedBy(actor) },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: status === "INACTIVE" ? "unit.deactivated" : "unit.reactivated",
+      entityType: "Unit",
+      entityId: existing.id,
+      changes: { status: [existing.status, status] },
+    });
+  });
+  return { unit: { id: existing.id, status } };
+}
+
+/**
  * Everything the unit page shows, in one read: the unit, enough of its
  * property for the header and back link, and every lease the unit has held.
  *
@@ -145,7 +187,7 @@ export async function getUnit(
     where: { id: unitId, propertyId, property: { organizationId } },
     include: {
       property: {
-        select: { id: true, name: true, address: true, category: true },
+        select: { id: true, name: true, address: true, category: true, status: true },
       },
       leases: {
         where: { membership: { organizationId } },
@@ -203,6 +245,7 @@ export async function getUnit(
     block: unit.block,
     sizeSqm: unit.sizeSqm,
     amenities: unit.amenities,
+    status: unit.status,
     property: unit.property,
     leases,
     currentLease,
@@ -244,6 +287,8 @@ export type UnitListRow = {
   sizeSqm: number | null;
   amenities: string[];
   status: "Occupied" | "Vacant";
+  /** False when the unit or its property is deactivated (out of tracking). */
+  active: boolean;
   /**
    * The running lease when occupied, otherwise the last one to end; null for a
    * unit that has never been let. One lease per unit, so a table of units
@@ -277,7 +322,14 @@ export async function getOrganizationUnits(organizationId: string): Promise<Unit
       orderBy: [{ property: { name: "asc" } }, { label: "asc" }],
       include: {
         property: {
-          select: { id: true, name: true, address: true, category: true, type: true },
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            category: true,
+            type: true,
+            status: true,
+          },
         },
         leases: {
           where: { membership: { organizationId }, startDate: { lte: now } },
@@ -358,6 +410,7 @@ export async function getOrganizationUnits(organizationId: string): Promise<Unit
       amenities: unit.amenities,
       // The property page's test for "occupied": started and not ended.
       status: latest && latest.endDate >= now ? "Occupied" : "Vacant",
+      active: unit.status === "ACTIVE" && unit.property.status === "ACTIVE",
       occupant: latest ? occupant(latest) : null,
       next: next ? occupant(next) : null,
     };
