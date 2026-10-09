@@ -377,23 +377,31 @@ model Property {
   @@index([organizationId])
 }
 
+/// INACTIVE takes a unit out of tracking (metrics, lease pickers). A unit is
+/// only tracked when its property is ACTIVE too — see `lib/tracking.ts`.
+enum UnitStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model Unit {
-  id              String   @id @default(cuid())
+  id              String     @id @default(cuid())
   label           String
   rentAmount      Int
+  status          UnitStatus @default(ACTIVE)
   /// The renewal term, and the shortest a lease on this unit may run.
   /// Defaults to 6 rather than null: it is what a renewal's length is read
   /// from, and a unit without one renews nothing.
-  minTenureMonths Int?     @default(6)
+  minTenureMonths Int?       @default(6)
   /// The default for new leases on this unit; each `Lease` keeps its own copy.
-  autoRenew       Boolean  @default(true)
+  autoRenew       Boolean    @default(true)
   unitType        String?
   floor           String?
   block           String?
   sizeSqm         Float?
   amenities       String[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   /// Who created / last changed this row. Null for rows from before 2026-10-01,
   /// system writes (consumers, cron) and removed members; `AuditLog` keeps the rest.
