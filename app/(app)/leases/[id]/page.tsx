@@ -14,6 +14,7 @@ import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
 import { UnitHoverCard } from "@/components/hover-cards/unit-hover-card";
 import { InvoiceCard } from "@/components/leases/invoice-card";
 import { LeaseTermsCard } from "@/components/leases/lease-terms-card";
+import { RenewLeaseButton } from "@/components/leases/renew-lease-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -123,6 +124,10 @@ export default async function LeaseDetailPage({
     block: unit.block,
   };
   const unitHref = propertyHref ? `${propertyHref}/units/${unit.id}` : null;
+  // Ended only: a running lease is left to auto-renew, so it can't be renewed
+  // early by a stray click. A Renewed one already has its successor.
+  const canRenew =
+    lease.status === "Ended" && access !== null && can(access, "lease:write");
 
   return (
     <div className="space-y-6">
@@ -183,6 +188,22 @@ export default async function LeaseDetailPage({
             </p>
             <RecordStamps stamps={stamps} />
           </div>
+          {canRenew && (
+            <RenewLeaseButton
+              lease={{
+                id: lease.id,
+                reference: lease.reference,
+                propertyName: property.name,
+                unitLabel: unit.label,
+                endDate: lease.endDate.toISOString(),
+                durationMonths: lease.durationMonths,
+                monthlyRent: lease.monthlyRent,
+                autoRenew: lease.autoRenew,
+                unitRentAmount: unit.rentAmount,
+                minTenureMonths: lease.renewalMonths,
+              }}
+            />
+          )}
         </CardContent>
       </Card>
 
