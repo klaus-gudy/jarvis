@@ -132,6 +132,10 @@ export function describeActivity(entry: {
       return { title: "Property details updated" };
     case "property.deleted":
       return { title: `Property ${c.name ?? ""} deleted`.trim() };
+    case "property.deactivated":
+      return { title: "Property deactivated", detail: "Out of tracking" };
+    case "property.reactivated":
+      return { title: "Property reactivated" };
 
     case "unit.created":
       return {
@@ -142,6 +146,10 @@ export function describeActivity(entry: {
       return { title: "Unit details updated" };
     case "unit.deleted":
       return { title: `Unit ${c.label ?? ""} deleted`.trim() };
+    case "unit.deactivated":
+      return { title: "Unit deactivated", detail: "Out of tracking" };
+    case "unit.reactivated":
+      return { title: "Unit reactivated" };
 
     case "lease.created":
     case "lease.renewed":
