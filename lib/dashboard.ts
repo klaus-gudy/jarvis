@@ -117,9 +117,10 @@ export async function getDashboardStats(
   const yearEnd = new Date(year + 1, 0, 1);
   const expiryCutoff = new Date(now.getTime() + EXPIRY_WINDOW_DAYS * DAY_MS);
 
+  // Leases on deactivated units are out of tracking along with the unit.
   const orgLease = {
     membership: { organizationId },
-    unit: { property: { organizationId } },
+    unit: trackedUnit(organizationId),
   };
   const tenantRole = {
     organizationId,
@@ -139,8 +140,8 @@ export async function getDashboardStats(
     invoices,
     paymentTotals,
   ] = await Promise.all([
-    // Deactivated properties and units count toward none of the property or
-    // unit figures; leases and payments on them are history and still count.
+    // Deactivated properties and units — and the leases on them — count
+    // toward none of the figures here.
     prisma.property.count({ where: trackedProperty(organizationId) }),
     // Asking rents plus whether anyone is in the unit: that one row carries the
     // expected income, the occupancy split and the vacancy loss, so none of the
@@ -160,7 +161,13 @@ export async function getDashboardStats(
     prisma.membership.count({
       where: {
         ...tenantRole,
-        leases: { some: { startDate: { lte: now }, endDate: { gte: now } } },
+        leases: {
+          some: {
+            startDate: { lte: now },
+            endDate: { gte: now },
+            unit: trackedUnit(organizationId),
+          },
+        },
       },
     }),
     prisma.membership.count({ where: { ...tenantRole, leases: { none: {} } } }),
@@ -381,9 +388,10 @@ export async function getDashboardPanels(
   const renewalCutoff = new Date(now.getTime() + RENEWAL_WINDOW_DAYS * DAY_MS);
   const moveInCutoff = new Date(now.getTime() + MOVE_IN_WINDOW_DAYS * DAY_MS);
 
+  // Leases on deactivated units are out of tracking along with the unit.
   const orgLease = {
     membership: { organizationId },
-    unit: { property: { organizationId } },
+    unit: trackedUnit(organizationId),
   };
   const tenantTitle = {
     unit: { select: { label: true, property: { select: { name: true } } } },
