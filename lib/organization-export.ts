@@ -32,6 +32,7 @@ export type UnitExportRow = {
   propertyId: string;
   label: string;
   rentAmount: number;
+  status: string;
   minTenureMonths: number | null;
   autoRenew: boolean;
   unitType: string | null;
