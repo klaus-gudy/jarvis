@@ -10,7 +10,6 @@ import {
 } from "@/lib/leases";
 import type { UnitStatus } from "@/lib/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
-import { countLiveLeases } from "@/lib/tracking";
 import { displayName } from "@/lib/user-display";
 import type { CreateUnitInput, UpdateUnitInput } from "@/lib/units-schemas";
 
@@ -132,7 +131,7 @@ export async function deleteUnit(
 
 /**
  * Takes a unit out of tracking, or brings it back (see `lib/tracking.ts`).
- * Deactivating is refused while the unit has a lease running or still to start.
+ * Allowed with leases on it: those leave tracking too.
  */
 export async function setUnitStatus(
   organizationId: string,
@@ -147,11 +146,6 @@ export async function setUnitStatus(
   });
   if (!existing) return { error: "not-found" as const };
   if (existing.status === status) return { unit: { id: existing.id, status } };
-
-  if (status === "INACTIVE") {
-    const live = await countLiveLeases(organizationId, { unitId: existing.id });
-    if (live > 0) return { error: "has-live-leases" as const, count: live };
-  }
 
   await prisma.$transaction(async (tx) => {
     await tx.unit.update({
