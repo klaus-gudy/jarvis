@@ -600,6 +600,8 @@ export async function createLease(
 
 /**
  * A person renewing a lease by hand: the same unit and tenant, a fresh term.
+ * Only an **Ended** lease qualifies, so a running tenancy can't be renewed by
+ * a stray click; a running one renews automatically (`Lease.autoRenew`).
  *
  * Only the term is the caller's to choose — start, length, rent, auto-renew —
  * while the unit and membership are re-read from the lease being renewed, so a
@@ -635,6 +637,7 @@ export async function renewLease(
   if (lease.renewedTo || lease.status === "Renewed") {
     return { error: "already-renewed" as const };
   }
+  if (lease.status !== "Ended") return { error: "not-ended" as const };
 
   const minTenure = lease.unit.minTenureMonths;
   if (minTenure != null && input.durationMonths < minTenure) {
