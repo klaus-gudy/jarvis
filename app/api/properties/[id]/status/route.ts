@@ -37,14 +37,6 @@ export async function PATCH(
   if (result.error === "not-found") {
     return Response.json({ error: "Property not found" }, { status: 404 });
   }
-  if (result.error === "has-live-leases") {
-    return Response.json(
-      {
-        error: `${result.count} lease${result.count === 1 ? " is" : "s are"} still running or about to start here — end ${result.count === 1 ? "it" : "them"} first`,
-      },
-      { status: 409 }
-    );
-  }
 
   // The dashboard and every lease picker read the status too.
   revalidatePath("/", "layout");
