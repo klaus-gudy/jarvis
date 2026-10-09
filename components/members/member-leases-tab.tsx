@@ -25,8 +25,8 @@ import type { LeaseOptions } from "@/lib/leases";
  * membership to hold the Tenant role and 404s otherwise, so offering it to an
  * Owner or a caretaker would be an affordance that can only fail.
  *
- * "Renew lease" sits beside it for any lease without a successor yet (Active
- * or Ended — a Renewed one already has one, an Upcoming one hasn't started).
+ * "Renew lease" sits beside it for Ended leases only — a running lease is left
+ * to auto-renew, so it can't be renewed early by accident.
  */
 export function MemberLeasesTab({
   leases,
@@ -57,7 +57,7 @@ export function MemberLeasesTab({
   const renewable: RenewableLease[] = React.useMemo(
     () =>
       leases
-        .filter((lease) => lease.status === "Active" || lease.status === "Ended")
+        .filter((lease) => lease.status === "Ended")
         .map((lease) => ({
           id: lease.id,
           reference: lease.reference,
@@ -137,7 +137,7 @@ export function MemberLeasesTab({
                   disabledReason:
                     lease.status === "Renewed"
                       ? "Already renewed"
-                      : "Hasn't started yet",
+                      : "Only an ended lease can be renewed",
                 },
               ]
             : []),
