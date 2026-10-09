@@ -12,6 +12,7 @@ import { TenantHoverCard } from "@/components/hover-cards/tenant-hover-card";
 import { PhotoGallery } from "@/components/documents/photo-gallery";
 import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { UnitActions } from "@/components/properties/unit-actions";
+import { DeleteAction, TrackingStatusAction } from "@/components/properties/record-actions";
 import { UnitLeasesTab } from "@/components/properties/unit-leases-tab";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { lastDayOf } from "@/lib/dates";
 
 /** Tabs a link may open on, e.g. `?tab=photos`. */
-const TABS = ["overview", "leases", "photos", "documents", "activity"] as const;
+const TABS = ["overview", "leases", "photos", "documents", "activity", "actions"] as const;
 
 /**
  * A unit's own page, laid out like the property page it belongs to: identity
@@ -82,6 +83,11 @@ export default async function UnitDetailPage({
 
   const { property, currentLease } = unit;
   const isOccupied = currentLease !== null;
+  const isActive = unit.status === "ACTIVE";
+  const propertyActive = property.status === "ACTIVE";
+  // Running or still to start: either one stops the unit being deactivated.
+  const now = new Date();
+  const liveLeases = unit.leases.filter((lease) => lease.endDate >= now).length;
   const propertyHref = `/properties/${property.id}`;
   const linkClass = "text-primary hover:underline";
 
@@ -116,6 +122,14 @@ export default async function UnitDetailPage({
                   Unit {unit.label}
                 </h2>
                 <StatusPill occupied={isOccupied} />
+                {!(isActive && propertyActive) && (
+                  <span
+                    className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                    title={isActive ? "Its property is deactivated" : undefined}
+                  >
+                    Inactive
+                  </span>
+                )}
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
                 <Link
@@ -150,8 +164,6 @@ export default async function UnitDetailPage({
               sizeSqm: unit.sizeSqm,
               amenities: unit.amenities,
             }}
-            isOccupied={isOccupied}
-            leaseCount={unit.leases.length}
           />
         </CardContent>
       </Card>
@@ -190,6 +202,9 @@ export default async function UnitDetailPage({
           </TabsTrigger>
           <TabsTrigger value="activity" className="flex-none px-3">
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="actions" className="flex-none px-3">
+            Actions
           </TabsTrigger>
         </TabsList>
 
@@ -408,6 +423,30 @@ export default async function UnitDetailPage({
         </TabsContent>
         <TabsContent value="activity" className="pt-5">
           <ActivityTimeline subject={`Unit:${unit.id}`} emptyMessage="No activity on this unit yet." />
+        </TabsContent>
+
+        <TabsContent value="actions" className="space-y-4 pt-5">
+          <TrackingStatusAction
+            kind="unit"
+            name={`Unit ${unit.label}`}
+            endpoint={`/api/properties/${property.id}/units/${unit.id}/status`}
+            active={isActive}
+            liveLeases={liveLeases}
+            inactiveParent={!propertyActive}
+          />
+          <DeleteAction
+            kind="unit"
+            name={`Unit ${unit.label}`}
+            endpoint={`/api/properties/${property.id}/units/${unit.id}`}
+            consequence={
+              isOccupied
+                ? "This unit is currently occupied — deleting it also removes its lease. This cannot be undone."
+                : unit.leases.length > 0
+                  ? `This also deletes its ${unit.leases.length} past lease${unit.leases.length === 1 ? "" : "s"}. This cannot be undone.`
+                  : "This cannot be undone."
+            }
+            redirectTo={`${propertyHref}?tab=units`}
+          />
         </TabsContent>
       </Tabs>
     </div>
