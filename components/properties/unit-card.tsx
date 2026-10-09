@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { UnitStatusBadge } from "@/components/units/unit-status-badge";
 import { formatCurrencyFull } from "@/lib/format";
 import type { UnitRow } from "@/components/properties/unit-columns";
 
@@ -25,12 +25,7 @@ export function UnitCard({ unit }: { unit: UnitRow }) {
             <p className="truncate text-xs text-muted-foreground">{spec}</p>
           )}
         </div>
-        <Badge
-          variant={unit.status === "Occupied" ? "secondary" : "outline"}
-          className="shrink-0 rounded-full font-normal"
-        >
-          {unit.status}
-        </Badge>
+        <UnitStatusBadge status={unit.status} active={unit.active} className="shrink-0" />
       </div>
 
       <div className="flex items-baseline justify-between gap-3">
