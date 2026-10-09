@@ -3,17 +3,13 @@ import { prisma } from "@/lib/prisma";
 /**
  * What "deactivated" means, in one place.
  *
- * An INACTIVE property or unit is kept — its history, leases, payments and
- * files stay readable — but it is out of tracking: it adds nothing to the
- * dashboard or occupancy figures and is never offered when creating a lease.
- * A unit is tracked only when both it *and* its property are ACTIVE, so
- * deactivating a property takes every unit in it out without touching the
- * units' own flags; reactivating the property brings back exactly the units
- * that were active before.
- *
- * Money already received is not filtered: payments and lease totals are
- * history, and a property can only be deactivated once nothing on it is
- * running or upcoming (`countLiveLeases`), so no live figure is lost.
+ * An INACTIVE property or unit is kept, but it is out of tracking: it adds
+ * nothing to the dashboard or occupancy figures, is never offered when
+ * creating a lease, and the leases on it (with their invoices and payments)
+ * leave the dashboard and the Leases list too. They stay on the unit's and the
+ * tenant's own pages. A unit is tracked only when both it *and* its property
+ * are ACTIVE, so deactivating a property takes every unit in it out without
+ * touching the units' own flags; reactivating restores the earlier mix.
  */
 
 /** `where` for this org's properties that count. */
@@ -32,7 +28,7 @@ export function trackedUnit(organizationId: string) {
 
 /**
  * Leases running now or signed to start later, on one property's units or on
- * one unit. While any exist the property or unit can't be deactivated.
+ * one unit — what deactivating would take out of tracking with it.
  */
 export function countLiveLeases(
   organizationId: string,
