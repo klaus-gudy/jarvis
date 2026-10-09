@@ -64,3 +64,17 @@ export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;
 export const updateLeaseSchema = createLeaseSchema;
 
 export type UpdateLeaseInput = z.infer<typeof updateLeaseSchema>;
+
+/**
+ * Renewing keeps the unit and tenant of the lease being renewed, so only the
+ * term is sent. Rent and auto-renew are required: the form prefills both from
+ * the old lease, and an omitted value has no obvious default to fall back to.
+ */
+export const renewLeaseSchema = createLeaseSchema
+  .pick({ startDate: true, durationMonths: true })
+  .extend({
+    monthlyRent: createLeaseSchema.shape.monthlyRent.unwrap().unwrap(),
+    autoRenew: z.boolean(),
+  });
+
+export type RenewLeaseInput = z.infer<typeof renewLeaseSchema>;
