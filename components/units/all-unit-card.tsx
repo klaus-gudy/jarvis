@@ -2,7 +2,7 @@
 
 import { ExpiryTag } from "@/components/leases/expiry-tag";
 import { nextTerm, occupantTerm } from "@/components/units/unit-occupancy";
-import { Badge } from "@/components/ui/badge";
+import { UnitStatusBadge } from "@/components/units/unit-status-badge";
 import { formatCurrencyFull } from "@/lib/format";
 import type { UnitListRow } from "@/lib/units";
 
@@ -22,12 +22,7 @@ export function AllUnitCard({ unit }: { unit: UnitListRow }) {
           <p className="font-medium">{unit.label}</p>
           <p className="truncate text-xs text-muted-foreground">{spec}</p>
         </div>
-        <Badge
-          variant={unit.status === "Occupied" ? "secondary" : "outline"}
-          className="shrink-0 rounded-full font-normal"
-        >
-          {unit.status}
-        </Badge>
+        <UnitStatusBadge status={unit.status} active={unit.active} className="shrink-0" />
       </div>
 
       <div className="flex items-start justify-between gap-3">
