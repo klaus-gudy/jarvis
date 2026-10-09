@@ -206,6 +206,9 @@ export type TenantDetail = {
     leaseAmount: number;
     status: LeaseStatus;
     expiry: LeaseExpiry | null;
+    /** What a renewal prefills: this lease's setting and the unit's floor. */
+    autoRenew: boolean;
+    minTenureMonths: number | null;
   }[];
 };
 
@@ -300,6 +303,8 @@ export async function getTenantDetail(
       status:
         lease.status,
       expiry: leaseExpiry(now, lease.startDate, lease.endDate),
+      autoRenew: lease.autoRenew,
+      minTenureMonths: lease.unit.minTenureMonths,
     })),
   };
 }
