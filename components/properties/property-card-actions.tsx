@@ -34,6 +34,8 @@ export function PropertyCardActions({ property }: { property: PropertySummary })
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // Deactivated units are deleted too, though they don't count as units elsewhere.
+  const unitCount = property.totalUnits + property.inactiveUnits;
 
   async function handleDelete() {
     setPending(true);
@@ -110,7 +112,6 @@ export function PropertyCardActions({ property }: { property: PropertySummary })
             type: property.type,
             category: property.category,
             address: property.address,
-            status: property.status,
             description: property.description ?? "",
             amenities: property.amenities,
           }}
@@ -122,8 +123,8 @@ export function PropertyCardActions({ property }: { property: PropertySummary })
           <DialogHeader>
             <DialogTitle>Delete {property.name}?</DialogTitle>
             <DialogDescription>
-              {property.totalUnits > 0
-                ? `This also deletes its ${property.totalUnits} unit${property.totalUnits === 1 ? "" : "s"} and any leases on them. This cannot be undone.`
+              {unitCount > 0
+                ? `This also deletes its ${unitCount} unit${unitCount === 1 ? "" : "s"} and any leases on them. This cannot be undone.`
                 : "This cannot be undone."}
             </DialogDescription>
           </DialogHeader>
