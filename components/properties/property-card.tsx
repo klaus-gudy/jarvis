@@ -23,9 +23,16 @@ export function PropertyCard({ property }: { property: PropertySummary }) {
               className="size-4.5"
             />
           </div>
-          <Badge variant="secondary" className="rounded-full font-normal">
-            {property.type === "COMMERCIAL" ? "Commercial" : "Residential"}
-          </Badge>
+          <div className="flex flex-wrap justify-end gap-1">
+            {property.status === "INACTIVE" && (
+              <Badge variant="outline" className="rounded-full font-normal text-muted-foreground">
+                Inactive
+              </Badge>
+            )}
+            <Badge variant="secondary" className="rounded-full font-normal">
+              {property.type === "COMMERCIAL" ? "Commercial" : "Residential"}
+            </Badge>
+          </div>
         </div>
 
         <div className="mt-3 space-y-0.5">
