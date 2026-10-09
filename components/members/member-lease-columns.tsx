@@ -45,6 +45,8 @@ export type MemberLeaseRow = {
   leaseAmount: number;
   status: LeaseStatus;
   expiry: LeaseExpiry | null;
+  autoRenew: boolean;
+  minTenureMonths: number | null;
 };
 
 /**
