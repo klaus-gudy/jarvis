@@ -1,9 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { EyeIcon, PlusIcon } from "lucide-react";
+import { EyeIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 
 import { LeaseFormDialog } from "@/components/leases/lease-form-dialog";
+import {
+  RenewLeaseDialog,
+  type RenewableLease,
+} from "@/components/leases/renew-lease-dialog";
 import { MemberLeaseCard } from "@/components/members/member-lease-card";
 import {
   buildMemberLeaseColumns,
@@ -20,6 +24,9 @@ import type { LeaseOptions } from "@/lib/leases";
  * The create button only appears for tenants: `createLease` requires the
  * membership to hold the Tenant role and 404s otherwise, so offering it to an
  * Owner or a caretaker would be an affordance that can only fail.
+ *
+ * "Renew lease" sits beside it for any lease without a successor yet (Active
+ * or Ended — a Renewed one already has one, an Upcoming one hasn't started).
  */
 export function MemberLeasesTab({
   leases,
@@ -35,6 +42,8 @@ export function MemberLeasesTab({
   options: LeaseOptions | null;
 }) {
   const [formOpen, setFormOpen] = React.useState(false);
+  /** The lease the renew dialog opens on; null while it is closed. */
+  const [renewing, setRenewing] = React.useState<string | null>(null);
 
   const canReadProperties = useCan("property:read");
   const canReadLeases = useCan("lease:read");
@@ -44,14 +53,43 @@ export function MemberLeasesTab({
     [canReadProperties, canReadLeases]
   );
 
+  // Newest first, as the rows arrive, so the button opens on the latest term.
+  const renewable: RenewableLease[] = React.useMemo(
+    () =>
+      leases
+        .filter((lease) => lease.status === "Active" || lease.status === "Ended")
+        .map((lease) => ({
+          id: lease.id,
+          reference: lease.reference,
+          propertyName: lease.propertyName,
+          unitLabel: lease.unitLabel,
+          endDate: lease.endDate,
+          durationMonths: lease.durationMonths,
+          monthlyRent: lease.monthlyRent,
+          autoRenew: lease.autoRenew,
+          unitRentAmount: lease.unit.rentAmount,
+          minTenureMonths: lease.minTenureMonths,
+        })),
+    [leases]
+  );
+  const canRenew = isTenant && canWriteLeases && renewable.length > 0;
+
   return (
     <div className="space-y-3">
-      {isTenant && options && canWriteLeases && (
-        <div className="flex justify-end">
-          <Button onClick={() => setFormOpen(true)}>
-            <PlusIcon />
-            Create lease
-          </Button>
+      {isTenant && canWriteLeases && (options || canRenew) && (
+        <div className="flex justify-end gap-2">
+          {canRenew && (
+            <Button variant="outline" onClick={() => setRenewing(renewable[0].id)}>
+              <RefreshCwIcon />
+              Renew lease
+            </Button>
+          )}
+          {options && (
+            <Button onClick={() => setFormOpen(true)}>
+              <PlusIcon />
+              Create lease
+            </Button>
+          )}
         </div>
       )}
 
@@ -89,8 +127,32 @@ export function MemberLeasesTab({
             icon: EyeIcon,
             href: `/leases/${lease.id}`,
           },
+          ...(isTenant && canWriteLeases
+            ? [
+                {
+                  label: "Renew lease",
+                  icon: RefreshCwIcon,
+                  onSelect: () => setRenewing(lease.id),
+                  disabled: !renewable.some((item) => item.id === lease.id),
+                  disabledReason:
+                    lease.status === "Renewed"
+                      ? "Already renewed"
+                      : "Hasn't started yet",
+                },
+              ]
+            : []),
         ]}
       />
+
+      {renewing && (
+        <RenewLeaseDialog
+          key={renewing}
+          open
+          onOpenChange={(open) => !open && setRenewing(null)}
+          leases={renewable}
+          initialLeaseId={renewing}
+        />
+      )}
 
       {options && (
         <LeaseFormDialog
