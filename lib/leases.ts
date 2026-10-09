@@ -15,6 +15,7 @@ import { displayName } from "@/lib/user-display";
 import {
   addMonths,
   type CreateLeaseInput,
+  type RenewLeaseInput,
   type UpdateLeaseInput,
 } from "@/lib/leases-schemas";
 import { deriveInvoiceStatus, type InvoiceStatus } from "@/lib/invoices";
@@ -595,6 +596,65 @@ export async function createLease(
     // Likewise: the unit's setting is the default, the form may override it.
     autoRenew: input.autoRenew ?? unit.autoRenew,
   });
+}
+
+/**
+ * A person renewing a lease by hand: the same unit and tenant, a fresh term.
+ *
+ * Only the term is the caller's to choose — start, length, rent, auto-renew —
+ * while the unit and membership are re-read from the lease being renewed, so a
+ * renewal can't quietly move someone to another unit. It goes through
+ * `insertLease` like the automatic renewal, which marks the predecessor
+ * `Renewed` and refuses a period that overlaps anything already on the unit.
+ */
+export async function renewLease(
+  organizationId: string,
+  leaseId: string,
+  input: RenewLeaseInput,
+  actor: Actor
+) {
+  const lease = await prisma.lease.findFirst({
+    where: {
+      id: leaseId,
+      membership: { organizationId },
+      unit: { property: { organizationId } },
+    },
+    select: {
+      id: true,
+      status: true,
+      endDate: true,
+      unitId: true,
+      membershipId: true,
+      renewedTo: { select: { id: true } },
+      unit: { select: { minTenureMonths: true } },
+    },
+  });
+  if (!lease) return { error: "not-found" as const };
+
+  // `renewedFromId` is unique: a lease has at most one successor.
+  if (lease.renewedTo || lease.status === "Renewed") {
+    return { error: "already-renewed" as const };
+  }
+
+  const minTenure = lease.unit.minTenureMonths;
+  if (minTenure != null && input.durationMonths < minTenure) {
+    return { error: "duration-too-short" as const, minTenureMonths: minTenure };
+  }
+
+  const result = await insertLease({
+    organizationId,
+    actor,
+    unitId: lease.unitId,
+    membershipId: lease.membershipId,
+    startDate: input.startDate,
+    durationMonths: input.durationMonths,
+    monthlyRent: input.monthlyRent,
+    autoRenew: input.autoRenew,
+    renewedFromId: lease.id,
+  });
+
+  if (result.error) return result;
+  return { lease: result.lease, previousEndDate: lease.endDate };
 }
 
 /**
