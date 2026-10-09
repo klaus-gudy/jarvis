@@ -41,7 +41,8 @@ export default async function DashboardPage() {
   const [stats, panels, properties, attention] = await Promise.all([
     getDashboardStats(orgId),
     getDashboardPanels(orgId),
-    orgId ? getProperties(orgId) : Promise.resolve([]),
+    // Deactivated properties are out of tracking, so out of the breakdown too.
+    orgId ? getProperties(orgId, { status: "ACTIVE" }) : Promise.resolve([]),
     ctx ? getDashboardAttention(ctx) : Promise.resolve(null),
   ])
 
