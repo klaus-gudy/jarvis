@@ -4,7 +4,6 @@ import { getProfilePhotoIds } from "@/lib/documents";
 import { leaseExpiry, leaseReference } from "@/lib/leases";
 import { getOrganizationOwnerName } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
-import { countLiveLeases } from "@/lib/tracking";
 import type {
   CreatePropertyInput,
   UpdatePropertyInput,
@@ -290,8 +289,7 @@ export async function updateProperty(
 
 /**
  * Takes a property out of tracking, or brings it back (see `lib/tracking.ts`).
- * Deactivating is refused while any unit has a lease running or still to
- * start: that tenancy would vanish from the figures while still billing.
+ * Allowed with leases on it: those leave tracking too.
  */
 export async function setPropertyStatus(
   organizationId: string,
@@ -305,11 +303,6 @@ export async function setPropertyStatus(
   });
   if (!existing) return { error: "not-found" as const };
   if (existing.status === status) return { property: { id: existing.id, status } };
-
-  if (status === "INACTIVE") {
-    const live = await countLiveLeases(organizationId, { propertyId: existing.id });
-    if (live > 0) return { error: "has-live-leases" as const, count: live };
-  }
 
   await prisma.$transaction(async (tx) => {
     await tx.property.update({
