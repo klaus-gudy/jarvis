@@ -38,12 +38,6 @@ export async function PATCH(
   if (result.error === "not-found") {
     return Response.json({ error: "Unit not found" }, { status: 404 });
   }
-  if (result.error === "has-live-leases") {
-    return Response.json(
-      { error: "This unit has a lease running or about to start — end it first" },
-      { status: 409 }
-    );
-  }
 
   // The dashboard and every lease picker read the status too.
   revalidatePath("/", "layout");
