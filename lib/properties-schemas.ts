@@ -4,12 +4,13 @@ import { AMENITY_OPTIONS, CATEGORY_OPTIONS } from "@/lib/property-options";
 
 // Owner is deliberately absent: it is derived from the organization's Owner-role
 // member, so accepting it as input would let a client contradict the source.
+// Status is absent too: it changes only through `setTrackingStatusSchema`, so
+// an edit can't skip the live-lease check.
 export const createPropertySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   type: z.enum(["RESIDENTIAL", "COMMERCIAL"]),
   category: z.enum(CATEGORY_OPTIONS),
   address: z.string().trim().min(1, "Location is required").max(200),
-  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
   // nullish, not optional: the transform emits null for a blank description, so
   // accepting only string|undefined would leave the schema unable to re-parse
   // its own output. See the decision log entry for 2026-08-08.
@@ -27,3 +28,8 @@ export const updatePropertySchema = createPropertySchema.partial();
 
 export type CreatePropertyInput = z.infer<typeof createPropertySchema>;
 export type UpdatePropertyInput = z.infer<typeof updatePropertySchema>;
+
+/** Deactivate (INACTIVE) or reactivate (ACTIVE) a property or a unit. */
+export const setTrackingStatusSchema = z.object({
+  status: z.enum(["ACTIVE", "INACTIVE"]),
+});
