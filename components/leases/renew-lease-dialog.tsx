@@ -172,8 +172,8 @@ export function RenewLeaseDialog({
           <DialogHeader>
             <DialogTitle>Renew lease</DialogTitle>
             <DialogDescription>
-              A new term on the same unit, starting the day after the current
-              one ends. Confirm, or change the terms first.
+              A new term on the same unit, starting the day after the previous
+              one ended. Confirm, or change the terms first.
             </DialogDescription>
           </DialogHeader>
 
@@ -212,7 +212,7 @@ export function RenewLeaseDialog({
                   {lease.propertyName} · {lease.unitLabel}
                 </p>
                 <p className="text-muted-foreground">
-                  {lease.reference} ends on{" "}
+                  {lease.reference} ended on{" "}
                   {formatDate(lastDayOf(new Date(lease.endDate)))} ·{" "}
                   {lease.durationMonths} months at{" "}
                   {formatCurrencyFull(lease.monthlyRent)}/mo
@@ -278,7 +278,7 @@ export function RenewLeaseDialog({
                 />
                 {lease && lease.unitRentAmount !== lease.monthlyRent && (
                   <FieldDescription>
-                    Carried over from the current lease. The unit&apos;s asking
+                    Carried over from the previous lease. The unit&apos;s asking
                     rent is now {formatCurrencyFull(lease.unitRentAmount)}.
                   </FieldDescription>
                 )}
