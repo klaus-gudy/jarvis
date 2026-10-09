@@ -4,6 +4,7 @@ import { getProfilePhotoIds } from "@/lib/documents";
 import { leaseExpiry, leaseReference } from "@/lib/leases";
 import { getOrganizationOwnerName } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
+import { countLiveLeases } from "@/lib/tracking";
 import type {
   CreatePropertyInput,
   UpdatePropertyInput,
@@ -41,7 +42,9 @@ export type PropertySummary = {
   status: PropertyStatus;
   description: string | null;
   amenities: string[];
+  /** Active units only; `inactiveUnits` are the deactivated rest. */
   totalUnits: number;
+  inactiveUnits: number;
   occupiedUnits: number;
   vacantUnits: number;
   occupancyRate: number;
@@ -74,6 +77,7 @@ export async function getProperties(
       include: {
         units: {
           select: {
+            status: true,
             rentAmount: true,
             leases: {
               where: activeLeaseFilter(now, organizationId),
@@ -89,8 +93,10 @@ export async function getProperties(
   ]);
 
   return properties.map((property) => {
-    const totalUnits = property.units.length;
-    const occupiedUnits = property.units.filter((u) => u.leases.length > 0).length;
+    // Deactivated units are out of tracking, so out of every figure below.
+    const units = property.units.filter((u) => u.status === "ACTIVE");
+    const totalUnits = units.length;
+    const occupiedUnits = units.filter((u) => u.leases.length > 0).length;
 
     return {
       id: property.id,
@@ -103,12 +109,13 @@ export async function getProperties(
       description: property.description,
       amenities: property.amenities,
       totalUnits,
+      inactiveUnits: property.units.length - totalUnits,
       occupiedUnits,
       vacantUnits: totalUnits - occupiedUnits,
       occupancyRate: totalUnits === 0 ? 0 : Math.round((occupiedUnits / totalUnits) * 100),
       // Rent roll is what the property actually bills each month, so only
       // occupied units count — vacant ones earn nothing.
-      monthlyRentRoll: property.units
+      monthlyRentRoll: units
         .filter((u) => u.leases.length > 0)
         .reduce((sum, u) => sum + u.rentAmount, 0),
     };
@@ -175,6 +182,7 @@ export async function getProperty(organizationId: string, propertyId: string) {
       block: unit.block,
       sizeSqm: unit.sizeSqm,
       amenities: unit.amenities,
+      status: unit.status,
       photos: unit.fileAssets,
       isOccupied: lease !== null,
       tenantName: lease?.membership.user.name ?? lease?.membership.user.email ?? null,
@@ -278,6 +286,46 @@ export async function updateProperty(
     });
     return property;
   });
+}
+
+/**
+ * Takes a property out of tracking, or brings it back (see `lib/tracking.ts`).
+ * Deactivating is refused while any unit has a lease running or still to
+ * start: that tenancy would vanish from the figures while still billing.
+ */
+export async function setPropertyStatus(
+  organizationId: string,
+  propertyId: string,
+  status: PropertyStatus,
+  actor: Actor
+) {
+  const existing = await prisma.property.findFirst({
+    where: { id: propertyId, organizationId },
+    select: { id: true, status: true },
+  });
+  if (!existing) return { error: "not-found" as const };
+  if (existing.status === status) return { property: { id: existing.id, status } };
+
+  if (status === "INACTIVE") {
+    const live = await countLiveLeases(organizationId, { propertyId: existing.id });
+    if (live > 0) return { error: "has-live-leases" as const, count: live };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.property.update({
+      where: { id: existing.id },
+      data: { status, ...updatedBy(actor) },
+    });
+    await audit(tx, {
+      organizationId,
+      actor,
+      action: status === "INACTIVE" ? "property.deactivated" : "property.reactivated",
+      entityType: "Property",
+      entityId: existing.id,
+      changes: { status: [existing.status, status] },
+    });
+  });
+  return { property: { id: existing.id, status } };
 }
 
 export async function deleteProperty(
