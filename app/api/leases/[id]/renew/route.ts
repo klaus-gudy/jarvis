@@ -38,6 +38,12 @@ export async function POST(
   if (result.error === "already-renewed") {
     return Response.json({ error: "This lease has already been renewed" }, { status: 409 });
   }
+  if (result.error === "not-ended") {
+    return Response.json(
+      { error: "Only a lease that has ended can be renewed" },
+      { status: 409 }
+    );
+  }
   if (result.error === "duration-too-short") {
     return Response.json(
       {
