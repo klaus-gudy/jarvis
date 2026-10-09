@@ -2,6 +2,7 @@ import { getActivity } from "@/lib/activity";
 import { getProfilePhotoIds } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { calendarDaysBetween, lastDayOf, startOfTodayUtc } from "@/lib/dates";
+import { trackedProperty, trackedUnit } from "@/lib/tracking";
 import { displayName, primaryContact } from "@/lib/user-display";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -138,12 +139,14 @@ export async function getDashboardStats(
     invoices,
     paymentTotals,
   ] = await Promise.all([
-    prisma.property.count({ where: { organizationId } }),
+    // Deactivated properties and units count toward none of the property or
+    // unit figures; leases and payments on them are history and still count.
+    prisma.property.count({ where: trackedProperty(organizationId) }),
     // Asking rents plus whether anyone is in the unit: that one row carries the
     // expected income, the occupancy split and the vacancy loss, so none of the
     // three needs a query of its own.
     prisma.unit.findMany({
-      where: { property: { organizationId } },
+      where: trackedUnit(organizationId),
       select: {
         rentAmount: true,
         leases: {
@@ -439,7 +442,7 @@ export async function getDashboardPanels(
       // back is only there to date the vacancy.
       prisma.unit.findMany({
         where: {
-          property: { organizationId },
+          ...trackedUnit(organizationId),
           leases: { none: activeLeaseFilter(now, organizationId) },
         },
         select: {
