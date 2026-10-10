@@ -59,7 +59,8 @@ async function loadLease(leaseId: string) {
       unit: {
         select: {
           minTenureMonths: true,
-          property: { select: { organizationId: true } },
+          status: true,
+          property: { select: { organizationId: true, status: true } },
         },
       },
     },
@@ -111,6 +112,19 @@ export async function handleLeaseRenewal(leaseId: string): Promise<LifecycleOutc
   // scan sees it with auto-renew off and sends `lease.vacating` instead.
   if (!lease.autoRenew) {
     return { action: "done", detail: `lease ${leaseId} no longer auto-renews — not renewing` };
+  }
+
+  /*
+   * A deactivated unit (or property) is out of tracking, so it doesn't renew.
+   * Ended rather than skipped: automatifier reads only `Lease.autoRenew` and
+   * would otherwise send this event again every day.
+   */
+  if (lease.unit.status !== "ACTIVE" || lease.unit.property.status !== "ACTIVE") {
+    await endLease(organizationId, lease.id);
+    return {
+      action: "done",
+      detail: `lease ${leaseId} is on a deactivated unit — not renewing; marked Ended`,
+    };
   }
 
   /*
