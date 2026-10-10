@@ -64,7 +64,8 @@ export async function searchOrganization(
         organizationId,
         OR: [{ name: contains }, { address: contains }, { category: contains }],
       },
-      orderBy: { name: "asc" },
+      // Inactive last, so a deactivated match never crowds out a live one.
+      orderBy: [{ status: "asc" }, { name: "asc" }],
       take: PER_TYPE_LIMIT,
       select: { id: true, name: true, address: true, category: true },
     })),
@@ -74,7 +75,7 @@ export async function searchOrganization(
         property: { organizationId },
         OR: [{ label: contains }, { unitType: contains }],
       },
-      orderBy: { label: "asc" },
+      orderBy: [{ property: { status: "asc" } }, { status: "asc" }, { label: "asc" }],
       take: PER_TYPE_LIMIT,
       select: {
         id: true,
