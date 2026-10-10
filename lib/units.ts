@@ -313,7 +313,13 @@ export async function getOrganizationUnits(organizationId: string): Promise<Unit
   const [units, upcoming] = await Promise.all([
     prisma.unit.findMany({
       where: { property: { organizationId } },
-      orderBy: [{ property: { name: "asc" } }, { label: "asc" }],
+      // Untracked units last — in an inactive property, or inactive themselves.
+      orderBy: [
+        { property: { status: "asc" } },
+        { status: "asc" },
+        { property: { name: "asc" } },
+        { label: "asc" },
+      ],
       include: {
         property: {
           select: {
