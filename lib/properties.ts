@@ -72,7 +72,8 @@ export async function getProperties(
             }
           : {}),
       },
-      orderBy: { createdAt: "asc" },
+      // Inactive last: the enum orders ACTIVE before INACTIVE.
+      orderBy: [{ status: "asc" }, { createdAt: "asc" }],
       include: {
         units: {
           select: {
@@ -130,7 +131,8 @@ export async function getProperty(organizationId: string, propertyId: string) {
       where: { id: propertyId, organizationId },
       include: {
         units: {
-          orderBy: { updatedAt: "desc" },
+          // Inactive units sink to the end of the Units tab.
+          orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
           include: {
             leases: {
               where: activeLeaseFilter(now, organizationId),
